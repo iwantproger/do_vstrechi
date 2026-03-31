@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -14,8 +15,10 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 12m
           script: |
             cd /opt/dovstrechi
-            git pull origin main
-            docker compose build --no-cache
+            git fetch origin
+            git reset --hard origin/main
+            docker compose build
             docker compose up -d
