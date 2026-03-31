@@ -1,0 +1,110 @@
+version: '3.9'
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL — хранилище данных (152-ФЗ: РФ-сервер)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: dovstrechi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dovstrechi}
+      POSTGRES_USER: ${POSTGRES_USER:-dovstrechi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dovstrechi}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Backend — FastAPI
+  # ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dovstrechi_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dovstrechi}
+      SECRET_KEY: ${SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────
+  # Bot — aiogram 3.x
+  # ─────────────────────────────────────────────
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: dovstrechi_bot
+    restart: unless-stopped
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      BACKEND_API_URL: http://backend:8000
+      MINI_APP_URL: ${MINI_APP_URL}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ─────────────────────────────────────────────
+  # Nginx — reverse proxy + статика frontend
+  # ─────────────────────────────────────────────
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: dovstrechi_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+  # ─────────────────────────────────────────────
+  # Certbot — SSL Let's Encrypt (запускать вручную)
+  # ─────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: dovstrechi_certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    profiles:
+      - ssl
+
+volumes:
+  postgres_data:
+  certbot_www:
+  certbot_certs:
+
+networks:
+  internal:
+    driver: bridge
