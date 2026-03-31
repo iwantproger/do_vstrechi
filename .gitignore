@@ -1,0 +1,13 @@
+
+.env
+
+__pycache__/
+
+*.pyc
+
+.venv/
+
+*.sql.bak
+
+.DS_Store
+
