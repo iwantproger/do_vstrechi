@@ -65,6 +65,7 @@ async def api(method: str, path: str, **kwargs) -> dict | list | None:
 
 def kb_main(mini_app_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=mini_app_url))],
         [InlineKeyboardButton(text="📅 Мои расписания", callback_data="my_schedules")],
         [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
         [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
@@ -102,7 +103,8 @@ def kb_platform() -> InlineKeyboardMarkup:
 def kb_schedule_actions(schedule_id: str, mini_app_url: str) -> InlineKeyboardMarkup:
     booking_url = f"{mini_app_url}?schedule_id={schedule_id}"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Ссылка для записи", callback_data=f"share_{schedule_id}")],
+        [InlineKeyboardButton(text="🌐 Открыть страницу записи", web_app=WebAppInfo(url=booking_url))],
+        [InlineKeyboardButton(text="🔗 Поделиться ссылкой", callback_data=f"share_{schedule_id}")],
         [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del_{schedule_id}")],
         [InlineKeyboardButton(text="« Назад", callback_data="my_schedules")],
     ])
