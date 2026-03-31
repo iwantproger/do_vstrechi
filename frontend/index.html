@@ -1094,7 +1094,7 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const BACKEND = 'https://do-vstrechi-backend-production.up.railway.app';
+const BACKEND = '';
 
 const PLATFORMS = [
   { id: 'zoom', name: 'Zoom', icon: '💼' },
@@ -1601,7 +1601,7 @@ function setupForm() {
     tg.MainButton.setText('📝 Забронировать');
     tg.MainButton.show();
     tg.MainButton.onClick(submitBooking);
-    document.getElementById('btn-book').style.display = 'none';
+
   }
 }
 
@@ -1939,8 +1939,8 @@ function applySettings() {
 }
 
 function openWebVersion() {
-  if (tg) tg.openLink('https://do-vstrechi-backend-production.up.railway.app');
-  else window.open('https://do-vstrechi-backend-production.up.railway.app', '_blank');
+  if (tg) tg.openLink('');
+  else window.open('', '_blank');
 }
 
 // ============================================================
