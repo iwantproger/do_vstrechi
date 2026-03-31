@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Запись на встречу</title>
+  <title>До встречи</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -83,7 +83,15 @@
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
       padding: var(--pad);
-      padding-bottom: 100px;
+      padding-bottom: 80px;
+    }
+
+    /* Screens without nav bar get less bottom padding */
+    #screen-calendar .screen-body,
+    #screen-form .screen-body,
+    #screen-success .screen-body,
+    #screen-detail .screen-body {
+      padding-bottom: 30px;
     }
 
     /* ======================== HEADER ======================== */
@@ -129,6 +137,37 @@
       color: var(--text2);
       margin-top: 1px;
     }
+
+    /* ======================== BOTTOM NAV ======================== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border2);
+      display: flex;
+      z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--text2);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      border: none;
+      background: none;
+      font-family: 'DM Sans', sans-serif;
+      padding: 10px 0;
+      transition: color 0.15s;
+    }
+    .nav-item.active { color: var(--accent2); }
+    .nav-icon { font-size: 20px; }
 
     /* ======================== BOTTOM CTA ======================== */
     .bottom-cta {
@@ -181,7 +220,7 @@
       border: 1px solid rgba(239,68,68,0.25);
     }
 
-    /* ======================== MAIN MENU ======================== */
+    /* ======================== HOME SCREEN ======================== */
     #screen-home .screen-body {
       padding-top: 0;
     }
@@ -202,6 +241,27 @@
       margin-top: 3px;
     }
 
+    /* ======================== STATS CARD ======================== */
+    .stats-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .stat-item { text-align: center; }
+    .stat-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--accent2);
+    }
+    .stat-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    /* ======================== MENU BUTTONS ======================== */
     .menu-btn {
       display: flex;
       align-items: center;
@@ -354,16 +414,40 @@
       color: #86EFAC;
     }
     .cal-day.available:active { transform: scale(0.92); }
+    .cal-day.full {
+      background: rgba(239,68,68,0.10);
+      color: rgba(252,165,165,0.8);
+    }
+    .cal-day.partial {
+      background: rgba(245,158,11,0.10);
+      color: #FCD34D;
+    }
+    .cal-day.partial:active { transform: scale(0.92); }
     .cal-day.today {
       border: 1.5px solid var(--accent);
       color: var(--accent2);
     }
     .cal-day.today.available { border-color: var(--success); }
+    .cal-day.today.partial { border-color: var(--warning); }
     .cal-day.selected {
       background: var(--accent) !important;
       color: #fff !important;
       box-shadow: 0 3px 12px rgba(59,130,246,0.4);
     }
+
+    /* ======================== CALENDAR DOT ======================== */
+    .day-dot {
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+    }
+    .cal-day.available .day-dot { background: var(--success); }
+    .cal-day.partial .day-dot { background: var(--warning); }
+    .cal-day.full .day-dot { background: var(--error); opacity: 0.7; }
 
     /* ======================== TIME SLOTS ======================== */
     .section-label {
@@ -634,6 +718,38 @@
     .mc-btn:active { opacity: 0.7; }
     .mc-btn.danger { border-color: rgba(239,68,68,0.25); color: #FCA5A5; background: rgba(239,68,68,0.07); }
 
+    /* ======================== SCHEDULE CARDS ======================== */
+    .schedule-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .schedule-card:active { transform: scale(0.99); }
+    .sc-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .sc-meta { font-size: 12px; color: var(--text2); }
+    .sc-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .sc-btn {
+      flex: 1;
+      padding: 9px 8px;
+      border-radius: 9px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .sc-btn:active { opacity: 0.7; }
+    .sc-btn.primary { border-color: rgba(59,130,246,0.3); color: var(--accent2); background: rgba(59,130,246,0.08); }
+    .sc-btn.danger { border-color: rgba(239,68,68,0.25); color: #FCA5A5; background: rgba(239,68,68,0.07); }
+
     /* ======================== SETTINGS ======================== */
     .settings-section {
       background: var(--surface);
@@ -724,7 +840,7 @@
 
     .toast {
       position: fixed;
-      bottom: 24px;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%) translateY(80px);
       background: #1E293B;
@@ -852,35 +968,50 @@
       <div class="home-greeting">
         <div class="greeting-wave">👋</div>
         <div class="greeting-name" id="greeting-name">Привет!</div>
-        <div class="greeting-sub">Что хочешь сделать?</div>
+        <div class="greeting-sub">Панель организатора</div>
       </div>
       <div style="padding: 0 var(--pad);">
-        <div class="menu-btn blue" onclick="navigate('booking')">
+        <div id="home-stats" class="stats-card">
+          <div class="stat-item">
+            <div class="stat-val" id="stat-schedules">—</div>
+            <div class="stat-label">Расписаний</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-upcoming">—</div>
+            <div class="stat-label">Предстоящих</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-pending">—</div>
+            <div class="stat-label">Ожидают</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-total">—</div>
+            <div class="stat-label">Всего встреч</div>
+          </div>
+        </div>
+        <div class="menu-btn blue" onclick="switchNav('schedules')">
           <div class="menu-btn-icon">📅</div>
           <div class="menu-btn-text">
-            <div class="menu-btn-title">Выбрать встречу</div>
-            <div class="menu-btn-sub">Забронировать время у специалиста</div>
+            <div class="menu-btn-title">Мои расписания</div>
+            <div class="menu-btn-sub">Управление расписаниями и ссылками</div>
           </div>
           <div class="menu-btn-arrow">›</div>
         </div>
-        <div class="menu-btn green" onclick="navigate('meetings')">
+        <div class="menu-btn green" onclick="switchNav('meetings')">
           <div class="menu-btn-icon">📋</div>
           <div class="menu-btn-text">
-            <div class="menu-btn-title">Мои встречи</div>
+            <div class="menu-btn-title">Встречи</div>
             <div class="menu-btn-sub">Предстоящие и прошедшие</div>
           </div>
           <div class="menu-btn-arrow">›</div>
         </div>
-        <div class="menu-btn purple" onclick="navigate('settings')">
+        <div class="menu-btn purple" onclick="switchNav('settings')">
           <div class="menu-btn-icon">⚙️</div>
           <div class="menu-btn-text">
             <div class="menu-btn-title">Настройки</div>
             <div class="menu-btn-sub">Язык, уведомления, профиль</div>
           </div>
           <div class="menu-btn-arrow">›</div>
-        </div>
-        <div class="web-link" onclick="openWebVersion()">
-          🌐 Открыть полную веб-версию
         </div>
       </div>
     </div>
@@ -981,7 +1112,6 @@
   <!-- ===================== SCREEN: MY MEETINGS ===================== -->
   <div id="screen-meetings" class="screen">
     <div class="header">
-      <div class="header-back" onclick="goBack()">←</div>
       <div class="header-info">
         <div class="header-title">Мои встречи</div>
       </div>
@@ -1010,10 +1140,21 @@
     </div>
   </div>
 
+  <!-- ===================== SCREEN: SCHEDULES ===================== -->
+  <div id="screen-schedules" class="screen">
+    <div class="header">
+      <div class="header-info">
+        <div class="header-title">Мои расписания</div>
+      </div>
+    </div>
+    <div class="screen-body" id="schedules-list">
+      <div class="loading-center"><div class="spinner"></div><div>Загрузка...</div></div>
+    </div>
+  </div>
+
   <!-- ===================== SCREEN: SETTINGS ===================== -->
   <div id="screen-settings" class="screen">
     <div class="header">
-      <div class="header-back" onclick="goBack()">←</div>
       <div class="header-info">
         <div class="header-title">Настройки</div>
       </div>
@@ -1071,6 +1212,22 @@
 
 </div>
 
+<!-- ===================== BOTTOM NAV ===================== -->
+<div id="bottom-nav" class="bottom-nav">
+  <button class="nav-item active" data-tab="home" onclick="switchNav('home')">
+    <span class="nav-icon">🏠</span><span>Главная</span>
+  </button>
+  <button class="nav-item" data-tab="meetings" onclick="switchNav('meetings')">
+    <span class="nav-icon">📋</span><span>Встречи</span>
+  </button>
+  <button class="nav-item" data-tab="schedules" onclick="switchNav('schedules')">
+    <span class="nav-icon">📅</span><span>Расписания</span>
+  </button>
+  <button class="nav-item" data-tab="settings" onclick="switchNav('settings')">
+    <span class="nav-icon">⚙️</span><span>Настройки</span>
+  </button>
+</div>
+
 <!-- ===================== TOAST ===================== -->
 <div id="toast" class="toast"></div>
 
@@ -1087,13 +1244,22 @@
   </div>
 </div>
 
+<!-- ===================== DELETE MODAL ===================== -->
+<div id="modal-delete" class="modal-overlay" onclick="closeDeleteModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Удалить расписание?</div>
+    <div class="modal-desc" id="modal-delete-text">Все бронирования этого расписания будут отменены.</div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeDeleteModal()">Назад</button>
+      <button class="btn btn-danger" style="flex:1;" onclick="confirmDelete()">🗑 Удалить</button>
+    </div>
+  </div>
+</div>
 
 <script>
 'use strict';
 
-// ============================================================
-// CONFIG
-// ============================================================
 const BACKEND = '';
 
 const PLATFORMS = [
@@ -1102,16 +1268,15 @@ const PLATFORMS = [
   { id: 'jitsi', name: 'Jitsi Meet', icon: '🎥' },
   { id: 'yandex', name: 'Яндекс.Телемост', icon: '🦊' },
   { id: 'mts', name: 'МТС Линк', icon: '📡' },
+  { id: 'other', name: 'Другое', icon: '📍' },
 ];
 
 const MONTH_NAMES = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const DAY_NAMES_FULL = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const DAYS_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
-// ============================================================
-// TELEGRAM
-// ============================================================
 const tg = window.Telegram?.WebApp;
 let TG_USER = null;
 
@@ -1122,9 +1287,9 @@ if (tg) {
   TG_USER = tg.initDataUnsafe?.user || null;
 }
 
-// ============================================================
-// STATE
-// ============================================================
+// NAV_SCREENS: screens that show the bottom nav
+const NAV_SCREENS = new Set(['home', 'meetings', 'schedules', 'settings']);
+
 let state = {
   currentScreen: 'home',
   screenStack: [],
@@ -1133,46 +1298,42 @@ let state = {
   selectedTime: null,
   selectedPlatform: null,
   currentMonth: new Date(),
-  monthSlots: {},
+  monthSlots: {}, // dateStr → { free: N, total: N }
   allMeetings: [],
+  allSchedules: [],
   currentTab: 'upcoming',
   pendingCancelId: null,
+  pendingDeleteId: null,
   meetingLink: null,
-  settings: {
-    notif: true, '24h': true, '1h': true
-  }
+  settings: { notif: true, '24h': true, '1h': true }
 };
 
 // ============================================================
 // INIT
 // ============================================================
 async function init() {
-  // Setup user greeting
   if (TG_USER) {
     document.getElementById('greeting-name').textContent = `Привет, ${TG_USER.first_name}!`;
     document.getElementById('settings-name').textContent = `${TG_USER.first_name}${TG_USER.last_name ? ' ' + TG_USER.last_name : ''}`;
     document.getElementById('settings-username').textContent = TG_USER.username ? `@${TG_USER.username}` : `ID: ${TG_USER.id}`;
     const initials = (TG_USER.first_name?.[0] || '') + (TG_USER.last_name?.[0] || '');
     document.getElementById('settings-avatar').textContent = initials || '👤';
-    // Register user
     authUser();
   }
 
-  // Check if opened with schedule_id
   const params = new URLSearchParams(window.location.search);
   const scheduleId = params.get('schedule_id');
 
   if (scheduleId) {
+    hideBottomNav();
     await loadSchedule(scheduleId);
   } else {
     showScreen('home', false);
+    loadHomeStats();
   }
 
-  // Load settings from localStorage
   const saved = localStorage.getItem('sb_settings');
-  if (saved) {
-    try { state.settings = JSON.parse(saved); applySettings(); } catch(e) {}
-  }
+  if (saved) { try { state.settings = JSON.parse(saved); applySettings(); } catch(e) {} }
 }
 
 async function authUser() {
@@ -1184,12 +1345,53 @@ async function authUser() {
       first_name: TG_USER.first_name,
       last_name: TG_USER.last_name
     });
-  } catch(e) { /* silent */ }
+  } catch(e) {}
+}
+
+async function loadHomeStats() {
+  if (!TG_USER) return;
+  try {
+    const stats = await apiFetch('GET', `/api/stats?telegram_id=${TG_USER.id}`);
+    document.getElementById('stat-schedules').textContent = stats.active_schedules ?? '—';
+    document.getElementById('stat-upcoming').textContent = stats.upcoming_bookings ?? '—';
+    document.getElementById('stat-pending').textContent = stats.pending_bookings ?? '—';
+    document.getElementById('stat-total').textContent = stats.total_bookings ?? '—';
+  } catch(e) {}
 }
 
 // ============================================================
 // NAVIGATION
 // ============================================================
+const NAV_TAB_SCREENS = { home: 'home', meetings: 'meetings', schedules: 'schedules', settings: 'settings' };
+
+function switchNav(tab) {
+  state.screenStack = [];
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-out'));
+
+  const screenId = NAV_TAB_SCREENS[tab] || tab;
+  document.getElementById('screen-' + screenId).classList.add('active');
+  state.currentScreen = screenId;
+
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+
+  showBottomNav();
+  if (tg) tg.BackButton.hide();
+
+  if (tab === 'meetings') loadMeetings();
+  else if (tab === 'schedules') loadSchedules();
+  else if (tab === 'home') loadHomeStats();
+}
+
+function showBottomNav() {
+  document.getElementById('bottom-nav').style.display = 'flex';
+}
+
+function hideBottomNav() {
+  document.getElementById('bottom-nav').style.display = 'none';
+}
+
 function showScreen(screenId, pushToStack = true) {
   const current = document.getElementById('screen-' + state.currentScreen);
   const next = document.getElementById('screen-' + screenId);
@@ -1198,17 +1400,20 @@ function showScreen(screenId, pushToStack = true) {
   if (pushToStack && state.currentScreen !== screenId) {
     state.screenStack.push(state.currentScreen);
   }
-
   if (current && current !== next) {
     current.classList.remove('active');
     if (pushToStack) current.classList.add('slide-out');
     setTimeout(() => current.classList.remove('slide-out'), 300);
   }
-
   next.classList.add('active');
   state.currentScreen = screenId;
 
-  // Update Telegram back button
+  if (NAV_SCREENS.has(screenId)) {
+    showBottomNav();
+  } else {
+    hideBottomNav();
+  }
+
   if (tg) {
     if (state.screenStack.length > 0) {
       tg.BackButton.show();
@@ -1231,6 +1436,9 @@ function goBack() {
   prevEl.classList.add('active');
   state.currentScreen = prev;
 
+  if (NAV_SCREENS.has(prev)) showBottomNav();
+  else hideBottomNav();
+
   if (tg) {
     if (state.screenStack.length === 0) tg.BackButton.hide();
   }
@@ -1238,43 +1446,29 @@ function goBack() {
 
 function navigateRoot() {
   state.screenStack = [];
-  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active', 'slide-out'); });
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active', 'slide-out'));
   document.getElementById('screen-home').classList.add('active');
   state.currentScreen = 'home';
+  showBottomNav();
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tab === 'home'));
   if (tg) tg.BackButton.hide();
-}
-
-function navigate(target) {
-  if (target === 'booking') {
-    showScreen('calendar');
-    renderCalendarScreen();
-  } else if (target === 'meetings') {
-    showScreen('meetings');
-    loadMeetings();
-  } else if (target === 'settings') {
-    showScreen('settings');
-  }
+  loadHomeStats();
 }
 
 // ============================================================
 // API
 // ============================================================
 async function apiFetch(method, path, body = null) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' }
-  };
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-
   const res = await fetch(BACKEND + path, opts);
   const data = await res.json().catch(() => ({}));
-
   if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
   return data;
 }
 
 // ============================================================
-// SCHEDULE LOADING
+// SCHEDULE LOADING (booking flow)
 // ============================================================
 async function loadSchedule(scheduleId) {
   document.getElementById('calendar-content').innerHTML = `
@@ -1284,6 +1478,7 @@ async function loadSchedule(scheduleId) {
   try {
     state.schedule = await apiFetch('GET', `/api/schedules/${scheduleId}`);
     state.currentMonth = new Date();
+    state.monthSlots = {};
     renderCalendarContent();
   } catch(e) {
     document.getElementById('calendar-content').innerHTML = `
@@ -1296,29 +1491,13 @@ async function loadSchedule(scheduleId) {
   }
 }
 
-function renderCalendarScreen() {
-  if (!state.schedule) {
-    document.getElementById('calendar-content').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🔍</div>
-        <div class="empty-title">Нет выбранного расписания</div>
-        <div class="empty-desc">Попросите специалиста прислать ссылку на расписание</div>
-      </div>`;
-    return;
-  }
-  renderCalendarContent();
-}
-
 function renderCalendarContent() {
   const sch = state.schedule;
   document.getElementById('cal-header-title').textContent = sch.title || 'Выбор времени';
   document.getElementById('cal-header-sub').textContent = `${sch.duration} мин`;
 
-  let html = '';
-
-  // Specialist card
   const initials = (sch.title || 'XX').slice(0, 2).toUpperCase();
-  html += `
+  let html = `
     <div class="specialist-card">
       <div class="avatar">${initials}</div>
       <div>
@@ -1327,16 +1506,19 @@ function renderCalendarContent() {
       </div>
     </div>`;
 
-  // Calendar
   html += renderCalendar();
-
-  // Slots placeholder
   html += `<div id="slots-section"></div>`;
-
   document.getElementById('calendar-content').innerHTML = html;
-
-  // Load month availability
   loadMonthSlots();
+}
+
+// Calculate total theoretical slots per day from schedule
+function calcTotalSlots(schedule) {
+  const [sh, sm] = schedule.start_time.toString().split(':').map(Number);
+  const [eh, em] = schedule.end_time.toString().split(':').map(Number);
+  const totalMin = (eh * 60 + em) - (sh * 60 + sm);
+  const slotSize = schedule.duration + (schedule.buffer_time || 0);
+  return slotSize > 0 ? Math.floor(totalMin / slotSize) : 0;
 }
 
 function renderCalendar() {
@@ -1370,98 +1552,94 @@ function renderCalendar() {
     const dateStr = formatDate(date);
     const isSelected = state.selectedDate === dateStr;
 
-    // Work days: 0=Mon..6=Sun (JS: 0=Sun..6=Sat)
-    const jsDay = date.getDay(); // 0=Sun
-    const dayIdx = jsDay === 0 ? 6 : jsDay - 1; // convert to Mon=0
+    const jsDay = date.getDay();
+    const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
     const workDays = state.schedule?.work_days || [0,1,2,3,4];
     const isWork = workDays.includes(dayIdx);
 
     let cls = 'cal-day';
+    let dotHtml = '';
+
     if (isPast || !isWork) {
-      cls += ' past';
+      cls += isPast ? ' past' : ' nowork';
     } else {
-      const hasSlots = state.monthSlots[dateStr];
-      if (hasSlots) cls += ' available';
+      const slots = state.monthSlots[dateStr];
+      if (slots !== undefined) {
+        if (slots.free === 0) {
+          cls += ' full';
+          dotHtml = '<div class="day-dot"></div>';
+        } else if (slots.free < slots.total) {
+          cls += ' partial';
+          dotHtml = '<div class="day-dot"></div>';
+        } else {
+          cls += ' available';
+          dotHtml = '<div class="day-dot"></div>';
+        }
+      } else {
+        cls += ' available'; // optimistic until loaded
+      }
     }
     if (isToday) cls += ' today';
     if (isSelected) cls += ' selected';
 
-    const clickable = !isPast && isWork;
-    html += `<div class="${cls}" ${clickable ? `onclick="selectDay('${dateStr}')"` : ''}>${d}</div>`;
+    const clickable = !isPast && isWork && !(state.monthSlots[dateStr]?.free === 0);
+    html += `<div class="${cls}" ${clickable ? `onclick="selectDay('${dateStr}')"` : ''}>${d}${dotHtml}</div>`;
   }
 
   html += '</div>';
+  // Legend
+  html += `<div style="display:flex;gap:12px;margin-bottom:16px;font-size:11px;color:var(--text2);">
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;"></span> Свободно</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--warning);display:inline-block;"></span> Частично</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--error);display:inline-block;opacity:0.7;"></span> Занято</span>
+  </div>`;
   return html;
 }
 
 function updateCalendarGrid() {
   const container = document.getElementById('calendar-content');
   if (!container) return;
-  const oldGrid = container.querySelector('.cal-header');
-  if (!oldGrid) return;
-  // Re-render just the calendar part
-  const slotSection = document.getElementById('slots-section');
-  const slotHtml = slotSection ? slotSection.outerHTML : '';
   const specCard = container.querySelector('.specialist-card')?.outerHTML || '';
   container.innerHTML = specCard + renderCalendar() + '<div id="slots-section"></div>';
-  if (state.selectedDate) {
-    loadDaySlots(state.selectedDate);
-  }
+  if (state.selectedDate) loadDaySlots(state.selectedDate);
 }
 
 async function loadMonthSlots() {
   if (!state.schedule) return;
   const y = state.currentMonth.getFullYear();
-  const m = String(state.currentMonth.getMonth() + 1).padStart(2, '0');
+  const m = state.currentMonth.getMonth();
 
-  try {
-    // Load a few key dates to see which have availability
-    // Backend endpoint: GET /api/available-slots/{id}?date=YYYY-MM-DD
-    // We call per-day approach: first get current month days that are workdays
-    const workDays = state.schedule.work_days || [0,1,2,3,4];
-    const daysInMonth = new Date(parseInt(y), parseInt(m), 0).getDate();
-    const today = new Date(); today.setHours(0,0,0,0);
-    const checks = [];
+  const workDays = state.schedule.work_days || [0,1,2,3,4];
+  const totalSlots = calcTotalSlots(state.schedule);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const checks = [];
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(parseInt(y), parseInt(m)-1, d);
-      if (date < today) continue;
-      const jsDay = date.getDay();
-      const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
-      if (!workDays.includes(dayIdx)) continue;
-      checks.push(formatDate(date));
-    }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m, d);
+    if (date < today) continue;
+    const jsDay = date.getDay();
+    const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+    if (!workDays.includes(dayIdx)) continue;
+    checks.push(formatDate(date));
+  }
 
-    // Parallel fetch (limited to 6)
-    const sample = checks.slice(0, 6);
+  // Fetch in batches of 8
+  const BATCH = 8;
+  for (let i = 0; i < checks.length; i += BATCH) {
+    const batch = checks.slice(i, i + BATCH);
     const results = await Promise.allSettled(
-      sample.map(d => apiFetch('GET', `/api/available-slots/${state.schedule.id}?date=${d}`))
+      batch.map(d => apiFetch('GET', `/api/available-slots/${state.schedule.id}?date=${d}`))
     );
-
-    results.forEach((r, i) => {
+    results.forEach((r, idx) => {
+      const dateStr = batch[idx];
       if (r.status === 'fulfilled') {
-        state.monthSlots[sample[i]] = (r.value.available_slots || []).length > 0;
+        const free = (r.value.available_slots || []).length;
+        state.monthSlots[dateStr] = { free, total: totalSlots };
+      } else {
+        state.monthSlots[dateStr] = { free: totalSlots, total: totalSlots };
       }
     });
-
-    // Mark remaining workdays as potentially available
-    checks.forEach(d => {
-      if (!(d in state.monthSlots)) state.monthSlots[d] = true;
-    });
-
-    updateCalendarGrid();
-  } catch(e) {
-    // fallback: mark all work days as available
-    const workDays = state.schedule.work_days || [0,1,2,3,4];
-    const daysInMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth()+1, 0).getDate();
-    const today = new Date(); today.setHours(0,0,0,0);
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth(), d);
-      if (date < today) continue;
-      const jsDay = date.getDay();
-      const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
-      if (workDays.includes(dayIdx)) state.monthSlots[formatDate(date)] = true;
-    }
     updateCalendarGrid();
   }
 }
@@ -1470,9 +1648,10 @@ function changeMonth(dir) {
   const d = new Date(state.currentMonth);
   d.setMonth(d.getMonth() + dir);
   const today = new Date();
-  if (dir < 0 && d.getMonth() < today.getMonth() && d.getFullYear() <= today.getFullYear()) return;
+  if (dir < 0 && (d.getFullYear() < today.getFullYear() || (d.getFullYear() === today.getFullYear() && d.getMonth() < today.getMonth()))) return;
   state.currentMonth = d;
   state.selectedDate = null;
+  state.monthSlots = {};
   updateCalendarGrid();
   loadMonthSlots();
 }
@@ -1482,7 +1661,6 @@ async function selectDay(dateStr) {
   state.selectedTime = null;
   updateCalendarGrid();
   loadDaySlots(dateStr);
-
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
@@ -1497,6 +1675,7 @@ async function loadDaySlots(dateStr) {
 
     const d = new Date(dateStr);
     const dayName = DAY_NAMES_FULL[d.getDay() === 0 ? 6 : d.getDay() - 1];
+    const freeCount = slots.length;
     const dateDisplay = `${dayName}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
 
     if (slots.length === 0) {
@@ -1509,7 +1688,7 @@ async function loadDaySlots(dateStr) {
       return;
     }
 
-    let html = `<div class="section-label">${dateDisplay}</div><div class="slots-grid">`;
+    let html = `<div class="section-label" style="display:flex;align-items:center;justify-content:space-between;">${dateDisplay}<span style="color:var(--success);font-size:11px;">${freeCount} свободных</span></div><div class="slots-grid">`;
     slots.forEach(s => {
       const sel = state.selectedTime === s.time;
       html += `<div class="slot ${sel?'selected':''}" onclick="selectTime('${s.time}')">${s.time}</div>`;
@@ -1555,36 +1734,27 @@ function setupForm() {
   document.getElementById('form-header-sub').textContent = state.schedule?.title || '';
   document.getElementById('form-date').textContent = `📅 ${dayName}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
 
-  // Calculate end time
   const [h, min] = state.selectedTime.split(':').map(Number);
   const endMin = h * 60 + min + duration;
   const endH = Math.floor(endMin / 60) % 24;
   const endM = endMin % 60;
   document.getElementById('form-time').textContent = `⏰ ${state.selectedTime} — ${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')} (${duration} мин)`;
 
-  // Autofill from Telegram
   const nameInput = document.getElementById('input-name');
   if (!nameInput.value && TG_USER) {
     nameInput.value = TG_USER.first_name + (TG_USER.last_name ? ' ' + TG_USER.last_name : '');
   }
-  const contactInput = document.getElementById('input-email');
-  if (!contactInput.value && TG_USER?.username) {
-    // email field is optional, don't autofill username here
-  }
 
-  // Platform selection
   const platformGroup = document.getElementById('platform-group');
   const sch = state.schedule;
-  const locationMode = sch?.location_mode || (sch?.video_platform ? 'fixed' : 'user_choice');
-
-  if (locationMode === 'user_choice' || !sch?.video_platform) {
+  if (sch?.location_mode === 'user_choice') {
     platformGroup.style.display = 'block';
     state.selectedPlatform = PLATFORMS[0].id;
     let optHtml = '';
     PLATFORMS.forEach(p => {
       const sel = state.selectedPlatform === p.id;
       optHtml += `
-        <div class="radio-option ${sel?'selected':''}" onclick="selectPlatform('${p.id}')">
+        <div class="radio-option ${sel?'selected':''}" onclick="selectPlatform('${p.id}', event)">
           <div class="radio-dot"></div>
           <div class="radio-icon">${p.icon}</div>
           <div class="radio-label">${p.name}</div>
@@ -1593,19 +1763,17 @@ function setupForm() {
     document.getElementById('platform-options').innerHTML = optHtml;
   } else {
     platformGroup.style.display = 'none';
-    state.selectedPlatform = sch.video_platform;
+    state.selectedPlatform = sch?.platform || 'jitsi';
   }
 
-  // Telegram MainButton
   if (tg?.MainButton) {
     tg.MainButton.setText('📝 Забронировать');
     tg.MainButton.show();
     tg.MainButton.onClick(submitBooking);
-
   }
 }
 
-function selectPlatform(id) {
+function selectPlatform(id, event) {
   state.selectedPlatform = id;
   document.querySelectorAll('.radio-option').forEach(el => el.classList.remove('selected'));
   event.currentTarget.classList.add('selected');
@@ -1642,8 +1810,7 @@ async function submitBooking() {
   const btn = document.getElementById('btn-book');
   btn.disabled = true;
   btn.textContent = '⏳ Отправляем...';
-
-  if (tg?.MainButton) { tg.MainButton.showProgress(); }
+  if (tg?.MainButton) tg.MainButton.showProgress();
 
   const bookingData = {
     schedule_id: state.schedule.id,
@@ -1654,25 +1821,17 @@ async function submitBooking() {
     notes: notes || null
   };
 
-  if (state.selectedPlatform) {
-    bookingData.location_type = state.selectedPlatform;
-  }
-
   try {
     const result = await apiFetch('POST', '/api/bookings', bookingData);
-
     if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-
     renderSuccess(result);
     showScreen('success');
-
   } catch(e) {
     if (tg?.MainButton) tg.MainButton.hideProgress();
     btn.disabled = false;
     btn.textContent = '📝 Забронировать';
-
-    if (e.message?.includes('409') || e.message?.includes('already')) {
+    if (e.message?.includes('409') || e.message?.toLowerCase().includes('занят') || e.message?.toLowerCase().includes('already')) {
       showToast('Слот уже занят! Выберите другое время', 'error');
       goBack();
     } else {
@@ -1696,12 +1855,11 @@ function renderSuccess(booking) {
   if (booking.meeting_link) {
     state.meetingLink = booking.meeting_link;
     document.getElementById('s-platform-row').style.display = 'flex';
-    const pName = PLATFORMS.find(p => p.id === state.selectedPlatform)?.name || state.selectedPlatform || 'Онлайн';
+    const pName = PLATFORMS.find(p => p.id === state.selectedPlatform)?.name || 'Онлайн';
     document.getElementById('s-platform').textContent = pName;
   }
 
-  const requiresApproval = booking.status === 'pending_organizer_approval' || booking.status === 'pending';
-  if (requiresApproval) {
+  if (booking.status === 'pending') {
     document.getElementById('s-pending-block').style.display = 'block';
     document.getElementById('success-title').textContent = 'Заявка отправлена!';
     document.getElementById('success-sub').textContent = 'Ожидайте подтверждения от специалиста';
@@ -1740,7 +1898,8 @@ async function loadMeetings() {
 
   try {
     const data = await apiFetch('GET', `/api/bookings?telegram_id=${TG_USER.id}`);
-    allMeetingsData = data.bookings || [];
+    // API returns array directly
+    allMeetingsData = Array.isArray(data) ? data : [];
     renderMeetingsList(state.currentTab);
   } catch(e) {
     document.getElementById('meetings-list').innerHTML = `
@@ -1764,22 +1923,16 @@ function renderMeetingsList(tab) {
   let filtered = allMeetingsData;
 
   if (tab === 'upcoming') {
-    filtered = allMeetingsData.filter(m => {
-      const dt = new Date(m.scheduled_time);
-      return dt > now && m.status !== 'cancelled';
-    });
+    filtered = allMeetingsData.filter(m => new Date(m.scheduled_time) > now && m.status !== 'cancelled');
   } else if (tab === 'history') {
-    filtered = allMeetingsData.filter(m => {
-      const dt = new Date(m.scheduled_time);
-      return dt <= now || m.status === 'cancelled';
-    });
+    filtered = allMeetingsData.filter(m => new Date(m.scheduled_time) <= now || m.status === 'cancelled');
   }
 
   if (filtered.length === 0) {
     document.getElementById('meetings-list').innerHTML = renderEmpty(
       '📭',
       tab === 'upcoming' ? 'Нет предстоящих встреч' : 'Нет встреч',
-      'Запишитесь на встречу через ссылку от специалиста'
+      'Встречи появятся здесь после бронирования'
     );
     return;
   }
@@ -1790,21 +1943,24 @@ function renderMeetingsList(tab) {
     const status = m.status || 'pending';
     const statusMap = {
       confirmed: { cls: 'confirmed', label: '✅ Подтверждена', badge: 'badge-confirmed' },
-      pending: { cls: 'pending', label: '⏳ Ожидает', badge: 'badge-pending' },
-      cancelled: { cls: 'cancelled', label: '❌ Отменена', badge: 'badge-cancelled' },
-      completed: { cls: 'completed', label: '✓ Завершена', badge: 'badge-completed' },
+      pending:   { cls: 'pending',   label: '⏳ Ожидает',       badge: 'badge-pending' },
+      cancelled: { cls: 'cancelled', label: '❌ Отменена',       badge: 'badge-cancelled' },
+      completed: { cls: 'completed', label: '✓ Завершена',       badge: 'badge-completed' },
     };
     const s = statusMap[status] || statusMap.pending;
-    const isFuture = dt > new Date() && status !== 'cancelled';
+    const isFuture = dt > now && status !== 'cancelled';
     const dateStr = `${DAY_NAMES_FULL[dt.getDay()===0?6:dt.getDay()-1]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`;
     const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    const title = m.meeting_title || m.schedules?.title || 'Встреча';
+    // Correct field names from API
+    const title = m.schedule_title || 'Встреча';
+    const duration = m.schedule_duration;
+    const roleIcon = m.my_role === 'organizer' ? '📌' : '👤';
 
     html += `
       <div class="meeting-card ${s.cls}" onclick="openMeetingDetail('${m.id}')">
-        <div class="mc-title">${escHtml(title)}</div>
+        <div class="mc-title">${roleIcon} ${escHtml(title)}</div>
         <div class="mc-row">📅 ${dateStr} · ${timeStr}</div>
-        ${m.duration_minutes ? `<div class="mc-row">⏱ ${m.duration_minutes} мин</div>` : ''}
+        ${duration ? `<div class="mc-row">⏱ ${duration} мин</div>` : ''}
         <div class="mc-footer">
           <span class="status-badge ${s.badge}">${s.label}</span>
         </div>
@@ -1834,7 +1990,7 @@ function openMeetingDetail(id) {
   const status = m.status || 'pending';
   const statusMap = {
     confirmed: { label: '✅ Подтверждена', badge: 'badge-confirmed' },
-    pending: { label: '⏳ Ожидает подтверждения', badge: 'badge-pending' },
+    pending:   { label: '⏳ Ожидает подтверждения', badge: 'badge-pending' },
     cancelled: { label: '❌ Отменена', badge: 'badge-cancelled' },
     completed: { label: '✓ Завершена', badge: 'badge-completed' },
   };
@@ -1842,43 +1998,35 @@ function openMeetingDetail(id) {
   const isFuture = dt > new Date() && status !== 'cancelled';
   const dateStr = `${DAY_NAMES_FULL[dt.getDay()===0?6:dt.getDay()-1]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`;
   const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-  const title = m.meeting_title || m.schedules?.title || 'Встреча';
+  // Correct field names from API
+  const title = m.schedule_title || 'Встреча';
+  const duration = m.schedule_duration;
+  const platform = m.schedule_platform;
 
   let html = `
     <div style="padding-bottom:16px;">
       <div style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:8px;">${escHtml(title)}</div>
       <span class="status-badge ${s.badge}">${s.label}</span>
     </div>
-
     <div class="detail-card">
       <div class="detail-section-title">Дата и время</div>
       <div class="detail-row"><div class="detail-icon">📅</div><div class="detail-val">${dateStr}</div></div>
-      <div class="detail-row"><div class="detail-icon">⏰</div><div class="detail-val">${timeStr}${m.duration_minutes ? ' · ' + m.duration_minutes + ' мин' : ''}</div></div>
-      ${m.location_type ? `<div class="detail-row"><div class="detail-icon">🎥</div><div class="detail-val">${getPlatformName(m.location_type)}</div></div>` : ''}
-      ${m.meeting_link ? `<div class="detail-row"><div class="detail-icon">🔗</div><div class="detail-val" style="word-break:break-all; font-size:13px; color:var(--accent2);">${m.meeting_link}</div><div class="detail-link" onclick="copyText('${m.meeting_link}')">📋</div></div>` : ''}
+      <div class="detail-row"><div class="detail-icon">⏰</div><div class="detail-val">${timeStr}${duration ? ' · ' + duration + ' мин' : ''}</div></div>
+      ${platform ? `<div class="detail-row"><div class="detail-icon">🎥</div><div class="detail-val">${getPlatformName(platform)}</div></div>` : ''}
+      ${m.meeting_link ? `<div class="detail-row"><div class="detail-icon">🔗</div><div class="detail-val" style="word-break:break-all; font-size:13px; color:var(--accent2);">${escHtml(m.meeting_link)}</div><div class="detail-link" onclick="copyText('${escHtml(m.meeting_link)}')">📋</div></div>` : ''}
     </div>
-
     <div class="detail-card">
-      <div class="detail-section-title">Ваши данные</div>
-      <div class="detail-row"><div class="detail-icon">👤</div><div class="detail-val">${escHtml(m.guest_name || '')}</div></div>
+      <div class="detail-section-title">Участники</div>
+      <div class="detail-row"><div class="detail-icon">👤</div><div class="detail-val">${escHtml(m.guest_name || '')} ${m.my_role==='organizer'?'<span style="font-size:11px;color:var(--text2);">(гость)</span>':''}</div></div>
       ${m.guest_contact ? `<div class="detail-row"><div class="detail-icon">📧</div><div class="detail-val">${escHtml(m.guest_contact)}</div></div>` : ''}
-    </div>
-
-    <div class="detail-card">
-      <div class="detail-section-title">История</div>
-      <div class="timeline">
-        <div class="tl-item"><div class="tl-dot"></div><div><div class="tl-text">Встреча создана</div><div class="tl-date">${formatDateTime(new Date(m.created_at || m.scheduled_time))}</div></div></div>
-        ${status === 'confirmed' ? `<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-text">Подтверждена</div></div></div>` : ''}
-        ${status === 'cancelled' ? `<div class="tl-item"><div class="tl-dot" style="background:var(--error);"></div><div><div class="tl-text" style="color:#FCA5A5;">Отменена</div></div></div>` : ''}
-      </div>
+      ${m.notes ? `<div class="detail-row"><div class="detail-icon">💬</div><div class="detail-val" style="font-size:13px;">${escHtml(m.notes)}</div></div>` : ''}
     </div>`;
 
   if (isFuture) {
-    html += `
-      <div style="display:flex; gap:10px; padding-top:8px;">
-        ${m.meeting_link ? `<button class="btn btn-primary" style="flex:1;" onclick="copyText('${m.meeting_link}'); showToast('✅ Ссылка скопирована!')">📋 Скопировать ссылку</button>` : ''}
-        <button class="btn btn-danger" style="flex:1;" onclick="openCancelModal('${m.id}', '${escHtml(title)}')">❌ Отменить</button>
-      </div>`;
+    html += `<div style="display:flex; gap:10px; padding-top:8px;">
+      ${m.meeting_link ? `<button class="btn btn-primary" style="flex:1;" onclick="copyText('${escHtml(m.meeting_link)}'); showToast('✅ Ссылка скопирована!')">📋 Скопировать ссылку</button>` : ''}
+      <button class="btn btn-danger" style="${m.meeting_link?'flex:1;':''}" onclick="openCancelModal('${m.id}', '${escHtml(title)}')">❌ Отменить</button>
+    </div>`;
   }
 
   document.getElementById('detail-content').innerHTML = html;
@@ -1886,12 +2034,88 @@ function openMeetingDetail(id) {
 }
 
 // ============================================================
+// SCHEDULES (ORGANIZER VIEW)
+// ============================================================
+async function loadSchedules() {
+  const el = document.getElementById('schedules-list');
+  el.innerHTML = `<div class="loading-center"><div class="spinner"></div><div>Загрузка...</div></div>`;
+
+  if (!TG_USER) {
+    el.innerHTML = renderEmpty('🔒', 'Войдите через Telegram', 'Откройте приложение через бота');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('GET', `/api/schedules?telegram_id=${TG_USER.id}`);
+    state.allSchedules = Array.isArray(data) ? data : [];
+    renderSchedulesList();
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">Ошибка загрузки</div>
+      <button class="btn btn-ghost" style="max-width:180px;margin:12px auto 0;" onclick="loadSchedules()">🔄 Повторить</button>
+    </div>`;
+  }
+}
+
+function renderSchedulesList() {
+  const el = document.getElementById('schedules-list');
+  const schedules = state.allSchedules;
+
+  if (schedules.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📅</div>
+      <div class="empty-title">Нет расписаний</div>
+      <div class="empty-desc">Создайте расписание через бота — отправьте команду /start</div>
+      <button class="btn btn-ghost" style="max-width:220px; margin:0 auto;" onclick="${tg ? "tg.close()" : "showToast('Откройте бота и отправьте /start')"}">Открыть бота</button>
+    </div>`;
+    return;
+  }
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="font-size:14px;color:var(--text2);">${schedules.length} расписани${schedules.length===1?'е':schedules.length<5?'я':'й'}</div>
+  </div>`;
+
+  schedules.forEach(s => {
+    const days = (s.work_days || []).sort().map(i => DAYS_SHORT[i]).join(', ');
+    const start = s.start_time?.toString().slice(0,5) || '09:00';
+    const end = s.end_time?.toString().slice(0,5) || '18:00';
+    const platform = getPlatformName(s.platform);
+    const bookingUrl = `${window.location.origin}${window.location.pathname}?schedule_id=${s.id}`;
+
+    html += `<div class="schedule-card">
+      <div class="sc-header">
+        <div>
+          <div class="sc-title">📅 ${escHtml(s.title)}</div>
+          <div class="sc-meta">⏱ ${s.duration} мин · ${days} · ${start}–${end}</div>
+          <div class="sc-meta" style="margin-top:2px;">🎥 ${platform}</div>
+        </div>
+      </div>
+      <div class="sc-actions">
+        <div class="sc-btn primary" onclick="copyScheduleLink('${escHtml(bookingUrl)}')">🔗 Скопировать ссылку</div>
+        <div class="sc-btn danger" onclick="openDeleteModal('${s.id}', '${escHtml(s.title)}')">🗑 Удалить</div>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function copyScheduleLink(url) {
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('✅ Ссылка скопирована!');
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  }).catch(() => {
+    showToast('Не удалось скопировать', 'error');
+  });
+}
+
+// ============================================================
 // CANCEL MODAL
 // ============================================================
 function openCancelModal(id, title) {
   state.pendingCancelId = id;
-  document.getElementById('modal-cancel-text').textContent =
-    `Встреча "${title}" будет отменена. Слот освободится для других.`;
+  document.getElementById('modal-cancel-text').textContent = `Встреча "${title}" будет отменена. Слот освободится для других.`;
   document.getElementById('modal-cancel').classList.add('show');
 }
 
@@ -1902,23 +2126,52 @@ function closeCancelModal(e) {
 }
 
 async function confirmCancel() {
-  if (!state.pendingCancelId) return;
+  if (!state.pendingCancelId || !TG_USER) return;
   document.getElementById('modal-cancel').classList.remove('show');
 
   try {
-    await apiFetch('PATCH', `/api/bookings/${state.pendingCancelId}/cancel`, { status: 'cancelled' });
+    await apiFetch('PATCH', `/api/bookings/${state.pendingCancelId}/cancel?telegram_id=${TG_USER.id}`);
     const m = allMeetingsData.find(x => x.id === state.pendingCancelId);
     if (m) m.status = 'cancelled';
     showToast('Встреча отменена');
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     renderMeetingsList(state.currentTab);
-    // Go back if on detail screen
     if (state.currentScreen === 'detail') goBack();
   } catch(e) {
     showToast('Не удалось отменить: ' + e.message, 'error');
   }
-
   state.pendingCancelId = null;
+}
+
+// ============================================================
+// DELETE MODAL
+// ============================================================
+function openDeleteModal(id, title) {
+  state.pendingDeleteId = id;
+  document.getElementById('modal-delete-text').textContent = `Расписание "${title}" будет удалено. Все связанные бронирования отменятся.`;
+  document.getElementById('modal-delete').classList.add('show');
+}
+
+function closeDeleteModal(e) {
+  if (e && e.target !== document.getElementById('modal-delete')) return;
+  document.getElementById('modal-delete').classList.remove('show');
+  state.pendingDeleteId = null;
+}
+
+async function confirmDelete() {
+  if (!state.pendingDeleteId || !TG_USER) return;
+  document.getElementById('modal-delete').classList.remove('show');
+
+  try {
+    await apiFetch('DELETE', `/api/schedules/${state.pendingDeleteId}?telegram_id=${TG_USER.id}`);
+    state.allSchedules = state.allSchedules.filter(s => s.id !== state.pendingDeleteId);
+    showToast('✅ Расписание удалено');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    renderSchedulesList();
+  } catch(e) {
+    showToast('Ошибка: ' + e.message, 'error');
+  }
+  state.pendingDeleteId = null;
 }
 
 // ============================================================
@@ -1934,23 +2187,21 @@ function toggleSetting(key) {
 function applySettings() {
   ['notif', '24h', '1h'].forEach(k => {
     const el = document.getElementById('toggle-' + k);
-    if (el) { el.className = 'toggle ' + (state.settings[k] ? 'on' : 'off'); }
+    if (el) el.className = 'toggle ' + (state.settings[k] ? 'on' : 'off');
   });
 }
 
 function openWebVersion() {
-  if (tg) tg.openLink('');
-  else window.open('', '_blank');
+  const url = window.location.origin;
+  if (tg) tg.openLink(url);
+  else window.open(url, '_blank');
 }
 
 // ============================================================
 // UTILS
 // ============================================================
 function formatDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
 
 function formatDateTime(date) {
@@ -1958,7 +2209,7 @@ function formatDateTime(date) {
 }
 
 function getPlatformName(id) {
-  return PLATFORMS.find(p => p.id === id)?.name || id;
+  return PLATFORMS.find(p => p.id === id)?.name || id || 'Онлайн';
 }
 
 function escHtml(str) {

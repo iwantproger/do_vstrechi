@@ -18,7 +18,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
-    KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo
+    KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo,
+    BotCommand, MenuButtonWebApp
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -540,10 +541,30 @@ async def cmd_help(msg: Message):
 # Main
 # ─────────────────────────────────────────────────────────
 
+async def setup_bot_commands(bot: Bot):
+    """Регистрирует команды и кнопку Menu Button (открывает мини-приложение)."""
+    commands = [
+        BotCommand(command="start",  description="Главное меню"),
+        BotCommand(command="help",   description="Справка по боту"),
+    ]
+    await bot.set_my_commands(commands)
+
+    # Кнопка «☰ Меню» рядом с полем ввода открывает мини-приложение напрямую
+    await bot.set_chat_menu_button(
+        menu_button=MenuButtonWebApp(
+            text="📅 Открыть",
+            web_app=WebAppInfo(url=MINI_APP_URL),
+        )
+    )
+    log.info("Bot commands and menu button configured")
+
+
 async def main():
     bot = Bot(token=BOT_TOKEN)
     dp  = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
+
+    await setup_bot_commands(bot)
 
     log.info("Bot starting…")
     await dp.start_polling(bot, skip_updates=True)
