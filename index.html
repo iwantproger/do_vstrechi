@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Запись на встречу</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0C1220;
+      --surface: #141B2D;
+      --surface2: #1C2640;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #F0F2F8;
+      --text2: #8B92A5;
+      --text3: rgba(255,255,255,0.25);
+      --accent: #3B82F6;
+      --accent2: #60A5FA;
+      --accent-soft: rgba(59,130,246,0.15);
+      --success: #22C55E;
+      --success-soft: rgba(34,197,94,0.12);
+      --warning: #F59E0B;
+      --warning-soft: rgba(245,158,11,0.12);
+      --error: #EF4444;
+      --error-soft: rgba(239,68,68,0.10);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      --pad: 16px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* ======================== APP SHELL ======================== */
+    #app {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateX(100%);
+      transition: transform 280ms cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+      background: var(--bg);
+    }
+
+    .screen.active {
+      transform: translateX(0);
+    }
+
+    .screen.slide-out {
+      transform: translateX(-30%);
+    }
+
+    .screen-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: var(--pad);
+      padding-bottom: 100px;
+    }
+
+    /* ======================== HEADER ======================== */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px var(--pad) 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      min-height: 52px;
+    }
+
+    .header-back {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--accent2);
+      font-size: 16px;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .header-back:active { opacity: 0.7; }
+
+    .header-info { flex: 1; min-width: 0; }
+    .header-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 1px;
+    }
+
+    /* ======================== BOTTOM CTA ======================== */
+    .bottom-cta {
+      position: sticky;
+      bottom: 0;
+      padding: 12px var(--pad) 20px;
+      background: linear-gradient(to top, var(--bg) 70%, transparent);
+      flex-shrink: 0;
+    }
+
+    /* ======================== BUTTONS ======================== */
+    .btn {
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: var(--radius-lg);
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.1s, opacity 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.9; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.3);
+    }
+    .btn-success {
+      background: #16A34A;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(22,163,74,0.25);
+    }
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+    .btn-danger {
+      background: var(--error-soft);
+      color: #FCA5A5;
+      border: 1px solid rgba(239,68,68,0.25);
+    }
+
+    /* ======================== MAIN MENU ======================== */
+    #screen-home .screen-body {
+      padding-top: 0;
+    }
+
+    .home-greeting {
+      padding: 28px var(--pad) 20px;
+    }
+    .greeting-wave { font-size: 32px; margin-bottom: 8px; }
+    .greeting-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .greeting-sub {
+      font-size: 14px;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+
+    .menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px var(--pad);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border2);
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .menu-btn:active { transform: scale(0.98); }
+
+    .menu-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .menu-btn:active::before { opacity: 1; }
+
+    .menu-btn.blue { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.2); }
+    .menu-btn.blue::before { background: rgba(59,130,246,0.08); }
+    .menu-btn.green { background: rgba(34,197,94,0.07); border-color: rgba(34,197,94,0.18); }
+    .menu-btn.green::before { background: rgba(34,197,94,0.07); }
+    .menu-btn.purple { background: rgba(139,92,246,0.07); border-color: rgba(139,92,246,0.18); }
+    .menu-btn.purple::before { background: rgba(139,92,246,0.07); }
+
+    .menu-btn-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .blue .menu-btn-icon { background: rgba(59,130,246,0.2); }
+    .green .menu-btn-icon { background: rgba(34,197,94,0.15); }
+    .purple .menu-btn-icon { background: rgba(139,92,246,0.18); }
+
+    .menu-btn-text { flex: 1; }
+    .menu-btn-title { font-size: 15px; font-weight: 600; }
+    .blue .menu-btn-title { color: #93C5FD; }
+    .green .menu-btn-title { color: #86EFAC; }
+    .purple .menu-btn-title { color: #C4B5FD; }
+
+    .menu-btn-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .menu-btn-arrow { font-size: 18px; color: var(--text3); }
+
+    .web-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px;
+      font-size: 14px;
+      color: var(--accent2);
+      cursor: pointer;
+      margin-top: 4px;
+      border-radius: var(--radius-md);
+      transition: opacity 0.15s;
+    }
+    .web-link:active { opacity: 0.7; }
+
+    /* ======================== SPECIALIST CARD ======================== */
+    .specialist-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #8B5CF6);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700; font-size: 15px; color: white;
+      flex-shrink: 0;
+    }
+    .specialist-name { font-size: 15px; font-weight: 600; color: var(--text); }
+    .specialist-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+    /* ======================== CALENDAR ======================== */
+    .cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .cal-month {
+      font-family: 'Syne', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .cal-nav { display: flex; gap: 8px; }
+    .cal-nav-btn {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      border: 1px solid var(--border2);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cal-nav-btn:active { opacity: 0.7; transform: scale(0.95); }
+    .cal-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-bottom: 24px;
+    }
+    .cal-dow {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text2);
+      padding: 6px 0;
+    }
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .cal-day.past, .cal-day.nowork {
+      color: rgba(255,255,255,0.18);
+      cursor: not-allowed;
+      background: transparent;
+    }
+    .cal-day.available {
+      background: rgba(34,197,94,0.12);
+      color: #86EFAC;
+    }
+    .cal-day.available:active { transform: scale(0.92); }
+    .cal-day.today {
+      border: 1.5px solid var(--accent);
+      color: var(--accent2);
+    }
+    .cal-day.today.available { border-color: var(--success); }
+    .cal-day.selected {
+      background: var(--accent) !important;
+      color: #fff !important;
+      box-shadow: 0 3px 12px rgba(59,130,246,0.4);
+    }
+
+    /* ======================== TIME SLOTS ======================== */
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .slot {
+      padding: 13px 6px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border2);
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .slot:active { transform: scale(0.95); }
+    .slot.selected {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 3px 12px rgba(59,130,246,0.35);
+    }
+
+    /* ======================== FORM ======================== */
+    .form-group { margin-bottom: 18px; }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      margin-bottom: 8px;
+    }
+    .form-label .req { color: var(--error); }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid var(--border2);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text3); }
+    .form-input.error { border-color: var(--error); }
+
+    textarea.form-input {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.5;
+    }
+
+    .field-error {
+      font-size: 12px;
+      color: #FCA5A5;
+      margin-top: 5px;
+      display: none;
+    }
+    .field-error.show { display: block; }
+
+    /* Radio platform */
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border2);
+      background: var(--surface);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .radio-option:active { transform: scale(0.98); }
+    .radio-option.selected {
+      border-color: var(--accent);
+      background: rgba(59,130,246,0.08);
+    }
+
+    .radio-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--border2);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .radio-option.selected .radio-dot {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+    .radio-option.selected .radio-dot::after {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: white;
+    }
+    .radio-label { font-size: 14px; font-weight: 500; color: var(--text); flex: 1; }
+    .radio-icon { font-size: 18px; }
+
+    /* Slot selected card */
+    .slot-card {
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .slot-card-date {
+      font-size: 14px;
+      font-weight: 600;
+      color: #86EFAC;
+    }
+    .slot-card-time {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+
+    /* ======================== SUCCESS ======================== */
+    .success-wrap {
+      text-align: center;
+      padding: 32px 0 20px;
+    }
+    .success-icon {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: rgba(34,197,94,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 16px;
+      animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes pop {
+      from { transform: scale(0.5); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    .success-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .success-sub { font-size: 14px; color: var(--text2); line-height: 1.6; }
+
+    .detail-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .detail-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text2);
+      padding: 10px 14px 6px;
+    }
+    .detail-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .detail-row:first-of-type { border-top: none; }
+    .detail-icon { font-size: 15px; width: 20px; flex-shrink: 0; }
+    .detail-val { font-size: 14px; color: var(--text); flex: 1; }
+    .detail-link { font-size: 13px; color: var(--accent2); cursor: pointer; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      margin: 4px 0 0;
+    }
+    .badge-pending { background: var(--warning-soft); color: #FCD34D; }
+    .badge-confirmed { background: var(--success-soft); color: #86EFAC; }
+    .badge-cancelled { background: var(--error-soft); color: #FCA5A5; }
+    .badge-completed { background: rgba(255,255,255,0.06); color: var(--text2); }
+
+    /* ======================== MEETINGS LIST ======================== */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0 0 16px;
+    }
+    .tab {
+      flex: 1;
+      padding: 9px 6px;
+      border-radius: var(--radius-md);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+    .tab.inactive { background: var(--surface); color: var(--text2); border: 1px solid var(--border2); }
+
+    .meeting-card {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 3px solid transparent;
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      transition: transform 0.1s;
+    }
+    .meeting-card:active { transform: scale(0.99); }
+    .meeting-card.confirmed { border-left-color: var(--success); }
+    .meeting-card.pending { border-left-color: var(--warning); }
+    .meeting-card.cancelled { border-left-color: rgba(239,68,68,0.5); }
+    .meeting-card.completed { border-left-color: rgba(255,255,255,0.2); }
+
+    .mc-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .mc-org { font-size: 13px; color: var(--text2); margin-bottom: 5px; }
+    .mc-row { font-size: 13px; color: var(--text2); margin-bottom: 3px; }
+    .mc-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .mc-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .mc-btn {
+      flex: 1;
+      padding: 9px 8px;
+      border-radius: 9px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .mc-btn:active { opacity: 0.7; }
+    .mc-btn.danger { border-color: rgba(239,68,68,0.25); color: #FCA5A5; background: rgba(239,68,68,0.07); }
+
+    /* ======================== SETTINGS ======================== */
+    .settings-section {
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      padding: 14px;
+      border-top: 1px solid var(--border);
+      gap: 12px;
+    }
+    .settings-row:first-child { border-top: none; }
+    .settings-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+    .settings-label { flex: 1; font-size: 14px; color: var(--text); }
+    .settings-value { font-size: 13px; color: var(--text2); }
+
+    .toggle {
+      width: 42px; height: 24px;
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle.off { background: rgba(255,255,255,0.15); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      transition: left 0.2s;
+    }
+    .toggle.on::after { left: 21px; }
+    .toggle.off::after { left: 3px; }
+
+    .profile-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 14px;
+    }
+
+    /* ======================== LOADING STATES ======================== */
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text2);
+      font-size: 14px;
+    }
+
+    .skeleton {
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
+
+    /* ======================== ERROR / EMPTY STATES ======================== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text2);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 14px; }
+    .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .empty-desc { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1E293B;
+      border: 1px solid var(--border2);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 9999;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #FCA5A5; }
+
+    /* ======================== MODAL ======================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--surface);
+      border-radius: 20px 20px 0 0;
+      padding: 24px var(--pad) 36px;
+      width: 100%;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-top: 1px solid var(--border2);
+    }
+    .modal-overlay.show .modal { transform: translateY(0); }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: var(--border2);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+    .modal-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .modal-desc { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
+
+    /* ======================== MISC ======================== */
+    .section-sep {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text2);
+      padding: 20px 0 12px;
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 7px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--accent2);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .copy-btn:active { opacity: 0.7; }
+
+    /* Timeline */
+    .timeline { padding: 6px 0; }
+    .tl-item {
+      display: flex;
+      gap: 12px;
+      padding: 7px 0;
+      position: relative;
+    }
+    .tl-item::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 24px;
+      bottom: -7px;
+      width: 2px;
+      background: var(--border);
+    }
+    .tl-item:last-child::before { display: none; }
+    .tl-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .tl-text { font-size: 13px; color: var(--text); }
+    .tl-date { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== SCREEN: HOME ===================== -->
+  <div id="screen-home" class="screen active">
+    <div class="screen-body">
+      <div class="home-greeting">
+        <div class="greeting-wave">👋</div>
+        <div class="greeting-name" id="greeting-name">Привет!</div>
+        <div class="greeting-sub">Что хочешь сделать?</div>
+      </div>
+      <div style="padding: 0 var(--pad);">
+        <div class="menu-btn blue" onclick="navigate('booking')">
+          <div class="menu-btn-icon">📅</div>
+          <div class="menu-btn-text">
+            <div class="menu-btn-title">Выбрать встречу</div>
+            <div class="menu-btn-sub">Забронировать время у специалиста</div>
+          </div>
+          <div class="menu-btn-arrow">›</div>
+        </div>
+        <div class="menu-btn green" onclick="navigate('meetings')">
+          <div class="menu-btn-icon">📋</div>
+          <div class="menu-btn-text">
+            <div class="menu-btn-title">Мои встречи</div>
+            <div class="menu-btn-sub">Предстоящие и прошедшие</div>
+          </div>
+          <div class="menu-btn-arrow">›</div>
+        </div>
+        <div class="menu-btn purple" onclick="navigate('settings')">
+          <div class="menu-btn-icon">⚙️</div>
+          <div class="menu-btn-text">
+            <div class="menu-btn-title">Настройки</div>
+            <div class="menu-btn-sub">Язык, уведомления, профиль</div>
+          </div>
+          <div class="menu-btn-arrow">›</div>
+        </div>
+        <div class="web-link" onclick="openWebVersion()">
+          🌐 Открыть полную веб-версию
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: CALENDAR ===================== -->
+  <div id="screen-calendar" class="screen">
+    <div class="header">
+      <div class="header-back" onclick="goBack()">←</div>
+      <div class="header-info">
+        <div class="header-title" id="cal-header-title">Выбор времени</div>
+        <div class="header-sub" id="cal-header-sub"></div>
+      </div>
+    </div>
+    <div class="screen-body" id="calendar-content">
+      <div class="loading-center">
+        <div class="spinner"></div>
+        <div>Загрузка расписания...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: BOOKING FORM ===================== -->
+  <div id="screen-form" class="screen">
+    <div class="header">
+      <div class="header-back" onclick="goBack()">←</div>
+      <div class="header-info">
+        <div class="header-title">Подтверждение</div>
+        <div class="header-sub" id="form-header-sub"></div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div class="slot-card" id="form-slot-card">
+        <div class="slot-card-date" id="form-date"></div>
+        <div class="slot-card-time" id="form-time"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Как вас представить? <span class="req">*</span></label>
+        <input type="text" class="form-input" id="input-name" placeholder="Иван Иванов" maxlength="50" oninput="validateField('name')" onblur="validateField('name')">
+        <div class="field-error" id="err-name">Минимум 2 символа</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email <span style="color:var(--text2);">(опционально)</span></label>
+        <input type="email" class="form-input" id="input-email" placeholder="ivan@mail.ru" onblur="validateField('email')">
+        <div class="field-error" id="err-email">Некорректный email</div>
+      </div>
+
+      <div id="platform-group" class="form-group" style="display:none;">
+        <label class="form-label" style="margin-bottom:12px;">Место встречи <span class="req">*</span></label>
+        <div id="platform-options"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Комментарий</label>
+        <textarea class="form-input" id="input-notes" placeholder="Что хотите обсудить?" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="bottom-cta">
+      <button class="btn btn-success" id="btn-book" onclick="submitBooking()">
+        📝 Забронировать
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: SUCCESS ===================== -->
+  <div id="screen-success" class="screen">
+    <div class="screen-body">
+      <div class="success-wrap">
+        <div class="success-icon" id="success-icon">✅</div>
+        <div class="success-title" id="success-title">Встреча забронирована!</div>
+        <div class="success-sub" id="success-sub">Вы получите напоминание в Telegram</div>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-section-title">Детали встречи</div>
+        <div class="detail-row"><div class="detail-icon">📅</div><div class="detail-val" id="s-date"></div></div>
+        <div class="detail-row"><div class="detail-icon">⏰</div><div class="detail-val" id="s-time"></div></div>
+        <div class="detail-row"><div class="detail-icon">⏱</div><div class="detail-val" id="s-duration"></div></div>
+        <div class="detail-row" id="s-platform-row" style="display:none;"><div class="detail-icon">🎥</div><div class="detail-val" id="s-platform"></div><div class="detail-link" id="s-copy-link" onclick="copyMeetingLink()">Копировать</div></div>
+      </div>
+
+      <div id="s-pending-block" style="display:none; margin-bottom:20px;">
+        <div style="background:var(--warning-soft); border:1px solid rgba(245,158,11,0.2); border-radius:var(--radius-md); padding:14px;">
+          <div style="color:#FCD34D; font-weight:600; font-size:14px; margin-bottom:4px;">⏳ Ожидает подтверждения</div>
+          <div style="color:var(--text2); font-size:13px;">Специалист одобрит встречу — вы получите уведомление в Telegram</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; padding: 0 0 16px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="closeMiniApp()">📞 Открыть Telegram</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="navigateRoot()">← Главная</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: MY MEETINGS ===================== -->
+  <div id="screen-meetings" class="screen">
+    <div class="header">
+      <div class="header-back" onclick="goBack()">←</div>
+      <div class="header-info">
+        <div class="header-title">Мои встречи</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('upcoming', this)">Предстоящие</button>
+        <button class="tab inactive" onclick="switchTab('history', this)">История</button>
+        <button class="tab inactive" onclick="switchTab('all', this)">Все</button>
+      </div>
+      <div id="meetings-list">
+        <div class="loading-center"><div class="spinner"></div><div>Загрузка встреч...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: MEETING DETAIL ===================== -->
+  <div id="screen-detail" class="screen">
+    <div class="header">
+      <div class="header-back" onclick="goBack()">←</div>
+      <div class="header-info">
+        <div class="header-title">Детали встречи</div>
+      </div>
+    </div>
+    <div class="screen-body" id="detail-content">
+    </div>
+  </div>
+
+  <!-- ===================== SCREEN: SETTINGS ===================== -->
+  <div id="screen-settings" class="screen">
+    <div class="header">
+      <div class="header-back" onclick="goBack()">←</div>
+      <div class="header-info">
+        <div class="header-title">Настройки</div>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div id="settings-profile" class="settings-section">
+        <div class="profile-row">
+          <div class="avatar" id="settings-avatar">?</div>
+          <div>
+            <div style="font-size:16px; font-weight:600; color:var(--text);" id="settings-name">Загрузка...</div>
+            <div style="font-size:13px; color:var(--text2);" id="settings-username"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-sep">Уведомления</div>
+      <div class="settings-section">
+        <div class="settings-row">
+          <div class="settings-icon">🔔</div>
+          <div class="settings-label">Telegram-уведомления</div>
+          <div class="toggle on" id="toggle-notif" onclick="toggleSetting('notif')"></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon">⏰</div>
+          <div class="settings-label">За 24 часа до встречи</div>
+          <div class="toggle on" id="toggle-24h" onclick="toggleSetting('24h')"></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon">⏱</div>
+          <div class="settings-label">За 1 час до встречи</div>
+          <div class="toggle on" id="toggle-1h" onclick="toggleSetting('1h')"></div>
+        </div>
+      </div>
+
+      <div class="section-sep">О приложении</div>
+      <div class="settings-section">
+        <div class="settings-row">
+          <div class="settings-icon">ℹ️</div>
+          <div class="settings-label">Версия</div>
+          <div class="settings-value">MVP 1.0</div>
+        </div>
+        <div class="settings-row" onclick="openWebVersion()" style="cursor:pointer;">
+          <div class="settings-icon">🌐</div>
+          <div class="settings-label" style="color:var(--accent2);">Открыть веб-версию</div>
+          <div class="settings-value">›</div>
+        </div>
+        <div class="settings-row" style="cursor:pointer;" onclick="showToast('Поддержка скоро будет доступна 🛠️')">
+          <div class="settings-icon">📞</div>
+          <div class="settings-label" style="color:var(--accent2);">Помощь / Feedback</div>
+          <div class="settings-value">›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===================== TOAST ===================== -->
+<div id="toast" class="toast"></div>
+
+<!-- ===================== CANCEL MODAL ===================== -->
+<div id="modal-cancel" class="modal-overlay" onclick="closeCancelModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Отменить встречу?</div>
+    <div class="modal-desc" id="modal-cancel-text">Встреча будет отменена. Специалист получит уведомление, а слот освободится для других.</div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeCancelModal()">Назад</button>
+      <button class="btn btn-danger" style="flex:1;" onclick="confirmCancel()">❌ Отменить</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+'use strict';
+
+// ============================================================
+// CONFIG
+// ============================================================
+const BACKEND = 'https://do-vstrechi-backend-production.up.railway.app';
+
+const PLATFORMS = [
+  { id: 'zoom', name: 'Zoom', icon: '💼' },
+  { id: 'google_meet', name: 'Google Meet', icon: '📹' },
+  { id: 'jitsi', name: 'Jitsi Meet', icon: '🎥' },
+  { id: 'yandex', name: 'Яндекс.Телемост', icon: '🦊' },
+  { id: 'mts', name: 'МТС Линк', icon: '📡' },
+];
+
+const MONTH_NAMES = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAY_NAMES = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DAY_NAMES_FULL = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+
+// ============================================================
+// TELEGRAM
+// ============================================================
+const tg = window.Telegram?.WebApp;
+let TG_USER = null;
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.enableClosingConfirmation();
+  TG_USER = tg.initDataUnsafe?.user || null;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  currentScreen: 'home',
+  screenStack: [],
+  schedule: null,
+  selectedDate: null,
+  selectedTime: null,
+  selectedPlatform: null,
+  currentMonth: new Date(),
+  monthSlots: {},
+  allMeetings: [],
+  currentTab: 'upcoming',
+  pendingCancelId: null,
+  meetingLink: null,
+  settings: {
+    notif: true, '24h': true, '1h': true
+  }
+};
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  // Setup user greeting
+  if (TG_USER) {
+    document.getElementById('greeting-name').textContent = `Привет, ${TG_USER.first_name}!`;
+    document.getElementById('settings-name').textContent = `${TG_USER.first_name}${TG_USER.last_name ? ' ' + TG_USER.last_name : ''}`;
+    document.getElementById('settings-username').textContent = TG_USER.username ? `@${TG_USER.username}` : `ID: ${TG_USER.id}`;
+    const initials = (TG_USER.first_name?.[0] || '') + (TG_USER.last_name?.[0] || '');
+    document.getElementById('settings-avatar').textContent = initials || '👤';
+    // Register user
+    authUser();
+  }
+
+  // Check if opened with schedule_id
+  const params = new URLSearchParams(window.location.search);
+  const scheduleId = params.get('schedule_id');
+
+  if (scheduleId) {
+    await loadSchedule(scheduleId);
+  } else {
+    showScreen('home', false);
+  }
+
+  // Load settings from localStorage
+  const saved = localStorage.getItem('sb_settings');
+  if (saved) {
+    try { state.settings = JSON.parse(saved); applySettings(); } catch(e) {}
+  }
+}
+
+async function authUser() {
+  if (!TG_USER) return;
+  try {
+    await apiFetch('POST', '/api/users/auth', {
+      telegram_id: TG_USER.id,
+      username: TG_USER.username,
+      first_name: TG_USER.first_name,
+      last_name: TG_USER.last_name
+    });
+  } catch(e) { /* silent */ }
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showScreen(screenId, pushToStack = true) {
+  const current = document.getElementById('screen-' + state.currentScreen);
+  const next = document.getElementById('screen-' + screenId);
+  if (!next) return;
+
+  if (pushToStack && state.currentScreen !== screenId) {
+    state.screenStack.push(state.currentScreen);
+  }
+
+  if (current && current !== next) {
+    current.classList.remove('active');
+    if (pushToStack) current.classList.add('slide-out');
+    setTimeout(() => current.classList.remove('slide-out'), 300);
+  }
+
+  next.classList.add('active');
+  state.currentScreen = screenId;
+
+  // Update Telegram back button
+  if (tg) {
+    if (state.screenStack.length > 0) {
+      tg.BackButton.show();
+      tg.BackButton.onClick(goBack);
+    } else {
+      tg.BackButton.hide();
+    }
+  }
+}
+
+function goBack() {
+  if (state.screenStack.length === 0) return;
+  const prev = state.screenStack.pop();
+  const current = document.getElementById('screen-' + state.currentScreen);
+  const prevEl = document.getElementById('screen-' + prev);
+  if (!prevEl) return;
+
+  current.classList.remove('active');
+  prevEl.classList.remove('slide-out');
+  prevEl.classList.add('active');
+  state.currentScreen = prev;
+
+  if (tg) {
+    if (state.screenStack.length === 0) tg.BackButton.hide();
+  }
+}
+
+function navigateRoot() {
+  state.screenStack = [];
+  document.querySelectorAll('.screen').forEach(s => { s.classList.remove('active', 'slide-out'); });
+  document.getElementById('screen-home').classList.add('active');
+  state.currentScreen = 'home';
+  if (tg) tg.BackButton.hide();
+}
+
+function navigate(target) {
+  if (target === 'booking') {
+    showScreen('calendar');
+    renderCalendarScreen();
+  } else if (target === 'meetings') {
+    showScreen('meetings');
+    loadMeetings();
+  } else if (target === 'settings') {
+    showScreen('settings');
+  }
+}
+
+// ============================================================
+// API
+// ============================================================
+async function apiFetch(method, path, body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+
+  const res = await fetch(BACKEND + path, opts);
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+// ============================================================
+// SCHEDULE LOADING
+// ============================================================
+async function loadSchedule(scheduleId) {
+  document.getElementById('calendar-content').innerHTML = `
+    <div class="loading-center"><div class="spinner"></div><div>Загрузка расписания...</div></div>`;
+  showScreen('calendar', false);
+
+  try {
+    state.schedule = await apiFetch('GET', `/api/schedules/${scheduleId}`);
+    state.currentMonth = new Date();
+    renderCalendarContent();
+  } catch(e) {
+    document.getElementById('calendar-content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">😔</div>
+        <div class="empty-title">Расписание не найдено</div>
+        <div class="empty-desc">Возможно, специалист его удалил или ссылка неверная</div>
+        <button class="btn btn-ghost" onclick="navigateRoot()" style="max-width:220px; margin:0 auto;">← На главную</button>
+      </div>`;
+  }
+}
+
+function renderCalendarScreen() {
+  if (!state.schedule) {
+    document.getElementById('calendar-content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Нет выбранного расписания</div>
+        <div class="empty-desc">Попросите специалиста прислать ссылку на расписание</div>
+      </div>`;
+    return;
+  }
+  renderCalendarContent();
+}
+
+function renderCalendarContent() {
+  const sch = state.schedule;
+  document.getElementById('cal-header-title').textContent = sch.title || 'Выбор времени';
+  document.getElementById('cal-header-sub').textContent = `${sch.duration} мин`;
+
+  let html = '';
+
+  // Specialist card
+  const initials = (sch.title || 'XX').slice(0, 2).toUpperCase();
+  html += `
+    <div class="specialist-card">
+      <div class="avatar">${initials}</div>
+      <div>
+        <div class="specialist-name">${escHtml(sch.title)}</div>
+        <div class="specialist-meta">${sch.duration} мин${sch.buffer_time ? ' · Перерыв ' + sch.buffer_time + ' мин' : ''}</div>
+      </div>
+    </div>`;
+
+  // Calendar
+  html += renderCalendar();
+
+  // Slots placeholder
+  html += `<div id="slots-section"></div>`;
+
+  document.getElementById('calendar-content').innerHTML = html;
+
+  // Load month availability
+  loadMonthSlots();
+}
+
+function renderCalendar() {
+  const y = state.currentMonth.getFullYear();
+  const m = state.currentMonth.getMonth();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const prevMonthDisabled = (y === today.getFullYear() && m <= today.getMonth());
+
+  let html = `
+    <div class="cal-header">
+      <div class="cal-month">${MONTH_NAMES[m]} ${y}</div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="cal-prev" onclick="changeMonth(-1)" ${prevMonthDisabled?'disabled':''}>&lt;</button>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">&gt;</button>
+      </div>
+    </div>
+    <div class="cal-grid">`;
+
+  DAY_NAMES.forEach(d => { html += `<div class="cal-dow">${d}</div>`; });
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const offset = firstDay === 0 ? 6 : firstDay - 1;
+  for (let i = 0; i < offset; i++) html += '<div></div>';
+
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m, d);
+    const isPast = date < today;
+    const isToday = date.getTime() === today.getTime();
+    const dateStr = formatDate(date);
+    const isSelected = state.selectedDate === dateStr;
+
+    // Work days: 0=Mon..6=Sun (JS: 0=Sun..6=Sat)
+    const jsDay = date.getDay(); // 0=Sun
+    const dayIdx = jsDay === 0 ? 6 : jsDay - 1; // convert to Mon=0
+    const workDays = state.schedule?.work_days || [0,1,2,3,4];
+    const isWork = workDays.includes(dayIdx);
+
+    let cls = 'cal-day';
+    if (isPast || !isWork) {
+      cls += ' past';
+    } else {
+      const hasSlots = state.monthSlots[dateStr];
+      if (hasSlots) cls += ' available';
+    }
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+
+    const clickable = !isPast && isWork;
+    html += `<div class="${cls}" ${clickable ? `onclick="selectDay('${dateStr}')"` : ''}>${d}</div>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function updateCalendarGrid() {
+  const container = document.getElementById('calendar-content');
+  if (!container) return;
+  const oldGrid = container.querySelector('.cal-header');
+  if (!oldGrid) return;
+  // Re-render just the calendar part
+  const slotSection = document.getElementById('slots-section');
+  const slotHtml = slotSection ? slotSection.outerHTML : '';
+  const specCard = container.querySelector('.specialist-card')?.outerHTML || '';
+  container.innerHTML = specCard + renderCalendar() + '<div id="slots-section"></div>';
+  if (state.selectedDate) {
+    loadDaySlots(state.selectedDate);
+  }
+}
+
+async function loadMonthSlots() {
+  if (!state.schedule) return;
+  const y = state.currentMonth.getFullYear();
+  const m = String(state.currentMonth.getMonth() + 1).padStart(2, '0');
+
+  try {
+    // Load a few key dates to see which have availability
+    // Backend endpoint: GET /api/available-slots/{id}?date=YYYY-MM-DD
+    // We call per-day approach: first get current month days that are workdays
+    const workDays = state.schedule.work_days || [0,1,2,3,4];
+    const daysInMonth = new Date(parseInt(y), parseInt(m), 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const checks = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(parseInt(y), parseInt(m)-1, d);
+      if (date < today) continue;
+      const jsDay = date.getDay();
+      const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+      if (!workDays.includes(dayIdx)) continue;
+      checks.push(formatDate(date));
+    }
+
+    // Parallel fetch (limited to 6)
+    const sample = checks.slice(0, 6);
+    const results = await Promise.allSettled(
+      sample.map(d => apiFetch('GET', `/api/available-slots/${state.schedule.id}?date=${d}`))
+    );
+
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        state.monthSlots[sample[i]] = (r.value.available_slots || []).length > 0;
+      }
+    });
+
+    // Mark remaining workdays as potentially available
+    checks.forEach(d => {
+      if (!(d in state.monthSlots)) state.monthSlots[d] = true;
+    });
+
+    updateCalendarGrid();
+  } catch(e) {
+    // fallback: mark all work days as available
+    const workDays = state.schedule.work_days || [0,1,2,3,4];
+    const daysInMonth = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth()+1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(state.currentMonth.getFullYear(), state.currentMonth.getMonth(), d);
+      if (date < today) continue;
+      const jsDay = date.getDay();
+      const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+      if (workDays.includes(dayIdx)) state.monthSlots[formatDate(date)] = true;
+    }
+    updateCalendarGrid();
+  }
+}
+
+function changeMonth(dir) {
+  const d = new Date(state.currentMonth);
+  d.setMonth(d.getMonth() + dir);
+  const today = new Date();
+  if (dir < 0 && d.getMonth() < today.getMonth() && d.getFullYear() <= today.getFullYear()) return;
+  state.currentMonth = d;
+  state.selectedDate = null;
+  updateCalendarGrid();
+  loadMonthSlots();
+}
+
+async function selectDay(dateStr) {
+  state.selectedDate = dateStr;
+  state.selectedTime = null;
+  updateCalendarGrid();
+  loadDaySlots(dateStr);
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+async function loadDaySlots(dateStr) {
+  const el = document.getElementById('slots-section');
+  if (!el) return;
+  el.innerHTML = `<div class="loading-center" style="padding:30px 0;"><div class="spinner" style="width:30px;height:30px;border-width:2px;"></div></div>`;
+
+  try {
+    const data = await apiFetch('GET', `/api/available-slots/${state.schedule.id}?date=${dateStr}`);
+    const slots = data.available_slots || [];
+
+    const d = new Date(dateStr);
+    const dayName = DAY_NAMES_FULL[d.getDay() === 0 ? 6 : d.getDay() - 1];
+    const dateDisplay = `${dayName}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+
+    if (slots.length === 0) {
+      el.innerHTML = `
+        <div class="section-label">${dateDisplay}</div>
+        <div class="empty-state" style="padding:20px 0;">
+          <div class="empty-icon" style="font-size:32px;">😔</div>
+          <div style="font-size:14px; color:var(--text2);">На эту дату нет свободных слотов</div>
+        </div>`;
+      return;
+    }
+
+    let html = `<div class="section-label">${dateDisplay}</div><div class="slots-grid">`;
+    slots.forEach(s => {
+      const sel = state.selectedTime === s.time;
+      html += `<div class="slot ${sel?'selected':''}" onclick="selectTime('${s.time}')">${s.time}</div>`;
+    });
+    html += '</div>';
+
+    if (state.selectedTime) {
+      html += `<button class="btn btn-primary" onclick="goToForm()">Продолжить →</button>`;
+    } else {
+      html += `<button class="btn btn-primary" disabled>Выберите время</button>`;
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:20px 0;">
+        <div style="font-size:14px; color:#FCA5A5;">Ошибка загрузки слотов</div>
+        <button class="btn btn-ghost" style="max-width:160px;margin:12px auto 0;" onclick="loadDaySlots('${dateStr}')">🔄 Повторить</button>
+      </div>`;
+  }
+}
+
+function selectTime(time) {
+  state.selectedTime = time;
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  loadDaySlots(state.selectedDate);
+}
+
+function goToForm() {
+  if (!state.selectedTime || !state.selectedDate) return;
+  setupForm();
+  showScreen('form');
+}
+
+// ============================================================
+// BOOKING FORM
+// ============================================================
+function setupForm() {
+  const d = new Date(state.selectedDate);
+  const dayName = DAY_NAMES_FULL[d.getDay() === 0 ? 6 : d.getDay() - 1];
+  const duration = state.schedule?.duration || 0;
+
+  document.getElementById('form-header-sub').textContent = state.schedule?.title || '';
+  document.getElementById('form-date').textContent = `📅 ${dayName}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+
+  // Calculate end time
+  const [h, min] = state.selectedTime.split(':').map(Number);
+  const endMin = h * 60 + min + duration;
+  const endH = Math.floor(endMin / 60) % 24;
+  const endM = endMin % 60;
+  document.getElementById('form-time').textContent = `⏰ ${state.selectedTime} — ${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')} (${duration} мин)`;
+
+  // Autofill from Telegram
+  const nameInput = document.getElementById('input-name');
+  if (!nameInput.value && TG_USER) {
+    nameInput.value = TG_USER.first_name + (TG_USER.last_name ? ' ' + TG_USER.last_name : '');
+  }
+  const contactInput = document.getElementById('input-email');
+  if (!contactInput.value && TG_USER?.username) {
+    // email field is optional, don't autofill username here
+  }
+
+  // Platform selection
+  const platformGroup = document.getElementById('platform-group');
+  const sch = state.schedule;
+  const locationMode = sch?.location_mode || (sch?.video_platform ? 'fixed' : 'user_choice');
+
+  if (locationMode === 'user_choice' || !sch?.video_platform) {
+    platformGroup.style.display = 'block';
+    state.selectedPlatform = PLATFORMS[0].id;
+    let optHtml = '';
+    PLATFORMS.forEach(p => {
+      const sel = state.selectedPlatform === p.id;
+      optHtml += `
+        <div class="radio-option ${sel?'selected':''}" onclick="selectPlatform('${p.id}')">
+          <div class="radio-dot"></div>
+          <div class="radio-icon">${p.icon}</div>
+          <div class="radio-label">${p.name}</div>
+        </div>`;
+    });
+    document.getElementById('platform-options').innerHTML = optHtml;
+  } else {
+    platformGroup.style.display = 'none';
+    state.selectedPlatform = sch.video_platform;
+  }
+
+  // Telegram MainButton
+  if (tg?.MainButton) {
+    tg.MainButton.setText('📝 Забронировать');
+    tg.MainButton.show();
+    tg.MainButton.onClick(submitBooking);
+    document.getElementById('btn-book').style.display = 'none';
+  }
+}
+
+function selectPlatform(id) {
+  state.selectedPlatform = id;
+  document.querySelectorAll('.radio-option').forEach(el => el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+}
+
+function validateField(field) {
+  if (field === 'name') {
+    const val = document.getElementById('input-name').value.trim();
+    const err = document.getElementById('err-name');
+    const inp = document.getElementById('input-name');
+    if (val.length < 2) { inp.classList.add('error'); err.classList.add('show'); return false; }
+    inp.classList.remove('error'); err.classList.remove('show'); return true;
+  }
+  if (field === 'email') {
+    const val = document.getElementById('input-email').value.trim();
+    const err = document.getElementById('err-email');
+    const inp = document.getElementById('input-email');
+    if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      inp.classList.add('error'); err.classList.add('show'); return false;
+    }
+    inp.classList.remove('error'); err.classList.remove('show'); return true;
+  }
+  return true;
+}
+
+async function submitBooking() {
+  const name = document.getElementById('input-name').value.trim();
+  const email = document.getElementById('input-email').value.trim();
+  const notes = document.getElementById('input-notes').value.trim();
+
+  if (!validateField('name')) { showToast('Введите ваше имя', 'error'); return; }
+  if (!validateField('email')) { showToast('Некорректный email', 'error'); return; }
+
+  const btn = document.getElementById('btn-book');
+  btn.disabled = true;
+  btn.textContent = '⏳ Отправляем...';
+
+  if (tg?.MainButton) { tg.MainButton.showProgress(); }
+
+  const bookingData = {
+    schedule_id: state.schedule.id,
+    guest_name: name,
+    guest_contact: email || (TG_USER?.username ? '@' + TG_USER.username : String(TG_USER?.id || 'unknown')),
+    guest_telegram_id: TG_USER?.id || null,
+    scheduled_time: `${state.selectedDate}T${state.selectedTime}:00`,
+    notes: notes || null
+  };
+
+  if (state.selectedPlatform) {
+    bookingData.location_type = state.selectedPlatform;
+  }
+
+  try {
+    const result = await apiFetch('POST', '/api/bookings', bookingData);
+
+    if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); }
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+
+    renderSuccess(result);
+    showScreen('success');
+
+  } catch(e) {
+    if (tg?.MainButton) tg.MainButton.hideProgress();
+    btn.disabled = false;
+    btn.textContent = '📝 Забронировать';
+
+    if (e.message?.includes('409') || e.message?.includes('already')) {
+      showToast('Слот уже занят! Выберите другое время', 'error');
+      goBack();
+    } else {
+      showToast('Ошибка: ' + e.message, 'error');
+    }
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+  }
+}
+
+function renderSuccess(booking) {
+  const d = new Date(state.selectedDate);
+  const dayName = DAY_NAMES_FULL[d.getDay() === 0 ? 6 : d.getDay() - 1];
+  const duration = state.schedule?.duration || 0;
+  const [h, min] = state.selectedTime.split(':').map(Number);
+  const endMin = h * 60 + min + duration;
+
+  document.getElementById('s-date').textContent = `${dayName}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
+  document.getElementById('s-time').textContent = `${state.selectedTime} — ${String(Math.floor(endMin/60)%24).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+  document.getElementById('s-duration').textContent = `${duration} минут`;
+
+  if (booking.meeting_link) {
+    state.meetingLink = booking.meeting_link;
+    document.getElementById('s-platform-row').style.display = 'flex';
+    const pName = PLATFORMS.find(p => p.id === state.selectedPlatform)?.name || state.selectedPlatform || 'Онлайн';
+    document.getElementById('s-platform').textContent = pName;
+  }
+
+  const requiresApproval = booking.status === 'pending_organizer_approval' || booking.status === 'pending';
+  if (requiresApproval) {
+    document.getElementById('s-pending-block').style.display = 'block';
+    document.getElementById('success-title').textContent = 'Заявка отправлена!';
+    document.getElementById('success-sub').textContent = 'Ожидайте подтверждения от специалиста';
+    document.getElementById('success-icon').textContent = '⏳';
+    document.getElementById('success-icon').style.background = 'rgba(245,158,11,0.15)';
+  }
+}
+
+function copyMeetingLink() {
+  if (!state.meetingLink) return;
+  navigator.clipboard.writeText(state.meetingLink).then(() => {
+    showToast('✅ Ссылка скопирована!');
+    document.getElementById('s-copy-link').textContent = 'Скопировано!';
+    setTimeout(() => { document.getElementById('s-copy-link').textContent = 'Копировать'; }, 2000);
+  }).catch(() => showToast('Не удалось скопировать', 'error'));
+}
+
+function closeMiniApp() {
+  if (tg) tg.close();
+  else navigateRoot();
+}
+
+// ============================================================
+// MY MEETINGS
+// ============================================================
+let allMeetingsData = [];
+
+async function loadMeetings() {
+  document.getElementById('meetings-list').innerHTML = `
+    <div class="loading-center"><div class="spinner"></div><div>Загрузка встреч...</div></div>`;
+
+  if (!TG_USER) {
+    document.getElementById('meetings-list').innerHTML = renderEmpty('🔒', 'Войдите через Telegram', 'Откройте приложение через бота Telegram');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('GET', `/api/bookings?telegram_id=${TG_USER.id}`);
+    allMeetingsData = data.bookings || [];
+    renderMeetingsList(state.currentTab);
+  } catch(e) {
+    document.getElementById('meetings-list').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Ошибка загрузки</div>
+        <button class="btn btn-ghost" style="max-width:180px;margin:12px auto 0;" onclick="loadMeetings()">🔄 Повторить</button>
+      </div>`;
+  }
+}
+
+function switchTab(tab, el) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => { t.className = 'tab inactive'; });
+  el.className = 'tab active';
+  renderMeetingsList(tab);
+}
+
+function renderMeetingsList(tab) {
+  const now = new Date();
+  let filtered = allMeetingsData;
+
+  if (tab === 'upcoming') {
+    filtered = allMeetingsData.filter(m => {
+      const dt = new Date(m.scheduled_time);
+      return dt > now && m.status !== 'cancelled';
+    });
+  } else if (tab === 'history') {
+    filtered = allMeetingsData.filter(m => {
+      const dt = new Date(m.scheduled_time);
+      return dt <= now || m.status === 'cancelled';
+    });
+  }
+
+  if (filtered.length === 0) {
+    document.getElementById('meetings-list').innerHTML = renderEmpty(
+      '📭',
+      tab === 'upcoming' ? 'Нет предстоящих встреч' : 'Нет встреч',
+      'Запишитесь на встречу через ссылку от специалиста'
+    );
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(m => {
+    const dt = new Date(m.scheduled_time);
+    const status = m.status || 'pending';
+    const statusMap = {
+      confirmed: { cls: 'confirmed', label: '✅ Подтверждена', badge: 'badge-confirmed' },
+      pending: { cls: 'pending', label: '⏳ Ожидает', badge: 'badge-pending' },
+      cancelled: { cls: 'cancelled', label: '❌ Отменена', badge: 'badge-cancelled' },
+      completed: { cls: 'completed', label: '✓ Завершена', badge: 'badge-completed' },
+    };
+    const s = statusMap[status] || statusMap.pending;
+    const isFuture = dt > new Date() && status !== 'cancelled';
+    const dateStr = `${DAY_NAMES_FULL[dt.getDay()===0?6:dt.getDay()-1]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`;
+    const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const title = m.meeting_title || m.schedules?.title || 'Встреча';
+
+    html += `
+      <div class="meeting-card ${s.cls}" onclick="openMeetingDetail('${m.id}')">
+        <div class="mc-title">${escHtml(title)}</div>
+        <div class="mc-row">📅 ${dateStr} · ${timeStr}</div>
+        ${m.duration_minutes ? `<div class="mc-row">⏱ ${m.duration_minutes} мин</div>` : ''}
+        <div class="mc-footer">
+          <span class="status-badge ${s.badge}">${s.label}</span>
+        </div>
+        <div class="mc-actions">
+          <div class="mc-btn" onclick="event.stopPropagation(); openMeetingDetail('${m.id}')">Подробнее</div>
+          ${isFuture ? `<div class="mc-btn danger" onclick="event.stopPropagation(); openCancelModal('${m.id}', '${escHtml(title)}')">Отменить</div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('meetings-list').innerHTML = html;
+}
+
+function renderEmpty(icon, title, desc) {
+  return `<div class="empty-state">
+    <div class="empty-icon">${icon}</div>
+    <div class="empty-title">${title}</div>
+    <div class="empty-desc">${desc}</div>
+  </div>`;
+}
+
+function openMeetingDetail(id) {
+  const m = allMeetingsData.find(x => x.id === id);
+  if (!m) return;
+
+  const dt = new Date(m.scheduled_time);
+  const status = m.status || 'pending';
+  const statusMap = {
+    confirmed: { label: '✅ Подтверждена', badge: 'badge-confirmed' },
+    pending: { label: '⏳ Ожидает подтверждения', badge: 'badge-pending' },
+    cancelled: { label: '❌ Отменена', badge: 'badge-cancelled' },
+    completed: { label: '✓ Завершена', badge: 'badge-completed' },
+  };
+  const s = statusMap[status] || statusMap.pending;
+  const isFuture = dt > new Date() && status !== 'cancelled';
+  const dateStr = `${DAY_NAMES_FULL[dt.getDay()===0?6:dt.getDay()-1]}, ${dt.getDate()} ${MONTHS_GEN[dt.getMonth()]}`;
+  const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  const title = m.meeting_title || m.schedules?.title || 'Встреча';
+
+  let html = `
+    <div style="padding-bottom:16px;">
+      <div style="font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:8px;">${escHtml(title)}</div>
+      <span class="status-badge ${s.badge}">${s.label}</span>
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-section-title">Дата и время</div>
+      <div class="detail-row"><div class="detail-icon">📅</div><div class="detail-val">${dateStr}</div></div>
+      <div class="detail-row"><div class="detail-icon">⏰</div><div class="detail-val">${timeStr}${m.duration_minutes ? ' · ' + m.duration_minutes + ' мин' : ''}</div></div>
+      ${m.location_type ? `<div class="detail-row"><div class="detail-icon">🎥</div><div class="detail-val">${getPlatformName(m.location_type)}</div></div>` : ''}
+      ${m.meeting_link ? `<div class="detail-row"><div class="detail-icon">🔗</div><div class="detail-val" style="word-break:break-all; font-size:13px; color:var(--accent2);">${m.meeting_link}</div><div class="detail-link" onclick="copyText('${m.meeting_link}')">📋</div></div>` : ''}
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-section-title">Ваши данные</div>
+      <div class="detail-row"><div class="detail-icon">👤</div><div class="detail-val">${escHtml(m.guest_name || '')}</div></div>
+      ${m.guest_contact ? `<div class="detail-row"><div class="detail-icon">📧</div><div class="detail-val">${escHtml(m.guest_contact)}</div></div>` : ''}
+    </div>
+
+    <div class="detail-card">
+      <div class="detail-section-title">История</div>
+      <div class="timeline">
+        <div class="tl-item"><div class="tl-dot"></div><div><div class="tl-text">Встреча создана</div><div class="tl-date">${formatDateTime(new Date(m.created_at || m.scheduled_time))}</div></div></div>
+        ${status === 'confirmed' ? `<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-text">Подтверждена</div></div></div>` : ''}
+        ${status === 'cancelled' ? `<div class="tl-item"><div class="tl-dot" style="background:var(--error);"></div><div><div class="tl-text" style="color:#FCA5A5;">Отменена</div></div></div>` : ''}
+      </div>
+    </div>`;
+
+  if (isFuture) {
+    html += `
+      <div style="display:flex; gap:10px; padding-top:8px;">
+        ${m.meeting_link ? `<button class="btn btn-primary" style="flex:1;" onclick="copyText('${m.meeting_link}'); showToast('✅ Ссылка скопирована!')">📋 Скопировать ссылку</button>` : ''}
+        <button class="btn btn-danger" style="flex:1;" onclick="openCancelModal('${m.id}', '${escHtml(title)}')">❌ Отменить</button>
+      </div>`;
+  }
+
+  document.getElementById('detail-content').innerHTML = html;
+  showScreen('detail');
+}
+
+// ============================================================
+// CANCEL MODAL
+// ============================================================
+function openCancelModal(id, title) {
+  state.pendingCancelId = id;
+  document.getElementById('modal-cancel-text').textContent =
+    `Встреча "${title}" будет отменена. Слот освободится для других.`;
+  document.getElementById('modal-cancel').classList.add('show');
+}
+
+function closeCancelModal(e) {
+  if (e && e.target !== document.getElementById('modal-cancel')) return;
+  document.getElementById('modal-cancel').classList.remove('show');
+  state.pendingCancelId = null;
+}
+
+async function confirmCancel() {
+  if (!state.pendingCancelId) return;
+  document.getElementById('modal-cancel').classList.remove('show');
+
+  try {
+    await apiFetch('PATCH', `/api/bookings/${state.pendingCancelId}/cancel`, { status: 'cancelled' });
+    const m = allMeetingsData.find(x => x.id === state.pendingCancelId);
+    if (m) m.status = 'cancelled';
+    showToast('Встреча отменена');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    renderMeetingsList(state.currentTab);
+    // Go back if on detail screen
+    if (state.currentScreen === 'detail') goBack();
+  } catch(e) {
+    showToast('Не удалось отменить: ' + e.message, 'error');
+  }
+
+  state.pendingCancelId = null;
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function toggleSetting(key) {
+  state.settings[key] = !state.settings[key];
+  applySettings();
+  localStorage.setItem('sb_settings', JSON.stringify(state.settings));
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function applySettings() {
+  ['notif', '24h', '1h'].forEach(k => {
+    const el = document.getElementById('toggle-' + k);
+    if (el) { el.className = 'toggle ' + (state.settings[k] ? 'on' : 'off'); }
+  });
+}
+
+function openWebVersion() {
+  if (tg) tg.openLink('https://do-vstrechi-backend-production.up.railway.app');
+  else window.open('https://do-vstrechi-backend-production.up.railway.app', '_blank');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDateTime(date) {
+  return `${date.getDate()} ${MONTHS_GEN[date.getMonth()]}, ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+}
+
+function getPlatformName(id) {
+  return PLATFORMS.find(p => p.id === id)?.name || id;
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
+let toastTimer = null;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  setTimeout(() => el.classList.add('show'), 10);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// START
+// ============================================================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
