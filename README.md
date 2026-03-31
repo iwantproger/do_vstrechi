@@ -126,3 +126,4 @@ make restart      # полный перезапуск с ребилдом
 ## Лицензия
 
 MIT
+# deploy test
