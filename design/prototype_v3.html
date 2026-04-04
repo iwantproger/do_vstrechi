@@ -1,0 +1,2524 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>До встречи — прототип</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0A0E0D;--s1:#121918;--s2:#182020;--s3:#1F2A29;--s4:#263330;
+  --a:#00E5A8;--ad:rgba(0,229,168,.14);--as:rgba(0,229,168,.07);
+  --t1:#EDF2F0;--t2:#7B9490;--t3:#435450;
+  --green:#2DD4A0;--gs:rgba(45,212,160,.13);
+  --amber:#F5A623;--ams:rgba(245,166,35,.13);
+  --red:#F06449;--rs:rgba(240,100,73,.13);
+  --b1:rgba(255,255,255,.06);--b2:rgba(255,255,255,.1);
+  --r1:8px;--r2:14px;--r3:20px;--r4:28px;--rf:999px;
+  --font:'Manrope',system-ui,sans-serif;
+}
+html,body{height:100%;background:#05100E}
+body{font-family:var(--font);display:flex;align-items:center;justify-content:center;padding:32px 16px;min-height:100vh}
+
+/* ── PHONE SHELL ── */
+.shell{
+  width:390px;height:812px;
+  background:var(--bg);
+  border-radius:52px;
+  overflow:hidden;
+  position:relative;
+  border:1.5px solid rgba(255,255,255,.1);
+  box-shadow:0 40px 120px rgba(0,0,0,.7),0 0 0 6px rgba(255,255,255,.04),inset 0 0 0 1px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;
+  flex-shrink:0;
+}
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px 0;font-size:13px;font-weight:700;color:var(--t1);
+  flex-shrink:0;z-index:50;position:relative;
+}
+.sb-right{display:flex;align-items:center;gap:6px}
+.sb-icon{width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+.sb-icon svg{width:16px;height:16px;stroke:var(--t1);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── SCREENS ── */
+.screens{flex:1;position:relative;overflow:hidden}
+.screen{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;
+  display:flex;flex-direction:column;
+  transform:translateX(100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  will-change:transform;
+  padding-bottom:82px;
+}
+.screen::-webkit-scrollbar{display:none}
+.screen.active{transform:translateX(0)}
+.screen.prev{transform:translateX(-30%)}
+
+/* ── NAV BAR ── */
+.navbar-outer{
+  flex-shrink:0;
+  display:flex;align-items:center;flex-wrap:nowrap;gap:8px;
+  padding:8px 14px 14px;
+  position:absolute;bottom:0;left:0;right:0;z-index:40;
+  background:transparent;
+}
+.nav-pill{
+  flex:1 1 0%;min-width:0;display:flex;align-items:center;
+  background:rgba(10,14,13,.45);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--rf);
+  padding:5px;
+  height:56px;
+}
+.nav-item{
+  flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.nav-ic{
+  width:71px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:30px;
+  border:none;
+  transition:background .15s;
+}
+.nav-item svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+.nav-item.on .nav-ic{background:rgba(0,229,168,.13)}
+.nav-item.on svg{stroke:var(--a)}
+.nav-item:active .nav-ic{background:rgba(0,229,168,.09)}
+.nav-dot{width:4px;height:4px;border-radius:50%;background:var(--a);opacity:0;transition:opacity .15s}
+.nav-item.on .nav-dot{opacity:1}
+.nav-ai-pill{
+  width:56px;height:56px;flex-shrink:0;flex-grow:0;align-self:center;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(15,22,21,.90);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:50%;
+  cursor:pointer;transition:all .15s;
+}
+.nav-ai-pill svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.nav-ai-pill:active{transform:scale(.91);background:var(--as)}
+
+/* ── COMMON COMPONENTS ── */
+.page-head{padding:20px 20px 0;flex-shrink:0}
+.page-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
+.page-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
+
+.inner-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;
+  background:var(--s1);
+  border-bottom:1px solid var(--b1);
+  flex-shrink:0;position:sticky;top:0;z-index:30;
+}
+.back-btn{
+  display:flex;align-items:center;gap:3px;
+  background:var(--s2);border:none;border-radius:var(--rf);
+  padding:7px 12px 7px 8px;font-family:var(--font);
+  font-size:13px;font-weight:700;color:var(--t2);cursor:pointer;
+  transition:all .12s;
+}
+.back-btn:active{background:var(--s3);color:var(--t1)}
+.back-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+.inner-title{font-size:16px;font-weight:700;color:var(--t1);flex:1}
+.inner-action{
+  background:none;border:none;font-family:var(--font);
+  font-size:14px;font-weight:700;color:var(--a);cursor:pointer;padding:4px 0;
+}
+
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;margin:20px 0 10px;
+}
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.section-action{font-size:12px;font-weight:700;color:var(--a);background:none;border:none;font-family:var(--font);cursor:pointer}
+
+/* Badges (used in schedules/settings, not in meeting statuses) */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--rf);font-size:11px;font-weight:700}
+.bd{width:5px;height:5px;border-radius:50%;background:currentColor}
+.b-green{background:var(--gs);color:var(--green)}
+.b-amber{background:var(--ams);color:var(--amber)}
+.b-red{background:var(--rs);color:var(--red)}
+.b-muted{background:var(--s3);color:var(--t3)}
+.b-blue{background:rgba(91,142,255,.13);color:#7aaaff}
+
+/* Meeting status indicators (icon + label) */
+.mst{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.mst svg{display:block;flex-shrink:0;width:14px;height:14px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mst-label{font-size:11px;font-weight:700;line-height:14px}
+.mst-confirmed svg{stroke:#2DD4A0}.mst-confirmed .mst-label{color:#2DD4A0}
+.mst-pending svg{stroke:#F5A623}.mst-pending .mst-label{color:#F5A623}
+.mst-noans svg{stroke:#7AAAFF}.mst-noans .mst-label{color:#7AAAFF}
+.mst-cancelled svg{stroke:#F06449;stroke-width:2.5}.mst-cancelled .mst-label{color:#F06449}
+.mst-done svg{stroke:var(--t3)}.mst-done .mst-label{color:var(--t3)}
+
+/* Meeting row card */
+.meet-card{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;background:var(--s1);
+  border-radius:var(--r2);margin:0 16px 8px;
+  border:1px solid var(--b1);cursor:pointer;
+  transition:all .14s;
+}
+.meet-card:active{background:var(--s2);transform:scale(.99)}
+.meet-av{
+  width:44px;height:44px;border-radius:12px;
+  background:var(--s3);display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:var(--a);flex-shrink:0;
+  border:1px solid var(--b1);letter-spacing:-.02em;
+}
+.meet-info{flex:1;min-width:0}
+.meet-name{font-size:14px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meet-meta{font-size:12px;color:var(--t2);margin-top:3px;display:flex;align-items:center;gap:5px;font-weight:500}
+.meta-dot{width:3px;height:3px;border-radius:50%;background:var(--t3);flex-shrink:0}
+
+/* Link card */
+.link-card{
+  background:var(--s1);border-radius:var(--r3);
+  border:1px solid var(--b1);margin:0 16px 10px;
+  overflow:hidden;cursor:pointer;transition:all .14s;
+}
+.link-card:active{background:var(--s2)}
+.link-card-body{padding:16px 16px 0}
+.lc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.lc-name{font-size:16px;font-weight:700;color:var(--t1)}
+.lc-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.lc-pill{padding:3px 9px;background:var(--s3);border-radius:var(--rf);font-size:11px;font-weight:600;color:var(--t2)}
+.lc-footer{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-top:1px solid var(--b1)}
+.lc-url{font-size:11px;color:var(--t3);font-weight:500;letter-spacing:.01em}
+.lc-btns{display:flex;gap:6px}
+.lc-btn{display:flex;align-items:center;gap:4px;padding:6px 11px;border-radius:var(--rf);font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:var(--font);transition:all .12s}
+.lc-btn:active{transform:scale(.95)}
+.lc-share{background:var(--ad);color:var(--a)}
+.lc-copy{background:var(--s3);color:var(--t2)}
+.lc-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* Stat mini grid */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
+.stat-card{background:var(--s1);border-radius:var(--r2);padding:14px;border:1px solid var(--b1)}
+.stat-val{font-size:28px;font-weight:800;color:var(--t1);line-height:1;letter-spacing:-.03em}
+.stat-val.ac{color:var(--a)}
+.stat-lbl{font-size:11px;color:var(--t2);margin-top:5px;font-weight:600;letter-spacing:.01em}
+
+/* Next meeting hero */
+.hero-card{
+  margin:14px 16px 0;
+  background:#182020;
+  border-radius:var(--r3);padding:18px;
+  border:1px solid rgba(0,229,168,.18);
+}
+.hero-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:10px}
+.hero-name{font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.hero-type{font-size:13px;color:var(--t2);margin-top:3px;font-weight:500}
+.hero-footer{display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px}
+.hero-time{font-size:30px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1}
+.hero-date{font-size:12px;color:var(--t2);margin-top:4px;font-weight:500}
+.hero-join{
+  display:flex;align-items:center;gap:6px;
+  background:var(--a);color:#07221A;
+  border:none;border-radius:var(--rf);
+  padding:9px 16px;font-family:var(--font);
+  font-size:13px;font-weight:800;cursor:pointer;
+  transition:all .15s;
+}
+.hero-join:active{transform:scale(.93)}
+.hero-join svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* Buttons */
+.btn{
+  width:100%;padding:15px;border-radius:var(--rf);
+  font-family:var(--font);font-size:15px;font-weight:700;
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .15s;
+}
+.btn:active{transform:scale(.97)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.btn-primary{background:var(--a);color:#07221A}
+.btn-primary:active{background:#1AEDB5}
+.btn-secondary{background:var(--s2);color:var(--t1);border:1px solid var(--b2)}
+.btn-secondary:active{background:var(--s3)}
+.btn-confirm{background:rgba(45,212,160,.13);color:#00E5A8;border:none}
+.btn-confirm:active{background:rgba(45,212,160,.22)}
+.btn-danger{background:rgba(240,100,73,.13);color:#F06449;border:none}
+.btn-danger:active{background:rgba(240,100,73,.22)}
+.btn-cancel{background:rgba(240,100,73,.13);color:#F06449;border:none}
+.btn-cancel:active{background:rgba(240,100,73,.22)}
+.btn-disabled{background:var(--s2);color:var(--t3);border:1px solid var(--b1);cursor:not-allowed;opacity:.5}
+
+/* Input */
+.inp-wrap{margin-bottom:14px}
+.inp-label{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase}
+.inp{
+  width:100%;background:var(--s2);border:1px solid var(--b1);
+  border-radius:var(--r2);padding:0 14px;height:50px;
+  font-family:var(--font);font-size:14px;color:var(--t1);
+  outline:none;transition:border .15s;
+  -webkit-appearance:none;
+}
+.inp::placeholder{color:var(--t3)}
+.inp:focus{border-color:var(--a);box-shadow:0 0 0 3px var(--as)}
+textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
+
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  padding:0 14px;height:37px;
+  border-radius:var(--rf);font-size:13px;font-weight:700;
+  background:var(--s2);color:var(--t2);
+  border:1px solid var(--b1);cursor:pointer;
+  transition:all .12s;display:flex;align-items:center;
+  white-space:nowrap;
+}
+.chip:active{transform:scale(.95)}
+.chip.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.25)}
+.chip-day{width:40px;height:40px;padding:0;border-radius:var(--r1);font-size:12px;justify-content:center}
+
+/* Toggle row */
+.tog-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--b1);
+}
+.tog-row:last-child{border-bottom:none}
+.tog-info{flex:1}
+.tog-title{font-size:14px;font-weight:700;color:var(--t1)}
+.tog-sub{font-size:12px;color:var(--t2);margin-top:2px;font-weight:500}
+.tog{
+  width:48px;height:28px;border-radius:var(--rf);
+  background:var(--s3);border:1px solid var(--b2);
+  position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+}
+.tog.on{background:var(--a);border-color:transparent}
+.tog::after{
+  content:'';position:absolute;width:22px;height:22px;
+  border-radius:50%;background:#fff;top:2px;left:2px;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.tog.on::after{transform:translateX(20px)}
+
+/* Settings rows */
+.settings-group{background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden;margin-bottom:8px}
+.set-row{
+  display:flex;align-items:center;gap:12px;padding:13px 16px;
+  border-bottom:1px solid var(--b1);cursor:pointer;transition:background .12s;
+}
+.set-row:last-child{border-bottom:none}
+.set-row:active{background:var(--s2)}
+.set-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.set-icon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.si-a{background:var(--ad);color:var(--a)}
+.si-am{background:var(--ams);color:var(--amber)}
+.si-r{background:var(--rs);color:var(--red)}
+.si-b{background:rgba(91,142,255,.15);color:#7aaaff}
+.si-m{background:var(--s3);color:var(--t2)}
+.set-content{flex:1}
+.set-title{font-size:14px;font-weight:600;color:var(--t1)}
+.set-sub{font-size:12px;color:var(--t2);margin-top:2px;font-weight:500}
+.set-right{display:flex;align-items:center;gap:6px}
+.set-val{font-size:13px;color:var(--t2);font-weight:500}
+.chev svg{width:15px;height:15px;stroke:var(--t3);fill:none;stroke-width:2;stroke-linecap:round}
+
+/* Calendar */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0}
+.cal-month{font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.cal-nav-btns{display:flex;gap:6px}
+.cal-nav-btn{
+  width:32px;height:32px;border-radius:var(--r1);
+  background:var(--s2);border:1px solid var(--b1);
+  color:var(--t1);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .12s;
+}
+.cal-nav-btn:active{background:var(--s3)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:12px 16px}
+.cal-dh{font-size:9px;font-weight:700;text-align:center;color:var(--t3);padding:4px 0;text-transform:uppercase;letter-spacing:.06em}
+.cal-cell{aspect-ratio:1;border-radius:var(--r1);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;position:relative}
+.cal-cell:active{transform:scale(.88)}
+.cn{font-size:13px;font-weight:700}
+.cs{font-size:7px;font-weight:700;margin-top:1px}
+.c-free{background:var(--gs)}.c-free .cn{color:var(--green)}.c-free .cs{color:var(--green);opacity:.8}
+.c-busy{background:var(--rs)}.c-busy .cn{color:var(--red)}.c-busy .cs{color:var(--red);opacity:.8}
+.c-part{background:var(--ams)}.c-part .cn{color:var(--amber)}.c-part .cs{color:var(--amber);opacity:.8}
+.c-past{background:transparent}.c-past .cn{color:var(--t3)}.c-past .cs{color:var(--t3)}
+.c-today{outline:2px solid var(--a);outline-offset:-2px}
+.cal-empty{aspect-ratio:1}
+.cal-legend{display:flex;gap:12px;justify-content:center;padding:0 16px 16px}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3);font-weight:600}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+
+/* Slot panel */
+.slot-panel{padding:16px;border-top:1px solid var(--b1)}
+.slot-panel-title{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:3px}
+.slot-panel-sub{font-size:12px;color:var(--t2);margin-bottom:14px;font-weight:500}
+.slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+.slot{
+  height:50px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;cursor:pointer;transition:all .13s;border:1.5px solid transparent;
+}
+.slot:active{transform:scale(.94)}
+.s-free{background:var(--gs);color:var(--green);border-color:rgba(45,212,160,.15)}
+.s-free:active{background:rgba(45,212,160,.2)}
+.s-taken{background:var(--s2);color:var(--t3);cursor:not-allowed}
+.s-sel{background:var(--a);color:#07221A;box-shadow:0 3px 14px rgba(0,229,168,.3)}
+
+/* Wizard progress */
+.wiz-progress{display:flex;gap:5px;padding:16px 20px 0}
+.wiz-step{height:3px;border-radius:var(--rf);flex:1;background:var(--s3);transition:background .3s}
+.wiz-step.done{background:var(--a)}
+.wiz-step.cur{background:var(--a);opacity:.5}
+
+/* Tab pills */
+.tab-pills{display:flex;gap:6px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tab-pills::-webkit-scrollbar{display:none}
+.tab-pill{
+  flex-shrink:0;padding:0 14px;height:32px;border-radius:var(--rf);
+  font-size:12px;font-weight:700;cursor:pointer;
+  background:var(--s2);color:var(--t2);border:1px solid var(--b1);
+  display:flex;align-items:center;gap:5px;transition:all .12s;
+}
+.tab-pill:active{transform:scale(.95)}
+.tab-pill.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.2)}
+.tab-count{background:var(--ams);color:var(--amber);padding:1px 5px;border-radius:var(--rf);font-size:10px}
+
+/* Bottom sheet overlay */
+.overlay{
+  position:absolute;inset:0;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(6px);
+  z-index:60;
+  display:none;flex-direction:column;justify-content:flex-end;
+}
+.overlay.show{display:flex;animation:fadein .2s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sheet{
+  background:var(--s1);border-radius:var(--r4) var(--r4) 0 0;
+  border:1px solid var(--b1);border-bottom:none;
+  padding:0 0 20px;
+  animation:slideup .28s cubic-bezier(.4,0,.2,1);
+}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:36px;height:4px;border-radius:var(--rf);background:var(--s3);margin:12px auto 16px}
+.sheet-title{font-size:18px;font-weight:800;color:var(--t1);padding:0 20px;letter-spacing:-.02em;margin-bottom:6px}
+.sheet-sub{font-size:13px;color:var(--t2);padding:0 20px 16px;border-bottom:1px solid var(--b1);margin-bottom:14px;font-weight:500;line-height:1.5}
+.sheet-body{padding:0 16px}
+.sheet-actions{display:flex;gap:8px;padding:0 16px;margin-top:8px}
+.sheet-actions .btn{font-size:14px;padding:13px}
+
+/* Profile */
+.profile-head{display:flex;flex-direction:column;align-items:center;padding:24px 20px 20px}
+.profile-av{
+  width:72px;height:72px;border-radius:var(--r3);
+  background:linear-gradient(135deg,var(--a),#009E73);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:800;color:#07221A;
+  margin-bottom:12px;
+}
+.profile-name{font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.profile-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 28px}
+.empty-icon{width:64px;height:64px;border-radius:var(--r3);background:var(--s2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;border:1px solid var(--b1)}
+.empty-icon svg{width:28px;height:28px;stroke:var(--t3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-title{font-size:17px;font-weight:800;color:var(--t1);margin-bottom:6px;letter-spacing:-.01em}
+.empty-desc{font-size:13px;color:var(--t2);line-height:1.6;max-width:220px;margin-bottom:20px;font-weight:500}
+
+/* Notif badge */
+.notif-badge{
+  position:absolute;top:-3px;right:-3px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--bg);
+}
+
+/* Scroll content fill */
+.scroll-fill{padding-bottom:24px}
+
+/* Success screen */
+.success-hero{
+  display:flex;flex-direction:column;align-items:center;
+  padding:40px 20px 24px;text-align:center;
+}
+.success-icon{
+  width:80px;height:80px;border-radius:50%;
+  background:var(--gs);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;
+  border:2px solid rgba(45,212,160,.3);
+}
+.success-icon svg{width:36px;height:36px;stroke:var(--green);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.success-title{font-size:24px;font-weight:800;color:var(--t1);letter-spacing:-.02em;margin-bottom:6px}
+.success-sub{font-size:14px;color:var(--t2);font-weight:500;line-height:1.6}
+
+/* Detail rows */
+.detail-card{background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin:0 16px 10px}
+.detail-row{padding:10px 0;border-bottom:1px solid var(--b1);display:flex;flex-direction:column;gap:3px}
+.detail-row:last-child{border-bottom:none}
+.dr-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.dr-val{font-size:14px;font-weight:600;color:var(--t1)}
+.dr-val.link{color:var(--a)}
+
+/* Group title */
+.group-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:16px 20px 8px}
+
+/* Misc */
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.px-4{padding-left:16px;padding-right:16px}.mt-1{margin-top:4px}.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
+.pb-6{padding-bottom:24px}
+.w-full{width:100%}
+
+/* Outer layout hint */
+.outer-label{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  font-family:var(--font);font-size:12px;font-weight:700;
+  color:rgba(255,255,255,.25);letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;pointer-events:none;
+}
+/* Slider */
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--a);cursor:pointer;box-shadow:0 2px 8px rgba(0,229,168,.4);border:2px solid var(--bg)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--a);cursor:pointer;border:2px solid var(--bg)}
+
+/* Inline edit overlay */
+.ieo{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:80;display:none;align-items:center;justify-content:center}
+.ieo.show{display:flex;animation:fadein .15s}
+.ieo-box{background:var(--s1);border-radius:20px;padding:20px;width:250px;border:1px solid var(--b1)}
+.ieo-title{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.ieo-inp{width:100%;background:var(--s2);border:1.5px solid var(--a);border-radius:8px;padding:0 12px;height:48px;font-family:var(--font);font-size:22px;font-weight:800;color:var(--t1);outline:none;text-align:center}
+.ieo-sfx{font-size:13px;color:var(--t2);text-align:center;margin-top:5px}
+.ieo-btns{display:flex;gap:8px;margin-top:14px}
+.ieo-ok{flex:1;background:var(--a);color:#07221A;border:none;border-radius:999px;padding:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer}
+.ieo-cancel{flex:1;background:var(--s3);color:var(--t2);border:none;border-radius:999px;padding:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer}
+
+@media(max-width:500px){body{padding:0;align-items:flex-start}.shell{width:100%;height:100vh;border-radius:0;border:none}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span>9:41</span>
+    <div class="sb-right">
+      <div class="sb-icon"><svg viewBox="0 0 24 24"><path d="M1.5 8.5a13 13 0 0 1 21 0M5 12a10 10 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg></div>
+      <div class="sb-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v2" stroke-width="2.5"/></svg></div>
+    </div>
+  </div>
+
+  <!-- Screens -->
+  <div class="screens" id="screens">
+
+    <!-- ═══════════════════════════════
+         HOME
+    ════════════════════════════════ -->
+    <div class="screen active" id="s-home">
+
+      <!-- Header -->
+      <div style="padding:20px 20px 0;display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:26px;font-family:Manrope;line-height:1.1;letter-spacing:-.02em">
+            <span style="font-weight:800;color:#EDF2F0">Привет, Иван </span><span style="font-weight:400;color:#EDF2F0">👋</span>
+          </div>
+          <div style="font-size:20px;font-family:Manrope;line-height:1.1;margin-top:4px">
+            <span style="font-weight:800;color:#EDF2F0">У тебя </span><span style="font-weight:800;color:#00E5A8">3 встречи</span><span style="font-weight:800;color:#EDF2F0"> на сегодня</span>
+          </div>
+        </div>
+        <div onclick="navTab('s-profile','nav-profile')" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00E5A8,#009E73);box-shadow:0 2px 12px rgba(0,229,168,.3);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;font-family:Manrope;color:#07221A;flex-shrink:0;cursor:pointer">И</div>
+      </div>
+
+      <!-- Hero: Ближайшая встреча (confirmed) -->
+      <div id="hero-confirmed" style="margin:32px 16px 0;background:#182020;border-radius:20px;padding:18px;border:1px solid rgba(0,229,168,.18)">
+        <div style="font-size:10px;font-weight:700;font-family:Manrope;text-transform:uppercase;letter-spacing:.12em;color:#00E5A8;margin-bottom:8px">Ближайшая встреча</div>
+        <div style="font-size:18px;font-weight:800;font-family:Manrope;color:#fff">Анна Смирнова</div>
+        <div style="font-size:13px;font-weight:500;font-family:Manrope;color:#fff;margin-top:2px">Консультация по маркетингу</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">
+          <div>
+            <div style="font-size:30px;font-weight:800;font-family:Manrope;color:#fff;line-height:1">15:00</div>
+            <div style="font-size:12px;font-weight:500;font-family:Manrope;color:#ACB0AF;margin-top:2px">2 апр · 60 мин · Jitsi</div>
+          </div>
+          <button onclick="nav('s-meet-detail')" style="height:40px;padding:0 16px;background:#00E5A8;border:none;border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#000;cursor:pointer;white-space:nowrap;flex-shrink:0">Подключиться</button>
+        </div>
+      </div>
+
+      <!-- Hero: до встречи < 1 ч (orange) -->
+      <div id="hero-unconfirmed" style="display:none;margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3)">
+        <div style="font-size:10px;font-weight:700;font-family:Manrope;text-transform:uppercase;letter-spacing:.12em;color:#F5A623;margin-bottom:8px">До встречи меньше часа</div>
+        <div style="font-size:18px;font-weight:800;font-family:Manrope;color:#fff">Анна Смирнова</div>
+        <div style="font-size:13px;font-weight:500;font-family:Manrope;color:#fff;margin-top:2px">Консультация по маркетингу</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">
+          <div>
+            <div style="font-size:30px;font-weight:800;font-family:Manrope;color:#fff;line-height:1">15:00</div>
+            <div style="font-size:12px;font-weight:500;font-family:Manrope;color:#ACB0AF;margin-top:2px">2 апр · 60 мин · Jitsi</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button onclick="confirmMeeting()" style="flex:1;height:40px;background:rgba(45,212,160,.13);border:none;border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#00E5A8;cursor:pointer">Подтвердить</button>
+          <button onclick="showSheet('sheet-cancel')" style="flex:1;height:40px;background:rgba(240,100,73,.13);border:none;border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#F06449;cursor:pointer">Отклонить</button>
+        </div>
+      </div>
+
+      <!-- Hero: ждём ответа участника (blue) -->
+      <div id="hero-org-waiting" style="display:none;margin:32px 16px 0;background:#0A111E;border-radius:20px;padding:18px;border:1px solid rgba(91,142,255,.3)">
+        <div style="font-size:10px;font-weight:700;font-family:Manrope;text-transform:uppercase;letter-spacing:.12em;color:#7AAAFF;margin-bottom:8px">Ждём ответа от участника</div>
+        <div style="font-size:18px;font-weight:800;font-family:Manrope;color:#fff">Анна Смирнова</div>
+        <div style="font-size:13px;font-weight:500;font-family:Manrope;color:#fff;margin-top:2px">Консультация по маркетингу</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">
+          <div>
+            <div style="font-size:30px;font-weight:800;font-family:Manrope;color:#fff;line-height:1">15:00</div>
+            <div style="font-size:12px;font-weight:500;font-family:Manrope;color:#ACB0AF;margin-top:2px">2 апр · 60 мин · Jitsi</div>
+          </div>
+          <button onclick="nav('s-meet-noans')" style="height:40px;padding:0 16px;background:rgba(91,142,255,.15);border:1px solid rgba(91,142,255,.3);border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#7AAAFF;cursor:pointer;white-space:nowrap;flex-shrink:0">Написать</button>
+        </div>
+      </div>
+
+      <!-- Section header -->
+      <div style="padding:32px 20px 12px;font-size:11px;font-weight:700;font-family:Manrope;text-transform:uppercase;letter-spacing:.11em;color:#ACB0AF">Встречи сегодня</div>
+
+      <!-- Михаил Петров — Нет ответа -->
+      <div onclick="nav('s-meet-noans')" style="margin:0 16px 8px;background:#121918;border-radius:14px;padding:14px 16px;cursor:pointer">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;font-family:Manrope;color:#fff">Михаил Петров</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#fff;margin-top:1px">11:00 – 11:45</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#ACB0AF;margin-top:2px">Демо продукта</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;white-space:nowrap;padding-top:2px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7AAAFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span style="font-size:11px;font-weight:700;font-family:Manrope;color:#7AAAFF;line-height:14px">Нет ответа</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Елена Козлова — Ожидает (с кнопками) -->
+      <div style="margin:0 16px 8px;background:#121918;border-radius:14px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;font-family:Manrope;color:#fff">Елена Козлова</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#fff;margin-top:1px">14:00 – 15:30</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#ACB0AF;margin-top:2px">Стратегическая сессия</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;white-space:nowrap;padding-top:2px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span style="font-size:11px;font-weight:700;font-family:Manrope;color:#F5A623;line-height:14px">Ожидает</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="confirmMeeting()" style="flex:1;height:40px;background:rgba(45,212,160,.13);border:none;border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#00E5A8;cursor:pointer">Подтвердить</button>
+          <button onclick="showSheet('sheet-cancel')" style="flex:1;height:40px;background:rgba(240,100,73,.13);border:none;border-radius:999px;font-family:Manrope;font-size:13px;font-weight:700;color:#F06449;cursor:pointer">Отклонить</button>
+        </div>
+      </div>
+
+      <!-- Анна Смирнова — Всё в силе -->
+      <div onclick="nav('s-meet-detail')" style="margin:0 16px 8px;background:#121918;border-radius:14px;padding:14px 16px;cursor:pointer">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;font-family:Manrope;color:#fff">Анна Смирнова</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#fff;margin-top:1px">15:00 – 16:00</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#ACB0AF;margin-top:2px">Консультация по маркетингу</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;white-space:nowrap;padding-top:2px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2DD4A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>
+            <span style="font-size:11px;font-weight:700;font-family:Manrope;color:#2DD4A0;line-height:14px">Всё в силе</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Павел Орлов — Отменено -->
+      <div style="margin:0 16px 8px;background:#121918;border-radius:14px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;font-family:Manrope;color:#fff">Павел Орлов</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#fff;margin-top:1px">17:00 – 18:00</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#ACB0AF;margin-top:2px">Демо продукта</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:3px;white-space:nowrap;padding-top:2px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F06449" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span style="font-size:11px;font-weight:700;font-family:Manrope;color:#F06449;line-height:14px">Отменено</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         MEETINGS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-meetings">
+      <div class="page-head" style="padding-bottom:4px">
+        <div class="page-title">Встречи</div>
+      </div>
+      <div class="tab-pills" style="padding-top:8px">
+        <div class="tab-pill on" id="mtab-confirm" onclick="switchMeetStatus('confirm',this)">Нужно подтвердить</div>
+        <div class="tab-pill" id="mtab-all" onclick="switchMeetStatus('all',this)">Все</div>
+        <div class="tab-pill" id="mtab-noans" onclick="switchMeetStatus('noans',this)">Нет ответа</div>
+        <div class="tab-pill" id="mtab-ok" onclick="switchMeetStatus('ok',this)">Всё в силе</div>
+        <div class="tab-pill" id="mtab-archive" onclick="switchMeetStatus('archive',this)">Архив</div>
+      </div>
+      <!-- Скрытый дропдаун группировки — позиционируется через JS -->
+      <div id="group-menu" style="display:none;position:fixed;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden;z-index:200;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.6)">
+        <div onclick="switchMeetGroup('date')" class="group-menu-item" style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--a);cursor:pointer;display:flex;align-items:center;gap:8px;background:var(--as)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>По дате
+        </div>
+        <div onclick="switchMeetGroup('fmt')" class="group-menu-item" style="padding:11px 16px;font-size:13px;font-weight:600;color:var(--t1);cursor:pointer;border-top:1px solid var(--b1);display:flex;align-items:center;gap:8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>По расписаниям
+        </div>
+      </div>
+      <div id="meetings-list"></div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         MEETING DETAIL
+    ════════════════════════════════ -->
+    <div class="screen" id="s-meet-detail">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div class="inner-title">Встреча</div>
+      </div>
+      <div style="padding:20px 16px 0">
+        <div class="flex items-center" style="gap:14px;margin-bottom:20px">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--a);border:1px solid rgba(45,212,160,.25)">АС</div>
+          <div>
+            <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Анна Смирнова</div>
+            <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">@anna_smirnova</div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-card" style="border-color:rgba(45,212,160,.25)">
+        <div class="detail-row">
+          <div class="dr-label">Расписание</div>
+          <div class="dr-val">Консультация по маркетингу</div>
+        </div>
+        <div class="detail-row">
+          <div class="dr-label">Дата и время</div>
+          <div class="dr-val">Сегодня, 2 апреля · 15:00 – 16:00</div>
+        </div>
+        <div class="detail-row">
+          <div class="dr-label">Статус</div>
+          <div class="dr-val"><div class="mst mst-confirmed"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="mst-label">Всё в силе</span></div></div>
+        </div>
+        <div class="detail-row">
+          <div class="dr-label">Место</div>
+          <div class="dr-val">Jitsi Meet · <span style="color:var(--a)">meet.jit.si/dovstrechi-a3b2</span></div>
+        </div>
+        <div class="detail-row" style="border-bottom:none">
+          <div class="dr-label">Контакт</div>
+          <div class="dr-val" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>@anna_smirnova · Telegram</span>
+            <button style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Написать
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 16px;display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px">Подключиться</button>
+        <button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="showSheet('sheet-cancel-meet')">Отменить встречу</button>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         MEET DETAIL — CANCELLED
+    ════════════════════════════════ -->
+    <div class="screen" id="s-meet-cancelled">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div class="inner-title">Встреча</div>
+      </div>
+      <div style="padding:20px 16px 0">
+        <div class="flex items-center" style="gap:14px;margin-bottom:20px">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--red);border:1px solid rgba(240,100,73,.25)">ПО</div>
+          <div>
+            <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Павел Орлов</div>
+            <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">@p_orlov</div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-card" style="border-color:rgba(240,100,73,.25)">
+        <div class="detail-row"><div class="dr-label">Расписание</div><div class="dr-val">Демо продукта</div></div>
+        <div class="detail-row"><div class="dr-label">Дата и время</div><div class="dr-val">4 апреля · 17:00 – 18:00</div></div>
+        <div class="detail-row"><div class="dr-label">Статус</div><div class="dr-val"><div class="mst mst-cancelled"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="mst-label">Отменено</span></div></div></div>
+        <div class="detail-row"><div class="dr-label">Место</div><div class="dr-val">Zoom</div></div>
+        <div class="detail-row" style="border-bottom:none">
+          <div class="dr-label">Контакт</div>
+          <div class="dr-val" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>@p_orlov · Telegram</span>
+            <button style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Написать
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 16px">
+        <div style="background:var(--rs);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="var(--red)"/></svg>
+          <span style="font-size:13px;color:var(--red);font-weight:600">Встреча была отменена участником</span>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         MEET DETAIL — PENDING CONFIRM
+    ════════════════════════════════ -->
+    <div class="screen" id="s-meet-pending">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div class="inner-title">Встреча</div>
+      </div>
+      <div style="padding:20px 16px 0">
+        <div class="flex items-center" style="gap:14px;margin-bottom:20px">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--amber);border:1px solid rgba(245,166,35,.3)">ЕК</div>
+          <div>
+            <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Елена Козлова</div>
+            <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">@elena_kozlova</div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-card" style="border-color:rgba(245,166,35,.3)">
+        <div class="detail-row"><div class="dr-label">Расписание</div><div class="dr-val">Стратегическая сессия</div></div>
+        <div class="detail-row"><div class="dr-label">Дата и время</div><div class="dr-val">Завтра, 3 апреля · 14:00 – 15:30</div></div>
+        <div class="detail-row"><div class="dr-label">Статус</div><div class="dr-val"><div class="mst mst-pending"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="mst-label">Ожидает</span></div></div></div>
+        <div class="detail-row"><div class="dr-label">Место</div><div class="dr-val">Zoom</div></div>
+        <div class="detail-row" style="border-bottom:none">
+          <div class="dr-label">Контакт</div>
+          <div class="dr-val" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>@elena_kozlova · Telegram</span>
+            <button style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Написать
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="padding:0 16px;display:flex;gap:8px">
+        <button class="btn btn-confirm" style="flex:1;height:40px;padding:0;font-size:13px" onclick="confirmMeeting()">Подтвердить</button>
+        <button class="btn btn-danger" style="flex:1;height:40px;padding:0;font-size:13px" onclick="showSheet('sheet-cancel')">Отклонить</button>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         MEET DETAIL — NO ANSWER
+    ════════════════════════════════ -->
+    <div class="screen" id="s-meet-noans">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div class="inner-title">Встреча</div>
+      </div>
+      <div style="padding:20px 16px 0">
+        <div class="flex items-center" style="gap:14px;margin-bottom:20px">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#7aaaff;border:1px solid rgba(91,142,255,.25)">МП</div>
+          <div>
+            <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Михаил Петров</div>
+            <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">@m_petrov</div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-card" style="border-color:rgba(91,142,255,.25)">
+        <div class="detail-row"><div class="dr-label">Расписание</div><div class="dr-val">Демо продукта</div></div>
+        <div class="detail-row"><div class="dr-label">Дата и время</div><div class="dr-val">Завтра, 3 апреля · 11:00 – 11:45</div></div>
+        <div class="detail-row"><div class="dr-label">Статус</div><div class="dr-val"><div class="mst mst-noans"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="mst-label">Нет ответа</span></div></div></div>
+        <div class="detail-row"><div class="dr-label">Место</div><div class="dr-val">Zoom</div></div>
+        <div class="detail-row" style="border-bottom:none">
+          <div class="dr-label">Контакт</div>
+          <div class="dr-val">@m_petrov · Telegram</div>
+        </div>
+      </div>
+      <div style="padding:0 16px;display:flex;gap:8px">
+        <button class="btn" style="flex:1;height:40px;padding:0;font-size:13px;background:rgba(91,142,255,.15);color:#7AAAFF;border:1px solid rgba(91,142,255,.3)">Написать</button>
+        <button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="showSheet('sheet-cancel-meet')">Отменить встречу</button>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         LINKS (Типы встреч)
+    ════════════════════════════════ -->
+    <div class="screen" id="s-links">
+      <div class="page-head">
+        <div class="page-title">Расписания</div>
+      </div>
+      <div style="height:14px"></div>
+      <!-- Create button inside Formats -->
+      <div onclick="nav('s-create-1')" style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:rgba(0,229,168,.1);border-radius:14px;margin:0 16px 14px;border:1.5px dashed rgba(0,229,168,.3);cursor:pointer;transition:all .14s">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span style="font-size:14px;font-weight:700;color:var(--a)">Создать расписание</span>
+      </div>
+      <!-- С описанием, с иконкой -->
+      <div class="link-card" onclick="nav('s-link-detail')" style="padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Консультация по маркетингу</div>
+          <span class="badge b-green" style="flex-shrink:0">Активно</span>
+        </div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Обсудим вашу маркетинговую стратегию</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0">
+            <span class="lc-pill">60 мин</span><span class="lc-pill">Пн–Пт</span><span class="lc-pill">10:00–18:00</span><span class="lc-pill">Jitsi</span>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="lc-btn lc-copy" onclick="event.stopPropagation();copyToast()" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="lc-btn lc-share" onclick="event.stopPropagation();showSheet('sheet-share')" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <!-- Без описания, без иконки -->
+      <div class="link-card" onclick="nav('s-link-detail')" style="padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <div class="lc-name" style="font-size:15px;flex:1;min-width:0">Демо продукта</div>
+          <span class="badge b-green" style="flex-shrink:0">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0">
+            <span class="lc-pill">45 мин</span><span class="lc-pill">Пн–Чт</span><span class="lc-pill">11:00–17:00</span><span class="lc-pill">Zoom</span>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="lc-btn lc-copy" onclick="event.stopPropagation();copyToast()" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="lc-btn lc-share" onclick="event.stopPropagation();showSheet('sheet-share')" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <!-- На паузе, с иконкой, с описанием -->
+      <div class="link-card" onclick="nav('s-link-detail')" style="padding:14px 16px;opacity:.65">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Стратегическая сессия</div>
+          <span class="badge b-amber" style="flex-shrink:0">На паузе</span>
+        </div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Глубокий разбор стратегии роста</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0">
+            <span class="lc-pill">90 мин</span><span class="lc-pill">Вт–Чт</span><span class="lc-pill">14:00–19:00</span>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="lc-btn lc-copy" onclick="event.stopPropagation();copyToast()" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="lc-btn lc-share" onclick="event.stopPropagation();showSheet('sheet-share')" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         LINK DETAIL / EDIT
+    ════════════════════════════════ -->
+    <div class="screen" id="s-link-detail">
+      <div class="inner-header">
+        <button class="back-btn" onclick="scheduleBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Консультация</div>
+        <button class="inner-action" onclick="showSheet('sheet-link-menu')">•••</button>
+      </div>
+      <div style="padding:16px">
+        <div class="inp-wrap">
+          <div class="inp-label">Название</div>
+          <input class="inp" id="sl-name-inp" value="Консультация по маркетингу" oninput="markScheduleDirty()">
+        </div>
+        <div class="inp-wrap"><div class="inp-label">Описание</div><textarea class="inp" rows="2" placeholder="Опционально" oninput="markScheduleDirty()">Обсудим вашу маркетинговую стратегию</textarea></div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div class="inp-label">Длительность</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" id="sl-dur" min="5" max="480" step="5" value="60" oninput="updateSliderSmart(this,'sl-dur-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="sl-dur-val" onclick="openSliderEdit('sl-dur','sl-dur-val',5,2880,'мин','Длительность встречи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">60 мин</div>
+          </div>
+        </div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div class="inp-label">Перерыв между встречами</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" id="sl-buf" min="0" max="120" step="5" value="0" oninput="updateSliderSmart(this,'sl-buf-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="sl-buf-val" onclick="openSliderEdit('sl-buf','sl-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
+          </div>
+        </div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div class="inp-label">Минимум времени до записи</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" id="sl-mbw" min="0" max="120" step="15" value="60" oninput="updateSliderSmart(this,'sl-mbw-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="sl-mbw-val" onclick="openSliderEdit('sl-mbw','sl-mbw-val',0,2880,'мин','Минимум до записи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">60 мин</div>
+          </div>
+        </div>
+        <div class="inp-wrap">
+          <div class="inp-label">Рабочие дни</div>
+          <div class="chips mt-1">
+            <div class="chip chip-day on" onclick="this.classList.toggle('on');markScheduleDirty()">Пн</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on');markScheduleDirty()">Вт</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on');markScheduleDirty()">Ср</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on');markScheduleDirty()">Чт</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on');markScheduleDirty()">Пт</div>
+            <div class="chip chip-day" onclick="this.classList.toggle('on');markScheduleDirty()">Сб</div>
+            <div class="chip chip-day" onclick="this.classList.toggle('on');markScheduleDirty()">Вс</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" class="mt-2">
+          <div class="inp-wrap"><div class="inp-label">Начало</div><input class="inp" value="10:00" type="time" oninput="markScheduleDirty()"></div>
+          <div class="inp-wrap"><div class="inp-label">Конец</div><input class="inp" value="18:00" type="time" oninput="markScheduleDirty()"></div>
+        </div>
+        <div class="inp-wrap">
+          <div class="inp-label">Платформа</div>
+          <div class="chips mt-1">
+            <div class="chip on" onclick="pickPlatEdit(this)">Jitsi Meet</div>
+            <div class="chip" onclick="pickPlatEdit(this)">Zoom</div>
+            <div class="chip" onclick="pickPlatEdit(this)">Google Meet</div>
+            <div class="chip" onclick="pickPlatEdit(this)">Своя ссылка</div>
+          </div>
+          <div id="sl-link-wrap" style="display:none;margin-top:8px">
+            <input class="inp" id="sl-link-inp" placeholder="Вставьте ссылку на конференцию…" oninput="markScheduleDirty()">
+          </div>
+        </div>
+        <div style="background:var(--s2);border-radius:var(--r2);padding:14px;border:1px solid var(--b1);margin-bottom:14px">
+          <div class="tog-row" style="padding:0;border-bottom:none">
+            <div class="tog-info"><div class="tog-title">Подтверждать вручную</div><div class="tog-sub">Вам будет приходить заявка на согласование каждой встречи</div></div>
+            <div class="tog" onclick="this.classList.toggle('on');markScheduleDirty()"></div>
+          </div>
+        </div>
+        <button class="btn btn-disabled" id="sl-save-btn" onclick="saveScheduleChanges()">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Сохранить изменения
+        </button>
+        <div style="height:8px"></div>
+        <button class="btn" style="background:var(--ams);color:var(--amber);border:1px solid rgba(245,166,35,.2)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+          Поставить на паузу
+        </button>
+        <div style="height:8px"></div>
+        <button class="btn btn-danger" onclick="showSheet('sheet-deactivate')">Удалить расписание</button>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CREATE LINK WIZARD — STEP 1
+    ════════════════════════════════ -->
+    <div class="screen" id="s-create-1">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Новое расписание</div>
+      </div>
+      <div class="wiz-progress"><div class="wiz-step done"></div><div class="wiz-step"></div><div class="wiz-step"></div></div>
+      <div style="padding:20px 16px 0">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:4px">Шаг 1 из 3</div>
+        <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em;margin-bottom:20px">Основное</div>
+        <div class="inp-wrap">
+          <div class="inp-label">Название *</div>
+          <input class="inp" placeholder="Например: Консультация, Демо, Звонок" id="c1-name">
+        </div>
+        <div class="inp-wrap"><div class="inp-label">Описание</div><textarea class="inp" rows="3" placeholder="Расскажите, о чём встреча…"></textarea></div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div class="inp-label">Длительность *</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" id="c1-dur" min="5" max="480" step="5" value="30" oninput="updateSliderSmart(this,'c1-dur-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="c1-dur-val" onclick="openSliderEdit('c1-dur','c1-dur-val',5,2880,'мин','Длительность встречи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">30 мин</div>
+          </div>
+        </div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div class="inp-label">Перерыв между встречами</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" id="c1-buf" min="0" max="120" step="5" value="0" oninput="updateSliderSmart(this,'c1-buf-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="c1-buf-val" onclick="openSliderEdit('c1-buf','c1-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
+          </div>
+        </div>
+        <div class="inp-wrap" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <div class="inp-label" style="margin:0">Минимум времени до записи</div>
+            <div style="position:relative;display:inline-flex" onclick="var t=document.getElementById('tt-mbw');t.style.display=t.style.display==='block'?'none':'block'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="cursor:pointer"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="var(--t3)"/></svg>
+              <div id="tt-mbw" style="display:none;position:absolute;bottom:calc(100%+8px);left:50%;transform:translateX(-50%);background:var(--s4);color:var(--t1);padding:8px 12px;border-radius:12px;font-size:11px;font-weight:500;z-index:50;border:1px solid var(--b1);box-shadow:0 4px 16px rgba(0,0,0,.5);line-height:1.5;width:200px;text-align:center">Если до встречи осталось меньше N минут — запись недоступна</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <input type="range" id="c1-mbw" min="0" max="120" step="15" value="60" oninput="updateSliderSmart(this,'c1-mbw-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+            <div id="c1-mbw-val" onclick="openSliderEdit('c1-mbw','c1-mbw-val',0,2880,'мин','Минимум до записи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">60 мин</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:12px 16px 16px">
+        <button class="btn btn-primary" onclick="nav('s-create-2')">Далее →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CREATE LINK WIZARD — STEP 2
+    ════════════════════════════════ -->
+    <div class="screen" id="s-create-2">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Новое расписание</div>
+      </div>
+      <div class="wiz-progress"><div class="wiz-step done"></div><div class="wiz-step done"></div><div class="wiz-step cur"></div></div>
+      <div style="padding:20px 16px 0">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:4px">Шаг 2 из 3</div>
+        <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em;margin-bottom:20px">Расписание</div>
+        <div class="inp-wrap">
+          <div class="inp-label">Рабочие дни *</div>
+          <div class="chips mt-1">
+            <div class="chip chip-day on" onclick="this.classList.toggle('on')">Пн</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on')">Вт</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on')">Ср</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on')">Чт</div>
+            <div class="chip chip-day on" onclick="this.classList.toggle('on')">Пт</div>
+            <div class="chip chip-day" onclick="this.classList.toggle('on')">Сб</div>
+            <div class="chip chip-day" onclick="this.classList.toggle('on')">Вс</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="inp-wrap"><div class="inp-label">Начало дня *</div><input class="inp" value="10:00" type="time"></div>
+          <div class="inp-wrap"><div class="inp-label">Конец дня *</div><input class="inp" value="18:00" type="time"></div>
+        </div>
+        <div style="background:var(--s2);border-radius:var(--r2);padding:14px;border:1px solid var(--b1)">
+          <div class="tog-row" style="padding:0;border-bottom:none">
+            <div class="tog-info"><div class="tog-title">Подтверждать вручную</div><div class="tog-sub">Вам будет приходить заявка на согласование каждой встречи</div></div>
+            <div class="tog" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:12px 16px 16px">
+        <button class="btn btn-primary" onclick="nav('s-create-3')">Далее →</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CREATE LINK WIZARD — STEP 3
+    ════════════════════════════════ -->
+    <div class="screen" id="s-create-3">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Новое расписание</div>
+      </div>
+      <div class="wiz-progress"><div class="wiz-step done"></div><div class="wiz-step done"></div><div class="wiz-step done"></div></div>
+      <div style="padding:20px 16px 0">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:4px">Шаг 3 из 3</div>
+        <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em;margin-bottom:20px">Платформа</div>
+        <div class="inp-wrap">
+          <div class="inp-label">Платформа для встречи *</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px" id="plat-options">
+            <div class="plat-opt on" onclick="pickPlat(this)" style="display:flex;align-items:center;gap:12px;background:var(--ad);border:1.5px solid rgba(0,229,168,.3);border-radius:var(--r2);padding:14px">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--as);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--a)">Jitsi Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Ссылка создаётся автоматически</div></div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="plat-opt" data-needs-link="1" onclick="pickPlat(this)" style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--t1)">Zoom</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Укажите вашу ссылку</div></div>
+            </div>
+            <div class="plat-opt" data-needs-link="1" onclick="pickPlat(this)" style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--t1)">Google Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Укажите вашу ссылку</div></div>
+            </div>
+            <div class="plat-opt" data-needs-link="1" onclick="pickPlat(this)" style="display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--t1)">Своя ссылка</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Любая конференция</div></div>
+            </div>
+            <div id="plat-link-wrap" style="display:none;margin-top:4px">
+              <input class="inp" id="plat-link-inp" placeholder="Вставьте ссылку на конференцию…">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:12px 16px 16px">
+        <button class="btn btn-primary" onclick="nav('s-create-success')">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Создать расписание
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CREATE SUCCESS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-create-success">
+      <div class="success-hero">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-title">Ура, ваше расписание готово!</div>
+        <div class="success-sub">Не забудьте поделиться ссылкой, чтобы другие смогли забронировать ваше время и До встречи!</div>
+      </div>
+      <div style="background:var(--s1);border-radius:var(--r3);margin:0 16px;border:1px solid var(--b1);padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Ваша ссылка</div>
+        <div style="font-size:15px;font-weight:700;color:var(--a);margin-bottom:14px;word-break:break-all">dovstrechi.ru/ivan/konsult-2</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="padding:12px;font-size:14px;flex:1" onclick="showSheet('sheet-share')">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Поделиться
+          </button>
+          <button class="btn btn-secondary" style="padding:12px;font-size:14px;flex:1" onclick="copyToast()">
+            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Копировать
+          </button>
+        </div>
+      </div>
+      <div style="padding:12px 16px 0">
+        <button class="btn btn-secondary" onclick="nav('s-client-landing')" style="font-size:13px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Посмотреть как видит клиент
+        </button>
+      </div>
+      <div style="padding:8px 16px 16px">
+        <button class="btn btn-secondary" onclick="navTab('s-links','nav-links')">Перейти к расписаниям</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CALENDAR
+    ════════════════════════════════ -->
+    <div class="screen" id="s-calendar">
+      <div class="page-head">
+        <div class="page-title">Календарь</div>
+        <div class="page-sub">Загруженность по дням</div>
+      </div>
+      <div class="cal-nav">
+        <div class="cal-month" id="cal-month-label">Апрель 2026</div>
+        <div class="cal-nav-btns">
+          <div class="cal-nav-btn" onclick="changeMonth(-1)">‹</div>
+          <div class="cal-nav-btn" onclick="changeMonth(1)">›</div>
+        </div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-legend">
+        <div class="leg"><div class="leg-dot" style="background:var(--gs)"></div>Свободно</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--ams)"></div>Частично</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--rs)"></div>Занято</div>
+      </div>
+      <div id="slot-panel" style="display:none">
+        <div class="slot-panel">
+          <div class="slot-panel-title" id="sp-title">Слоты</div>
+          <div class="slot-panel-sub" id="sp-sub"></div>
+          <div class="slots-grid" id="sp-grid"></div>
+          <button class="btn btn-primary" id="sp-btn" style="display:none" onclick="showSheet('sheet-book-confirm')">Продолжить →</button>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         PROFILE / SETTINGS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-profile">
+      <div class="profile-head">
+        <div class="profile-av">И</div>
+        <div class="profile-name">Иван Цех</div>
+        <div class="profile-sub">@iwantproger · Telegram ID: 5109612976</div>
+      </div>
+
+      <div class="group-title">Расписание</div>
+      <div style="padding:0 16px">
+        <div class="settings-group">
+          <div class="set-row">
+            <div class="set-icon si-a"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="set-content"><div class="set-title">Принимать записи</div><div class="set-sub">При включении все смогут забронировать время в ваших расписаниях</div></div>
+            <div class="tog on" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-title">Уведомления</div>
+      <div style="padding:0 16px">
+        <div class="settings-group">
+          <div class="set-row">
+            <div class="set-icon si-a"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+            <div class="set-content"><div class="set-title">Новая запись</div></div>
+            <div class="tog on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div>
+            <div class="set-row" style="border-bottom:none" onclick="toggleNotifExpand()">
+              <div class="set-icon si-am"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <div class="set-content"><div class="set-title">Перед встречей</div></div>
+              <svg id="notif-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="transition:transform .2s;flex-shrink:0;transform:rotate(180deg)"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div id="notif-sub" style="padding:4px 16px 8px 58px;border-top:1px solid var(--b1)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b1)"><span style="font-size:13px;color:var(--t2)">За 1 час</span><div class="tog on" onclick="this.classList.toggle('on');notifToggleChanged()"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b1)"><span style="font-size:13px;color:var(--t2)">За 30 мин</span><div class="tog on" onclick="this.classList.toggle('on');notifToggleChanged()"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b1)"><span style="font-size:13px;color:var(--t2)">За 15 мин</span><div class="tog" onclick="this.classList.toggle('on');notifToggleChanged()"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--b1)"><span style="font-size:13px;color:var(--t2)">За 5 мин</span><div class="tog" onclick="this.classList.toggle('on');notifToggleChanged()"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0"><span style="font-size:13px;font-weight:700;color:var(--t2)">Никогда</span><div class="tog" id="tog-never" onclick="toggleNever(this)"></div></div>
+            </div>
+          </div>
+          <div class="set-row" style="border-top:1px solid var(--b1)">
+            <div class="set-icon si-r"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            <div class="set-content"><div class="set-title">Отмена встречи</div></div>
+            <div class="tog on" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-title">Интеграции</div>
+      <div style="padding:0 16px">
+        <div class="settings-group">
+          <div class="set-row" onclick="nav('s-integrations')">
+            <div class="set-icon si-b" style="background:rgba(91,142,255,.15);color:#7aaaff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="set-content"><div class="set-title">Календари и сервисы</div><div class="set-sub">Google, Яндекс, Zoom, Jitsi и др.</div></div>
+            <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div class="group-title">Ссылки</div>
+      <div style="padding:0 16px">
+        <div class="settings-group">
+          <div class="set-row">
+            <div class="set-icon si-a"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="set-content"><div class="set-title">Моя страница</div></div>
+            <div class="set-right">
+              <div class="set-val" style="font-size:11px">dovstrechi.ru/ivan</div>
+              <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-m"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="set-content"><div class="set-title">Часовой пояс</div></div>
+            <div class="set-right">
+              <div class="set-val">Europe/Moscow</div>
+              <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-title">Поддержка</div>
+      <div style="padding:0 16px">
+        <div class="settings-group">
+          <div class="set-row">
+            <div class="set-icon si-m"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+            <div class="set-content"><div class="set-title">Связаться с поддержкой</div></div>
+            <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-m"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+            <div class="set-content"><div class="set-title">Оценить приложение</div></div>
+            <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — ORGANIZER PROFILE
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-start">
+      <div style="padding:0 16px">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 0 24px">
+          <div style="width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#07221A;margin-bottom:14px">И</div>
+          <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Иван Цех</div>
+          <div style="font-size:14px;color:var(--t2);margin-top:4px">@iwantproger</div>
+        </div>
+        <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:10px">Тип встречи</div>
+          <div style="font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.01em">Консультация по маркетингу</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+            <span class="lc-pill">60 мин</span><span class="lc-pill">Видеозвонок</span><span class="lc-pill">Jitsi</span>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--b1);font-size:13px;color:var(--t2);line-height:1.6">
+            Обсудим вашу маркетинговую стратегию и найдём точки роста
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="nav('s-client-calendar')">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+          Выбрать время →
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — CALENDAR
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-calendar">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Выберите время</div>
+      </div>
+      <div style="padding:8px 0">
+        <div class="cal-nav">
+          <div class="cal-month">Апрель 2026</div>
+          <div class="cal-nav-btns">
+            <div class="cal-nav-btn">‹</div><div class="cal-nav-btn">›</div>
+          </div>
+        </div>
+        <div class="cal-grid" id="cal-grid-client"></div>
+        <div id="client-slot-panel" style="display:none">
+          <div class="slot-panel">
+            <div class="slot-panel-title" id="csp-title"></div>
+            <div class="slot-panel-sub" id="csp-sub">Выберите удобное время</div>
+            <div class="slots-grid" id="csp-grid"></div>
+            <button class="btn btn-primary" id="csp-btn" style="display:none" onclick="nav('s-client-confirm')">Продолжить →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — CONFIRM
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-confirm">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Подтвердить запись</div>
+      </div>
+      <div style="padding:16px">
+        <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">Ваша встреча</div>
+          <div style="font-size:17px;font-weight:800;color:var(--t1)">7 апреля · 14:00 – 15:00</div>
+          <div style="font-size:13px;color:var(--t2);margin-top:4px;font-weight:500">Консультация по маркетингу · 60 мин</div>
+          <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">Иван Цех · Jitsi Meet</div>
+        </div>
+        <div class="inp-wrap"><div class="inp-label">Ваше имя</div><input class="inp" value="Мария Иванова" placeholder="Из Telegram"></div>
+        <div class="inp-wrap"><div class="inp-label">Telegram</div><input class="inp" value="@maria_ivanova" placeholder="@username"></div>
+        <div style="background:var(--s2);border-radius:var(--r2);padding:13px 14px;border:1px solid var(--b1);margin-bottom:16px;font-size:13px;color:var(--t2);line-height:1.5">
+          После бронирования вы получите ссылку на Jitsi в Telegram
+        </div>
+        <button class="btn btn-primary" onclick="nav('s-client-success')">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Забронировать
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — SUCCESS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-success">
+      <div class="success-hero">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-title">Встреча забронирована!</div>
+        <div class="success-sub">7 апреля · 14:00 – 15:00<br>Консультация по маркетингу</div>
+      </div>
+      <div style="background:var(--s1);border-radius:var(--r3);margin:0 16px;border:1px solid var(--b1);padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#07221A">И</div>
+          <div><div style="font-size:15px;font-weight:700;color:var(--t1)">Иван Цех</div><div style="font-size:12px;color:var(--t2)">@iwantproger</div></div>
+        </div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6">
+          Ссылка на Jitsi придёт в Telegram за 15 минут до встречи
+        </div>
+      </div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary">
+          <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+          Открыть Jitsi
+        </button>
+        <button class="btn btn-secondary">Готово</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         INTEGRATIONS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-integrations">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Интеграции</div>
+      </div>
+      <div class="group-title">Календари</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#34A853;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Google Календарь</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Синхронизация занятых слотов</div></div>
+          <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8460C;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Яндекс Календарь</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Синхронизация занятых слотов</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#555;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Apple Calendar</div><div style="font-size:12px;color:var(--t2);margin-top:2px">CalDAV синхронизация</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#0072C6;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Microsoft Outlook</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Office 365 / Exchange</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#4A4A4A;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">CalDAV</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Любой CalDAV-совместимый сервис</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+      </div>
+      <div class="group-title">Видеозвонки</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#1E88B4;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Jitsi Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Встроено · ссылки создаются автоматически</div></div>
+          <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#2D8CFF;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Zoom</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Введите ссылку на конференцию</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#00897B;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Google Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">OAuth-интеграция</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#FFCC00;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Яндекс Телемост</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Видеоконференции Яндекса</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#C12D2D;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Контур.Толк</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Корпоративный видеосервис</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#21A038;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">SberJazz</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Видеоконференции от Сбера</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+      </div>
+      <div class="group-title">Мессенджеры</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px;padding-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#2AABEE;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Telegram</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уже подключён через бот</div></div>
+          <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">WhatsApp</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уведомления через WhatsApp</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#005FF9;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Mail.ru</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уведомления на e-mail</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(22,163,74,.14);color:#16A34A;border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+    <div class="screen" id="s-client-start">
+      <div style="padding:0 16px">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 0 24px">
+          <div style="width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#07221A;margin-bottom:14px">И</div>
+          <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Иван Цех</div>
+          <div style="font-size:14px;color:var(--t2);margin-top:4px">@iwantproger</div>
+        </div>
+        <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:10px">Тип встречи</div>
+          <div style="font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.01em">Консультация по маркетингу</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+            <span class="lc-pill">60 мин</span><span class="lc-pill">Видеозвонок</span><span class="lc-pill">Jitsi</span>
+          </div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--b1);font-size:13px;color:var(--t2);line-height:1.6">
+            Обсудим вашу маркетинговую стратегию и найдём точки роста
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="nav('s-client-calendar')">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+          Выбрать время →
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — CALENDAR
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-calendar">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Выберите время</div>
+      </div>
+      <div style="padding:8px 0">
+        <div class="cal-nav">
+          <div class="cal-month">Апрель 2026</div>
+          <div class="cal-nav-btns">
+            <div class="cal-nav-btn">‹</div><div class="cal-nav-btn">›</div>
+          </div>
+        </div>
+        <div class="cal-grid" id="cal-grid-client"></div>
+        <div id="client-slot-panel" style="display:none">
+          <div class="slot-panel">
+            <div class="slot-panel-title" id="csp-title"></div>
+            <div class="slot-panel-sub" id="csp-sub">Выберите удобное время</div>
+            <div class="slots-grid" id="csp-grid"></div>
+            <button class="btn btn-primary" id="csp-btn" style="display:none" onclick="nav('s-client-confirm')">Продолжить →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — CONFIRM
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-confirm">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Подтвердить запись</div>
+      </div>
+      <div style="padding:16px">
+        <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">Ваша встреча</div>
+          <div style="font-size:17px;font-weight:800;color:var(--t1)">7 апреля · 14:00 – 15:00</div>
+          <div style="font-size:13px;color:var(--t2);margin-top:4px;font-weight:500">Консультация по маркетингу · 60 мин</div>
+          <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">Иван Цех · Jitsi Meet</div>
+        </div>
+        <div class="inp-wrap"><div class="inp-label">Ваше имя</div><input class="inp" value="Мария Иванова" placeholder="Из Telegram"></div>
+        <div class="inp-wrap"><div class="inp-label">Telegram</div><input class="inp" value="@maria_ivanova" placeholder="@username"></div>
+        <div style="background:var(--s2);border-radius:var(--r2);padding:13px 14px;border:1px solid var(--b1);margin-bottom:16px;font-size:13px;color:var(--t2);line-height:1.5">
+          После бронирования вы получите ссылку на Jitsi в Telegram
+        </div>
+        <button class="btn btn-primary" onclick="nav('s-client-success')">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Забронировать
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         CLIENT FLOW — SUCCESS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-client-success">
+      <div class="success-hero">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-title">Встреча забронирована!</div>
+        <div class="success-sub">7 апреля · 14:00 – 15:00<br>Консультация по маркетингу</div>
+      </div>
+      <div style="background:var(--s1);border-radius:var(--r3);margin:0 16px;border:1px solid var(--b1);padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#07221A">И</div>
+          <div><div style="font-size:15px;font-weight:700;color:var(--t1)">Иван Цех</div><div style="font-size:12px;color:var(--t2)">@iwantproger</div></div>
+        </div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6">
+          Ссылка на Jitsi придёт в Telegram за 15 минут до встречи
+        </div>
+      </div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary">
+          <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+          Открыть Jitsi
+        </button>
+        <button class="btn btn-secondary">Готово</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         INTEGRATIONS
+    ════════════════════════════════ -->
+    <div class="screen" id="s-integrations">
+      <div class="inner-header">
+        <button class="back-btn" onclick="back()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div class="inner-title">Интеграции</div>
+      </div>
+      <div class="group-title">Календари</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📅</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Google Календарь</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Синхронизация занятых слотов</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.13);color:var(--green);border:none;cursor:pointer;font-family:var(--font)">Подключён</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#FFF3E0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🗓</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Яндекс Календарь</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Синхронизация занятых слотов</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#F3E5F5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🍎</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Apple Calendar</div><div style="font-size:12px;color:var(--t2);margin-top:2px">CalDAV синхронизация</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📆</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Microsoft Outlook</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Office 365 / Exchange</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🗃</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">CalDAV</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Любой CalDAV-совместимый сервис</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+      </div>
+      <div class="group-title">Видеозвонки</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(0,229,168,.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📹</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Jitsi Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Встроено · ссылки создаются автоматически</div></div>
+          <span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(45,212,160,.13);color:var(--green)">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💻</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Zoom</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Введите ссылку на конференцию</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📞</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Google Meet</div><div style="font-size:12px;color:var(--t2);margin-top:2px">OAuth-интеграция</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#FFF8E1;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🟡</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Яндекс Телемост</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Видеоконференции Яндекса</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔵</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Контур.Толк</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Корпоративный видеосервис</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎵</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">SberJazz</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Видеоконференции от Сбера</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+      </div>
+      <div class="group-title">Мессенджеры</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px;padding-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✈️</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Telegram</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уже подключён через бот</div></div>
+          <span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(45,212,160,.13);color:var(--green)">Активно</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E8F5E9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">💬</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">WhatsApp</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уведомления через WhatsApp</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border-radius:14px;border:1px solid var(--b1)">
+          <div style="width:38px;height:38px;border-radius:10px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📧</div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--t1)">Mail.ru</div><div style="font-size:12px;color:var(--t2);margin-top:2px">Уведомления на e-mail</div></div>
+          <button onclick="toggleIntg(this)" style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(0,229,168,.14);color:var(--a);border:none;cursor:pointer;font-family:var(--font)">Подключить</button>
+        </div>
+      </div>
+      <div class="scroll-fill"></div>
+    </div>
+
+  </div><!-- /screens -->
+
+  <!-- ═══════════════════════════════
+       NAVBAR
+  ════════════════════════════════ -->
+  <div class="navbar-outer" id="navbar-wrap">
+    <div class="nav-pill">
+      <div class="nav-item on" id="nav-home" onclick="navTab('s-home','nav-home')">
+        <div class="nav-ic">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+      </div>
+      <div class="nav-item" id="nav-meetings" onclick="navTab('s-meetings','nav-meetings')">
+        <div class="nav-ic">
+          <div style="position:relative;width:24px;height:24px">
+            <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+            <div class="notif-badge">3</div>
+          </div>
+        </div>
+      </div>
+      <div class="nav-item" id="nav-links" onclick="navTab('s-links','nav-links')">
+        <div class="nav-ic">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+        </div>
+      </div>
+      <div class="nav-item" id="nav-profile" onclick="navTab('s-profile','nav-profile')">
+        <div class="nav-ic">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+    </div>
+    <button class="nav-ai-pill" onclick="showSheet('sheet-ai-hint')">
+      <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:#fff;stroke:none"><path d="M20.9967 17.8896C20.9969 18.8418 20.9878 19.5262 20.3202 20.26C19.6381 21.0096 18.9482 21.0047 18.0981 20.9987C13.9662 20.9776 9.83362 20.9982 5.70159 20.9984C4.88761 20.9975 4.27533 20.9248 3.66048 20.2427C3.33266 19.8842 3.11576 19.421 3.04061 18.919C2.99421 18.6154 2.99857 18.0738 3.00191 17.6596C3.00269 17.5622 3.00342 17.4718 3.00342 17.3933L3.00316 5.66849C3.00766 4.89588 3.18151 4.27141 3.6928 3.71576C4.3755 2.97381 5.1834 2.98923 6.05227 3.00581C6.14765 3.00763 6.24375 3.00947 6.34051 3.01031L13.3023 3.01035C13.6876 3.01036 14 3.32275 14 3.7081C14 4.09311 13.6881 4.40536 13.3031 4.40584L5.4442 4.41563C5.0789 4.42183 4.82561 4.42614 4.54154 4.74336C4.24922 5.06979 4.25172 5.48047 4.25426 5.89541C4.25468 5.96458 4.25511 6.03386 4.25416 6.1029C4.25168 6.28545 4.25387 6.46956 4.25607 6.65371C4.25924 6.91951 4.26241 7.18538 4.2515 7.44672L4.25483 8.84684C4.2652 9.37525 4.26205 9.92904 4.25894 10.475C4.25745 10.7351 4.25598 10.9935 4.25599 11.2465L4.2563 15.902L4.25463 17.6652C4.25458 17.7433 4.25284 17.8239 4.25108 17.906C4.24042 18.4014 4.22863 18.9497 4.57704 19.2939C4.81703 19.5309 5.03535 19.5955 5.35034 19.5974C9.78948 19.6242 14.2303 19.6224 18.6696 19.5941C19.0332 19.5918 19.19 19.5124 19.4599 19.2581C19.57 19.0999 19.6909 18.9158 19.713 18.7129C19.7436 18.433 19.7421 18.1235 19.7408 17.8325C19.7405 17.7779 19.7402 17.724 19.7402 17.671L19.7387 16.0401L19.739 10.9062C19.739 10.5591 20.0203 10.2778 20.3674 10.2778C20.7145 10.2778 20.9959 10.5591 20.9959 10.9062L20.9967 17.8896Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M10.0839 8.00001C10.171 7.99996 10.2582 8.0001 10.3453 8.00053C10.7777 8.00269 11.1504 8.29494 11.2765 8.70862C11.876 10.6759 12.5985 12.655 13.2155 14.6368C13.3458 15.0554 13.0312 15.4767 12.5927 15.4773C12.2899 15.4777 12.0273 15.2705 11.9369 14.9815C11.8257 14.6262 11.7008 14.2869 11.5897 13.9227C11.5247 13.7098 11.3343 13.5564 11.1118 13.5524C10.4855 13.5411 9.85871 13.5456 9.23229 13.552C9.02483 13.5541 8.84091 13.6843 8.7804 13.8827C8.67857 14.2167 8.55626 14.666 8.46287 15.0251C8.39487 15.2866 8.20371 15.4776 7.93356 15.4818C7.4936 15.4888 7.15226 15.0432 7.28576 14.6239C7.55241 13.7864 7.80876 12.8891 8.05724 12.0949C8.40588 10.9806 8.77863 9.84199 9.12213 8.71756C9.25156 8.29386 9.64089 8.00024 10.0839 8.00001ZM11.113 12.1455C10.9206 11.6077 10.5982 10.5291 10.3773 9.8015C10.285 9.49745 10.0374 9.50934 9.95168 9.81531C9.72917 10.6092 9.50721 11.3953 9.24821 12.1767C9.20501 12.307 9.30159 12.4421 9.43889 12.4421L10.2638 12.4418C10.4698 12.4408 10.7009 12.4436 10.9216 12.4394C11.0655 12.4366 11.1614 12.281 11.113 12.1455Z"/><path d="M15.8005 14.8267V8.65797C15.8005 8.29546 15.5065 8.00165 15.144 8.00188C14.7814 8.00211 14.4878 8.29641 14.4883 8.65901L14.4981 14.8278C14.4986 15.187 14.7899 15.4779 15.1492 15.478C15.5089 15.4781 15.8005 15.1865 15.8005 14.8267Z"/><path d="M17.8573 3.85557C17.1867 4.52031 16.1303 4.80747 15.5074 4.92451C15.4589 4.93363 15.4593 5.06037 15.5078 5.06924C16.1315 5.18312 17.1891 5.46707 17.8573 6.14129C18.5265 6.81638 18.8127 7.87879 18.9282 8.50061C18.9372 8.54906 19.0621 8.54892 19.071 8.50045C19.1855 7.87774 19.4706 6.81367 20.143 6.14129C20.8128 5.47158 21.871 5.18599 22.4942 5.07061C22.5427 5.06163 22.5427 4.93524 22.4942 4.92626C21.871 4.81089 20.8128 4.52531 20.143 3.85557C19.4763 3.18882 19.1903 2.13771 19.0739 1.51388C19.0648 1.46533 18.9365 1.46547 18.9276 1.51403C18.8123 2.13875 18.5273 3.19149 17.8573 3.85557Z"/></svg>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════
+       OVERLAYS / BOTTOM SHEETS
+  ════════════════════════════════ -->
+
+  <!-- Reject meeting (организатор отклоняет входящую заявку) -->
+  <div class="overlay" id="sheet-cancel" onclick="closeSheet('sheet-cancel')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Отклонить встречу?</div>
+      <div class="sheet-sub">Участник получит уведомление об отклонении. Слот освободится.</div>
+      <div class="sheet-actions">
+        <button class="btn btn-secondary" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-cancel')">Не надо</button>
+        <button class="btn btn-danger" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-cancel');back()">Отклонить встречу</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cancel confirmed meeting (отмена уже подтверждённой встречи) -->
+  <div class="overlay" id="sheet-cancel-meet" onclick="closeSheet('sheet-cancel-meet')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Отменить встречу?</div>
+      <div class="sheet-sub">Участник получит уведомление об отмене. Слот освободится.</div>
+      <div class="sheet-actions">
+        <button class="btn btn-secondary" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-cancel-meet')">Не надо</button>
+        <button class="btn btn-danger" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-cancel-meet');back()">Отменить встречу</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share link -->
+  <div class="overlay" id="sheet-share" onclick="closeSheet('sheet-share')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Поделиться ссылкой</div>
+      <div class="sheet-sub">dovstrechi.ru/ivan/konsult</div>
+      <div class="sheet-body">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" onclick="closeSheet('sheet-share')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21.6 11.5l-8.5 8.5a6 6 0 0 1-8.49-8.49l8.5-8.5a4 4 0 0 1 5.66 5.66l-8.51 8.49a2 2 0 0 1-2.83-2.83l7.49-7.48"/></svg>
+            Отправить в Telegram
+          </button>
+          <button class="btn btn-secondary" onclick="copyToast();closeSheet('sheet-share')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Скопировать ссылку
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete schedule -->
+  <div class="overlay" id="sheet-deactivate" onclick="closeSheet('sheet-deactivate')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Точно удалить расписание?</div>
+      <div class="sheet-sub">Новые записи будут недоступны. Уже существующие встречи останутся.</div>
+      <div class="sheet-actions">
+        <button class="btn btn-secondary" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-deactivate')">Не надо</button>
+        <button class="btn btn-danger" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-deactivate');navTab('s-links','nav-links')">Удалить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unsaved changes warning -->
+  <div class="overlay" id="sheet-unsaved" onclick="closeSheet('sheet-unsaved')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Сохранить изменения?</div>
+      <div class="sheet-sub">Вы внесли изменения в расписание. Хотите их сохранить?</div>
+      <div class="sheet-actions">
+        <button class="btn btn-secondary" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-unsaved');_unsavedDiscard()">Нет</button>
+        <button class="btn btn-confirm" style="flex:1;padding:13px;font-size:14px" onclick="closeSheet('sheet-unsaved');saveScheduleChanges()">Да</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save toast (центральный попап) -->
+  <div id="save-toast" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--s2);border:1px solid var(--b2);border-radius:var(--r3);padding:20px 24px;z-index:200;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);max-width:280px;pointer-events:none">
+    <div style="font-size:22px;margin-bottom:8px">😇</div>
+    <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:4px">Изменения сохранены!</div>
+    <div style="font-size:13px;color:var(--t2);font-weight:500">До встречи, Иван!</div>
+  </div>
+
+  <!-- More menu for meeting -->
+  <div class="overlay" id="sheet-more" onclick="closeSheet('sheet-more')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-body" style="margin-bottom:8px">
+        <div class="settings-group">
+          <div class="set-row" onclick="closeSheet('sheet-more')">
+            <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+            <div class="set-content"><div class="set-title">Поделиться ссылкой Jitsi</div></div>
+          </div>
+          <div class="set-row" onclick="closeSheet('sheet-more')">
+            <div class="set-icon si-b"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+            <div class="set-content"><div class="set-title">Скопировать ссылку</div></div>
+          </div>
+          <div class="set-row" onclick="closeSheet('sheet-more');showSheet('sheet-cancel')">
+            <div class="set-icon si-r"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            <div class="set-content"><div class="set-title" style="color:var(--red)">Отменить встречу</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link context menu -->
+  <div class="overlay" id="sheet-link-menu" onclick="closeSheet('sheet-link-menu')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-body" style="margin-bottom:8px">
+        <div class="settings-group">
+          <div class="set-row" onclick="closeSheet('sheet-link-menu');showSheet('sheet-share')">
+            <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+            <div class="set-content"><div class="set-title">Поделиться</div></div>
+          </div>
+          <div class="set-row" onclick="copyToast();closeSheet('sheet-link-menu')">
+            <div class="set-icon si-b"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+            <div class="set-content"><div class="set-title">Скопировать ссылку</div></div>
+          </div>
+          <div class="set-row" onclick="closeSheet('sheet-link-menu')">
+            <div class="set-icon si-am"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+            <div class="set-content"><div class="set-title">Поставить на паузу</div></div>
+          </div>
+          <div class="set-row" onclick="closeSheet('sheet-link-menu');showSheet('sheet-deactivate')">
+            <div class="set-icon si-r"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></div>
+            <div class="set-content"><div class="set-title" style="color:var(--red)">Удалить</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book confirm sheet (from organizer calendar) -->
+  <div class="overlay" id="sheet-book-confirm" onclick="closeSheet('sheet-book-confirm')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Слот занят организатором</div>
+      <div class="sheet-sub">Это ваш собственный слот · 9 апр · 14:00</div>
+      <div class="sheet-actions">
+        <button class="btn btn-secondary" style="padding:13px;font-size:14px" onclick="closeSheet('sheet-book-confirm')">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI hint sheet -->
+  <div class="overlay" id="sheet-ai-hint" onclick="closeSheet('sheet-ai-hint')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title" style="font-size:17px">ИИ-ассистент</div>
+      <div class="sheet-sub">Скоро здесь появится умный помощник — вы сможете текстом или голосом управлять расписанием, встречами и настройками.</div>
+      <div class="sheet-actions">
+        <button class="btn btn-primary" style="padding:13px;font-size:14px" onclick="closeSheet('sheet-ai-hint')">Понятно, жду!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" style="position:absolute;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s4);color:var(--t1);border:1px solid var(--b2);border-radius:var(--rf);padding:10px 18px;font-size:13px;font-weight:700;white-space:nowrap;opacity:0;transition:all .25s;z-index:100;pointer-events:none">
+    Ссылка скопирована
+  </div>
+
+  <!-- Slider inline edit -->
+  <div class="ieo" id="slider-edit-overlay" onclick="closeSliderEdit()">
+    <div class="ieo-box" onclick="event.stopPropagation()">
+      <div class="ieo-title" id="ieb-title">Значение</div>
+      <input type="number" class="ieo-inp" id="ieb-inp" value="60">
+      <div class="ieo-sfx" id="ieb-suffix">мин</div>
+      <div class="ieo-btns">
+        <button class="ieo-cancel" onclick="closeSliderEdit()">Отмена</button>
+        <button class="ieo-ok" onclick="applySliderEdit()">Применить</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<div class="outer-label">До встречи · Прототип v3.0</div>
+
+<script>
+// ═══════════════ NAVIGATION ═══════════════
+const history = [];
+let currentScreen = 's-home';
+
+const TAB_SCREENS = ['s-home','s-meetings','s-links','s-profile'];
+
+function nav(id) {
+  const cur = document.getElementById(currentScreen);
+  const next = document.getElementById(id);
+  if (!next || id === currentScreen) return;
+  
+  history.push(currentScreen);
+  cur.classList.remove('active');
+  cur.classList.add('prev');
+  next.classList.add('active');
+  currentScreen = id;
+  
+  // Hide navbar for inner screens
+  const isTab = TAB_SCREENS.includes(id);
+  const _nb=document.getElementById('navbar-wrap');if(_nb)_nb.style.display=isTab?'flex':'none';
+  
+  setTimeout(() => { cur.classList.remove('prev'); }, 320);
+}
+
+function back() {
+  if (!history.length) return;
+  const prev = history.pop();
+  const cur = document.getElementById(currentScreen);
+  const prevEl = document.getElementById(prev);
+  
+  cur.classList.remove('active');
+  prevEl.classList.add('active');
+  currentScreen = prev;
+  
+  const isTab = TAB_SCREENS.includes(prev);
+  const _nb=document.getElementById('navbar-wrap');if(_nb)_nb.style.display=isTab?'flex':'none';
+}
+
+function navTab(screenId, navId) {
+  // Close any open sheets
+  document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
+  
+  const cur = document.getElementById(currentScreen);
+  const next = document.getElementById(screenId);
+  if (!next) return;
+  
+  // Clear history when switching tabs
+  history.length = 0;
+  
+  // Update nav active state
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('on'));
+  const navEl = document.getElementById(navId);
+  if (navEl) navEl.classList.add('on');
+  
+  if (screenId === currentScreen) return;
+  
+  cur.classList.remove('active', 'prev');
+  next.classList.add('active');
+  next.classList.remove('prev');
+  currentScreen = screenId;
+  
+  const _nb=document.getElementById('navbar-wrap');if(_nb)_nb.style.display='flex';
+  
+  // Scroll to top
+  next.scrollTop = 0;
+  if (screenId === 's-calendar') renderCal();
+}
+
+// ═══════════════ SHEETS ═══════════════
+function showSheet(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeSheet(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// ═══════════════ TOAST ═══════════════
+function copyToast() {
+  const t = document.getElementById('toast');
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2000);
+}
+
+// ═══════════════ CONFIRM MEETING ═══════════════
+function confirmMeeting() {
+  back();
+  const badge = document.querySelector('#nav-meetings .notif-badge');
+  if (badge) { let n = parseInt(badge.textContent) - 1; badge.textContent = n; if(!n) badge.style.display='none'; }
+}
+
+// ═══════════════ CHIPS ═══════════════
+function pickChip(el, cls) {
+  const parent = el.closest('.chips') || el.parentElement;
+  parent.querySelectorAll(cls).forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function pickPlat(el) {
+  const container = document.getElementById('plat-options');
+  container.querySelectorAll('.plat-opt').forEach(o => {
+    o.style.background = 'var(--s2)';
+    o.style.border = '1px solid var(--b1)';
+    const name = o.querySelector('div > div:first-child');
+    if (name) name.style.color = 'var(--t1)';
+    const check = o.querySelector('svg:last-child');
+    if (check) check.style.display = 'none';
+  });
+  el.style.background = 'var(--ad)';
+  el.style.border = '1.5px solid rgba(0,229,168,.3)';
+  const name = el.querySelector('div > div:first-child');
+  if (name) name.style.color = 'var(--a)';
+  // Show link input for platforms that need a URL
+  const linkWrap = document.getElementById('plat-link-wrap');
+  if (linkWrap) linkWrap.style.display = el.dataset.needsLink ? 'block' : 'none';
+}
+
+function pickPlatEdit(el) {
+  el.closest('.chips').querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  const needsLink = el.textContent !== 'Jitsi Meet';
+  const lw = document.getElementById('sl-link-wrap');
+  if (lw) lw.style.display = needsLink ? 'block' : 'none';
+  markScheduleDirty();
+}
+
+// ═══ EMOJI PICKER ═══
+function toggleEmojiPicker(pickerId, btnId) {
+  const p = document.getElementById(pickerId);
+  if (!p) return;
+  p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+  if (p.style.display === 'flex') {
+    const btn = document.getElementById(btnId);
+    const r = btn.getBoundingClientRect();
+    const shell = document.querySelector('.shell').getBoundingClientRect();
+    p.style.top = (r.bottom - shell.top + 4) + 'px';
+    p.style.left = (r.left - shell.left) + 'px';
+    p.style.position = 'absolute';
+  }
+}
+function pickEmoji(emoji, btnId, pickerId) {
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.textContent = emoji; btn.style.fontSize = '20px'; }
+  const p = document.getElementById(pickerId);
+  if (p) p.style.display = 'none';
+  markScheduleDirty();
+}
+function clearEmoji(btnId, pickerId) {
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.textContent = '—'; btn.style.fontSize = '16px'; }
+  const p = document.getElementById(pickerId);
+  if (p) p.style.display = 'none';
+  markScheduleDirty();
+}
+
+// ═══ SCHEDULE EDIT DIRTY STATE ═══
+let _scheduleDirty = false;
+let _scheduleBackTarget = null;
+function markScheduleDirty() {
+  if (_scheduleDirty) return;
+  _scheduleDirty = true;
+  const btn = document.getElementById('sl-save-btn');
+  if (btn) { btn.className = 'btn btn-primary'; }
+}
+function scheduleBack() {
+  if (_scheduleDirty) { showSheet('sheet-unsaved'); }
+  else { back(); }
+}
+function _unsavedDiscard() {
+  _scheduleDirty = false;
+  const btn = document.getElementById('sl-save-btn');
+  if (btn) btn.className = 'btn btn-disabled';
+  back();
+}
+function saveScheduleChanges() {
+  _scheduleDirty = false;
+  const btn = document.getElementById('sl-save-btn');
+  if (btn) btn.className = 'btn btn-disabled';
+  navTab('s-links','nav-links');
+  const toast = document.getElementById('save-toast');
+  if (toast) {
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 2800);
+  }
+}
+
+function notifToggleChanged() {
+  const never = document.getElementById('tog-never');
+  if (never) never.classList.remove('on');
+}
+
+// ═══════════════ TAB PILLS ═══════════════
+function filterTab(el) {
+  el.closest('.tab-pills').querySelectorAll('.tab-pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// ═══════════════ CALENDAR (ORGANIZER) ═══════════════
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+let calY = 2026, calM = 3;
+
+const MOCK = {
+  '2026-04-02':{t:6,b:2},'2026-04-03':{t:8,b:8},
+  '2026-04-07':{t:6,b:0},'2026-04-08':{t:8,b:8},
+  '2026-04-09':{t:6,b:1},'2026-04-10':{t:8,b:4},
+  '2026-04-14':{t:6,b:6},'2026-04-15':{t:8,b:3},
+  '2026-04-16':{t:6,b:0},'2026-04-17':{t:8,b:7},
+  '2026-04-21':{t:6,b:0},'2026-04-22':{t:8,b:2},
+  '2026-04-28':{t:6,b:0},'2026-04-29':{t:8,b:5},
+};
+const SLOTS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
+
+function changeMonth(d) {
+  calM += d;
+  if (calM > 11) { calM = 0; calY++; }
+  if (calM < 0) { calM = 11; calY--; }
+  renderCal();
+  document.getElementById('slot-panel').style.display = 'none';
+}
+
+function renderCal() {
+  const label = document.getElementById('cal-month-label');
+  const grid = document.getElementById('cal-grid');
+  if (!label || !grid) return;
+  label.textContent = MONTHS[calM] + ' ' + calY;
+  buildCalGrid(grid, calY, calM, false);
+}
+
+function buildCalGrid(grid, y, m, isClient) {
+  grid.innerHTML = '';
+  DAYS.forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'cal-dh'; h.textContent = d; grid.appendChild(h);
+  });
+  const first = new Date(y, m, 1);
+  let dow = first.getDay() - 1; if (dow < 0) dow = 6;
+  for (let i = 0; i < dow; i++) {
+    const e = document.createElement('div'); e.className = 'cal-empty'; grid.appendChild(e);
+  }
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = new Date();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(y, m, d);
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const isWe = dt.getDay() === 0 || dt.getDay() === 6;
+    const isToday = dt.toDateString() === today.toDateString();
+    const el = document.createElement('div');
+    el.className = 'cal-cell';
+    const dn = document.createElement('div'); dn.className = 'cn'; dn.textContent = d;
+    const ds2 = document.createElement('div'); ds2.className = 'cs';
+    const info = MOCK[ds];
+    if (isPast || isWe) {
+      el.classList.add('c-past'); ds2.textContent = '';
+    } else if (info) {
+      const free = info.t - info.b;
+      if (free === 0) { el.classList.add('c-busy'); ds2.textContent = '×' + info.t; }
+      else if (free === info.t) { el.classList.add('c-free'); ds2.textContent = '+' + free; }
+      else { el.classList.add('c-part'); ds2.textContent = free + '/' + info.t; }
+      el.onclick = () => isClient ? showClientSlots(ds, d, info) : showSlots(ds, d, info);
+    } else {
+      el.classList.add('c-free'); ds2.textContent = '+6';
+      el.onclick = () => isClient ? showClientSlots(ds, d, {t:6,b:0}) : showSlots(ds, d, {t:6,b:0});
+    }
+    if (isToday) el.classList.add('c-today');
+    el.appendChild(dn); el.appendChild(ds2); grid.appendChild(el);
+  }
+}
+
+function showSlots(ds, d, info) {
+  const panel = document.getElementById('slot-panel');
+  panel.style.display = 'block';
+  document.getElementById('sp-title').textContent = 'Слоты на ' + d + ' ' + MONTHS[calM];
+  const free = info.t - info.b;
+  document.getElementById('sp-sub').textContent = 'Свободно: ' + free + ' из ' + info.t;
+  const grid = document.getElementById('sp-grid');
+  grid.innerHTML = '';
+  document.getElementById('sp-btn').style.display = 'none';
+  SLOTS.slice(0, info.t).forEach((t, i) => {
+    const s = document.createElement('div');
+    s.className = 'slot ' + (i < info.b ? 's-taken' : 's-free');
+    s.textContent = t;
+    if (i >= info.b) {
+      s.onclick = () => {
+        grid.querySelectorAll('.slot').forEach(x => { if (!x.classList.contains('s-taken')) { x.classList.remove('s-sel'); x.classList.add('s-free'); } });
+        s.classList.remove('s-free'); s.classList.add('s-sel');
+        document.getElementById('sp-btn').style.display = 'flex';
+      };
+    }
+    grid.appendChild(s);
+  });
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Client calendar
+function initClientCal() {
+  const grid = document.getElementById('cal-grid-client');
+  if (!grid || grid.children.length > 0) return;
+  buildCalGrid(grid, 2026, 3, true);
+}
+
+function showClientSlots(ds, d, info) {
+  const panel = document.getElementById('client-slot-panel');
+  panel.style.display = 'block';
+  document.getElementById('csp-title').textContent = d + ' ' + MONTHS[3];
+  const grid = document.getElementById('csp-grid');
+  grid.innerHTML = '';
+  document.getElementById('csp-btn').style.display = 'none';
+  SLOTS.slice(0, info.t).forEach((t, i) => {
+    const s = document.createElement('div');
+    s.className = 'slot ' + (i < info.b ? 's-taken' : 's-free');
+    s.textContent = t;
+    if (i >= info.b) {
+      s.onclick = () => {
+        grid.querySelectorAll('.slot').forEach(x => { if (!x.classList.contains('s-taken')) { x.classList.remove('s-sel'); x.classList.add('s-free'); } });
+        s.classList.remove('s-free'); s.classList.add('s-sel');
+        document.getElementById('csp-btn').style.display = 'flex';
+      };
+    }
+    grid.appendChild(s);
+  });
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ═══ HERO STATE ═══
+function setHeroState(s) {
+  ['confirmed','unconfirmed','org-waiting'].forEach(id => {
+    const el = document.getElementById('hero-'+id);
+    if(el) el.style.display = id===s?'block':'none';
+  });
+  document.querySelectorAll('[id^=hs-]').forEach(b=>b.classList.remove('on'));
+  const btn = document.getElementById('hs-'+s); if(btn) btn.classList.add('on');
+}
+
+// ═══ NOTIF EXPAND ═══
+let notifOpen = true;
+function toggleNotifExpand() {
+  notifOpen = !notifOpen;
+  const b = document.getElementById('notif-sub'); if(b) b.style.display = notifOpen?'block':'none';
+  const c = document.getElementById('notif-chev'); if(c) c.style.transform = notifOpen?'rotate(180deg)':'rotate(0)';
+}
+function toggleNever(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on'))
+    document.querySelectorAll('#notif-sub .tog:not(#tog-never)').forEach(t=>t.classList.remove('on'));
+}
+
+// Init
+renderCal();
+initClientCal();
+setHeroState('confirmed');
+
+// ═══ MEETINGS GROUPED DATA ═══
+const MEETINGS_DATA = [
+  { name:'Анна Смирнова',  av:'АС', date:'2 апреля',  dateSort:0,  timeStart:'15:00', timeEnd:'16:00', fmt:'Консультация',         status:'confirmed' },
+  { name:'Михаил Петров',  av:'МП', date:'3 апреля',  dateSort:1,  timeStart:'11:00', timeEnd:'11:45', fmt:'Демо продукта',         status:'noans'     },
+  { name:'Елена Козлова',  av:'ЕК', date:'3 апреля',  dateSort:1,  timeStart:'14:00', timeEnd:'15:30', fmt:'Стратегическая сессия', status:'pending'   },
+  { name:'Дмитрий Иванов', av:'ДИ', date:'7 апреля',  dateSort:5,  timeStart:'10:00', timeEnd:'11:00', fmt:'Консультация',         status:'pending'   },
+  { name:'Ольга Новикова', av:'ОН', date:'7 апреля',  dateSort:5,  timeStart:'16:00', timeEnd:'16:45', fmt:'Демо продукта',         status:'noans'     },
+  { name:'Павел Орлов',    av:'ПО', date:'4 апреля',  dateSort:2,  timeStart:'17:00', timeEnd:'18:00', fmt:'Демо продукта',         status:'cancelled' },
+  { name:'Кирилл Фёдоров', av:'КФ', date:'8 апреля',  dateSort:6,  timeStart:'12:00', timeEnd:'13:30', fmt:'Стратегическая сессия', status:'noans'     },
+  { name:'Алина Мороз',    av:'АМ', date:'1 апреля',  dateSort:-1, timeStart:'17:00', timeEnd:'18:00', fmt:'Консультация',         status:'cancelled' },
+  { name:'Сергей Волков',  av:'СВ', date:'28 марта',  dateSort:-5, timeStart:'13:00', timeEnd:'14:30', fmt:'Стратегическая сессия', status:'done'      },
+  { name:'Ирина Кузьмина', av:'ИК', date:'25 марта',  dateSort:-8, timeStart:'10:00', timeEnd:'11:00', fmt:'Консультация',         status:'done'      },
+];
+
+// Статус → иконка + текст
+const STATUS_BADGE = {
+  confirmed: `<div class="mst mst-confirmed" style="margin-left:12px"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="mst-label">Всё в силе</span></div>`,
+  noans:     `<div class="mst mst-noans" style="margin-left:12px"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="mst-label">Нет ответа</span></div>`,
+  done:      `<div class="mst mst-done" style="margin-left:12px;opacity:.6"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="mst-label">Архив</span></div>`,
+  cancelled: `<div class="mst mst-cancelled" style="margin-left:12px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="mst-label">Отменено</span></div>`,
+  pending:   `<div class="mst mst-pending" style="margin-left:12px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="mst-label">Ожидает</span></div>`,
+};
+
+let meetGroupMode = 'date';
+let meetStatusFilter = 'confirm';
+
+function switchMeetGroup(mode) {
+  meetGroupMode = mode;
+  const menu = document.getElementById('group-menu');
+  if (menu) menu.style.display = 'none';
+  document.querySelectorAll('.group-menu-item').forEach((item, i) => {
+    const act = (mode==='date' && i===0) || (mode==='fmt' && i===1);
+    item.style.color = act ? 'var(--a)' : 'var(--t1)';
+    item.style.background = act ? 'var(--as)' : '';
+  });
+  renderMeetings();
+}
+
+function switchMeetStatus(status, el) {
+  meetStatusFilter = status;
+  document.querySelectorAll('[id^=mtab-]').forEach(t => t.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderMeetings();
+}
+
+function toggleGroupMenu(btn) {
+  const menu = document.getElementById('group-menu');
+  if (!menu) return;
+  if (menu.style.display === 'none') {
+    const r = btn.getBoundingClientRect();
+    const shell = document.querySelector('.shell').getBoundingClientRect();
+    menu.style.top  = (r.bottom - shell.top + 4) + 'px';
+    menu.style.left = (r.left - shell.left) + 'px';
+    menu.style.display = 'block';
+  } else {
+    menu.style.display = 'none';
+  }
+}
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('group-menu');
+  if (menu && menu.style.display !== 'none') {
+    if (!menu.contains(e.target) && !e.target.closest('[data-group-toggle]')) {
+      menu.style.display = 'none';
+    }
+  }
+});
+
+function dateGroupLabel(dateSort) {
+  if (dateSort === 0) return 'Сегодня';
+  if (dateSort === 1) return 'Завтра';
+  if (dateSort > 1)  return 'На неделе';
+  return 'Ранее';
+}
+
+function renderMeetings() {
+  const list = document.getElementById('meetings-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const isArchive = meetStatusFilter === 'archive';
+
+  // Обновляем счётчик на вкладке "Нужно подтвердить"
+  const confirmCount = MEETINGS_DATA.filter(m => m.status === 'pending').length;
+  const confirmTab = document.getElementById('mtab-confirm');
+  if (confirmTab) confirmTab.innerHTML = `Нужно подтвердить <span style="background:rgba(245,166,35,.18);color:var(--amber);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:800;margin-left:2px;vertical-align:middle">${confirmCount}</span>`;
+
+  // Фильтрация по вкладке
+  let filtered = MEETINGS_DATA.filter(m => {
+    if (meetStatusFilter === 'confirm')  return m.status === 'pending';
+    if (meetStatusFilter === 'all')      return m.dateSort >= 0 && m.status !== 'done' && !(m.status === 'cancelled' && m.dateSort < 0);
+    if (meetStatusFilter === 'noans')    return m.status === 'noans';
+    if (meetStatusFilter === 'ok')       return m.status === 'confirmed' && m.dateSort >= 0;
+    if (meetStatusFilter === 'archive')  return m.status === 'done' || m.status === 'cancelled' || m.dateSort < 0;
+    return true;
+  });
+
+  // Сортировка: ближайшие сначала (для архива — обратная)
+  filtered = [...filtered].sort((a, b) => isArchive ? b.dateSort - a.dateSort || b.timeStart.localeCompare(a.timeStart)
+                                                      : a.dateSort - b.dateSort || a.timeStart.localeCompare(b.timeStart));
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div class="empty-title">Нет встреч</div>
+      <div class="empty-desc">В этой категории пока ничего нет</div>
+    </div>`;
+    return;
+  }
+
+  // Группировка
+  const groups = {};
+  const groupOrder = [];
+  filtered.forEach(m => {
+    const gKey = meetGroupMode === 'date' ? dateGroupLabel(m.dateSort) : m.fmt;
+    if (!groups[gKey]) { groups[gKey] = []; groupOrder.push(gKey); }
+    groups[gKey].push(m);
+  });
+
+  const lmap = { date: 'По дате', fmt: 'По расписаниям' };
+  let isFirst = true;
+
+  groupOrder.forEach(g => {
+    // Заголовок группы + переключатель (только на первом)
+    const head = document.createElement('div');
+    head.style.cssText = 'padding:14px 20px 8px;display:flex;align-items:center;justify-content:space-between';
+    const toggleHtml = isFirst && meetStatusFilter !== 'confirm' ? `
+      <button data-group-toggle onclick="toggleGroupMenu(this)" style="display:flex;align-items:center;gap:4px;background:none;border:none;font-family:var(--font);font-size:12px;font-weight:700;color:var(--t2);cursor:pointer;padding:0">
+        ${lmap[meetGroupMode]}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>` : '';
+    head.innerHTML = `<span style="font-size:12px;font-weight:700;color:var(--t2)">${g}</span>${toggleHtml}`;
+    list.appendChild(head);
+    isFirst = false;
+
+    groups[g].forEach(m => {
+      const isPending = m.status === 'pending';
+      const isConfirmed = m.status === 'confirmed';
+      const isNoans = m.status === 'noans';
+      const isCancelled = m.status === 'cancelled';
+      const card = document.createElement('div');
+
+      const innerContent = `
+        <div style="display:flex;align-items:flex-start;justify-content:space-between${isPending ? ';margin-bottom:24px' : ''}">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;font-family:Manrope;color:#fff">${m.name}</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#fff;margin-top:1px">${m.date} · ${m.timeStart}–${m.timeEnd}</div>
+            <div style="font-size:12px;font-weight:400;font-family:Manrope;color:#ACB0AF;margin-top:2px">${m.fmt}</div>
+          </div>
+          ${STATUS_BADGE[m.status] || ''}
+        </div>
+        ${isPending ? `<div style="display:flex;gap:8px">
+          <button class="btn btn-confirm" onclick="event.stopPropagation();confirmMeeting()" style="flex:1;height:40px;padding:0;font-size:13px">Подтвердить</button>
+          <button class="btn btn-danger" onclick="event.stopPropagation();showSheet('sheet-cancel')" style="flex:1;height:40px;padding:0;font-size:13px">Отклонить</button>
+        </div>` : ''}`;
+
+      card.style.cssText = `background:#121918;border-radius:14px;margin:0 16px 8px;padding:14px 16px;cursor:pointer`;
+      card.innerHTML = innerContent;
+      card.onclick = () => nav(isPending ? 's-meet-pending' : isNoans ? 's-meet-noans' : isCancelled ? 's-meet-cancelled' : 's-meet-detail');
+      list.appendChild(card);
+    });
+  });
+}
+renderMeetings();
+
+// ═══ SLIDER ═══
+let _sliderMeta = {};
+function updateSlider(inp, valId, suffix, zeroLabel) {
+  const v = parseInt(inp.value);
+  const el = document.getElementById(valId);
+  if (!el) return;
+  el.textContent = (v === 0 && zeroLabel) ? zeroLabel : v + ' ' + suffix;
+  const pct = ((v - inp.min) / (inp.max - inp.min)) * 100;
+  inp.style.background = `linear-gradient(to right,var(--a) ${pct}%,var(--s3) ${pct}%)`;
+}
+function sliderLabel(v) {
+  if (v === 0) return 'Нет';
+  if (v < 60) return v + ' мин';
+  if (v < 1440) {
+    const h = Math.floor(v/60), m = v%60;
+    return m ? h + ' ч ' + m + ' мин' : h + ' ч';
+  }
+  const d = Math.floor(v/1440), rem = v%1440;
+  const h = Math.floor(rem/60);
+  return h ? d + ' д ' + h + ' ч' : d + ' д';
+}
+function updateSliderSmart(inp, valId) {
+  const v = parseInt(inp.value);
+  const el = document.getElementById(valId);
+  if (!el) return;
+  el.textContent = sliderLabel(v);
+  const pct = ((v - inp.min) / (inp.max - inp.min)) * 100;
+  inp.style.background = `linear-gradient(to right,var(--a) ${pct}%,var(--s3) ${pct}%)`;
+}
+function openSliderEdit(sliderId, valId, min, max, suffix, title) {
+  _sliderMeta = {sliderId, valId, min, max, suffix};
+  const v = parseInt(document.getElementById(sliderId).value);
+  document.getElementById('ieb-title').textContent = title;
+  document.getElementById('ieb-inp').value = v;
+  document.getElementById('ieb-inp').min = min;
+  document.getElementById('ieb-inp').max = max;
+  document.getElementById('ieb-suffix').textContent = suffix;
+  document.getElementById('slider-edit-overlay').classList.add('show');
+}
+function closeSliderEdit() { document.getElementById('slider-edit-overlay').classList.remove('show'); }
+function applySliderEdit() {
+  const {sliderId, valId, min, max, suffix} = _sliderMeta;
+  let v = parseInt(document.getElementById('ieb-inp').value) || 0;
+  v = Math.max(0, v); // allow any value, no upper clamp
+  const s = document.getElementById(sliderId);
+  // Clamp slider position to its max but keep label accurate
+  s.value = Math.min(v, s.max);
+  const el = document.getElementById(valId);
+  if (el) el.textContent = sliderLabel(v);
+  const pct = ((Math.min(v,s.max) - s.min) / (s.max - s.min)) * 100;
+  s.style.background = `linear-gradient(to right,var(--a) ${pct}%,var(--s3) ${pct}%)`;
+  markScheduleDirty && markScheduleDirty();
+  closeSliderEdit();
+}
+// Init all sliders fill
+document.querySelectorAll('input[type=range]').forEach(s => {
+  const pct = ((s.value - s.min) / (s.max - s.min)) * 100;
+  s.style.background = `linear-gradient(to right,var(--a) ${pct}%,var(--s3) ${pct}%)`;
+});
+
+// ═══ INTEGRATIONS TOGGLE ═══
+function toggleIntg(btn) {
+  const isConn = btn.textContent.trim() === 'Подключён';
+  btn.textContent = isConn ? 'Подключить' : 'Подключён';
+  btn.style.background = isConn ? 'rgba(0,229,168,.14)' : 'rgba(45,212,160,.13)';
+  btn.style.color = isConn ? 'var(--a)' : 'var(--green)';
+}
+</script>
+</body>
+</html>

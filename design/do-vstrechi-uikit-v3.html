@@ -1,0 +1,2681 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>До встречи — UI Kit v3.0</title>
+<!-- Updated: 2026-04-04 -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS (exact from prototype_v3.html :root)
+═══════════════════════════════════════════════════ */
+:root {
+  /* ── Backgrounds ── */
+  --bg:#0A0E0D;
+  --s1:#121918;
+  --s2:#182020;
+  --s3:#1F2A29;
+  --s4:#263330;
+
+  /* ── Accent ── */
+  --a:#00E5A8;
+  --ad:rgba(0,229,168,.14);
+  --as:rgba(0,229,168,.07);
+
+  /* ── Text ── */
+  --t1:#EDF2F0;
+  --t2:#7B9490;
+  --t3:#435450;
+
+  /* ── Semantic ── */
+  --green:#2DD4A0;
+  --gs:rgba(45,212,160,.13);
+  --amber:#F5A623;
+  --ams:rgba(245,166,35,.13);
+  --red:#F06449;
+  --rs:rgba(240,100,73,.13);
+
+  /* ── Borders ── */
+  --b1:rgba(255,255,255,.06);
+  --b2:rgba(255,255,255,.1);
+
+  /* ── Border Radius ── */
+  --r1:8px;
+  --r2:14px;
+  --r3:20px;
+  --r4:28px;
+  --rf:999px;
+
+  /* ── Font ── */
+  --font:'Manrope',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+
+  /* ── Blue special ── */
+  --blue:#7aaaff;
+  --blue-soft:rgba(91,142,255,.13);
+}
+
+/* ═══════════════════════════════════════════════════
+   UI KIT SHELL STYLES
+═══════════════════════════════════════════════════ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  background:#05100E;
+  color:var(--t1);
+  min-height:100vh;
+  display:flex;
+}
+
+/* ── Sidebar nav ── */
+.sidebar{
+  width:240px;
+  flex-shrink:0;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  background:#060F0C;
+  border-right:1px solid var(--b1);
+  padding:24px 0 40px;
+  scrollbar-width:none;
+}
+.sidebar::-webkit-scrollbar{display:none}
+.sidebar-logo{
+  padding:0 20px 20px;
+  border-bottom:1px solid var(--b1);
+  margin-bottom:12px;
+}
+.sidebar-logo-title{
+  font-size:14px;font-weight:800;color:var(--t1);
+  letter-spacing:-.01em;
+}
+.sidebar-logo-sub{
+  font-size:10px;color:var(--t3);font-weight:600;
+  text-transform:uppercase;letter-spacing:.1em;margin-top:2px;
+}
+.nav-group{padding:4px 0}
+.nav-group-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--t3);
+  padding:10px 20px 4px;
+}
+.nav-link{
+  display:block;padding:7px 20px;
+  font-size:12px;font-weight:600;color:var(--t2);
+  text-decoration:none;border-left:2px solid transparent;
+  transition:all .12s;
+}
+.nav-link:hover{color:var(--t1);background:var(--b1)}
+.nav-link.active{color:var(--a);border-left-color:var(--a);background:var(--as)}
+
+/* ── Main content ── */
+.main{
+  flex:1;
+  padding:40px 48px 80px;
+  max-width:1120px;
+}
+
+/* ── Page header ── */
+.kit-head{
+  margin-bottom:48px;
+  padding-bottom:32px;
+  border-bottom:1px solid var(--b1);
+}
+.kit-eyebrow{
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--a);margin-bottom:8px;
+}
+.kit-title{
+  font-size:40px;font-weight:800;color:var(--t1);
+  letter-spacing:-.03em;line-height:1.05;
+}
+.kit-meta{
+  font-size:13px;color:var(--t2);margin-top:8px;font-weight:500;line-height:1.6;
+}
+
+/* ── Section ── */
+.kit-section{margin-bottom:64px;scroll-margin-top:32px}
+.kit-section-title{
+  font-size:22px;font-weight:800;color:var(--t1);
+  letter-spacing:-.02em;margin-bottom:4px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--b1);
+  margin-bottom:24px;
+}
+.kit-section-sub{
+  font-size:13px;color:var(--t2);margin-bottom:24px;
+  margin-top:-14px;font-weight:500;line-height:1.6;
+}
+
+/* ── Subsection / component block ── */
+.comp-block{margin-bottom:36px}
+.comp-title{
+  font-size:13px;font-weight:700;color:var(--t2);
+  text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:4px;
+}
+.comp-desc{font-size:12px;color:var(--t3);margin-bottom:12px;font-weight:500}
+
+/* ── Preview area ── */
+.comp-preview{
+  background:var(--bg);
+  border:1px solid var(--b1);
+  border-radius:var(--r3);
+  padding:24px;
+  margin-bottom:10px;
+}
+.comp-preview.dark{background:#05100E}
+.comp-preview.light-pad{padding:16px}
+
+/* ── Variants row ── */
+.comp-variants{
+  display:flex;flex-wrap:wrap;gap:10px;
+  background:var(--bg);
+  border:1px solid var(--b1);
+  border-radius:var(--r3);
+  padding:20px;
+  margin-bottom:10px;
+  align-items:center;
+}
+.comp-variants.col{flex-direction:column;align-items:flex-start}
+
+/* ── Code block ── */
+.comp-code{
+  background:#0A1210;
+  border:1px solid var(--b1);
+  border-radius:var(--r2);
+  padding:14px 16px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:#7ec8a5;
+  overflow-x:auto;
+  margin-bottom:20px;
+  scrollbar-width:none;
+  line-height:1.6;
+  white-space:pre;
+}
+.comp-code::-webkit-scrollbar{display:none}
+
+/* ── Token grid ── */
+.token-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.token-item{}
+.token-swatch{height:56px;border-radius:var(--r2);margin-bottom:6px;border:1px solid var(--b1)}
+.token-name{font-size:11px;font-weight:700;color:var(--t1);font-family:var(--font-mono)}
+.token-val{font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-top:1px}
+
+/* ── Spacing demo ── */
+.sp-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sp-block{background:var(--ad);border-radius:3px;height:20px;flex-shrink:0}
+.sp-label{font-size:11px;color:var(--t2);font-family:var(--font-mono);width:60px}
+.sp-desc{font-size:11px;color:var(--t3);font-weight:500}
+
+/* ── Typography demo ── */
+.type-row{
+  display:flex;align-items:baseline;gap:16px;
+  padding:10px 0;border-bottom:1px solid var(--b1);
+}
+.type-row:last-child{border-bottom:none}
+.type-meta{
+  width:100px;flex-shrink:0;
+  font-size:10px;color:var(--t3);font-family:var(--font-mono);line-height:1.4;
+}
+.type-sample{color:var(--t1);font-family:var(--font)}
+
+/* ── Radius demo ── */
+.radius-grid{display:flex;flex-wrap:wrap;gap:12px}
+.radius-item{}
+.radius-box{
+  width:80px;height:56px;background:var(--s2);
+  border:1px solid var(--b2);
+  margin-bottom:6px;
+}
+.radius-label{font-size:10px;color:var(--t3);font-family:var(--font-mono);text-align:center}
+.radius-val{font-size:9px;color:var(--t3);font-family:var(--font-mono);text-align:center;margin-top:1px}
+
+/* ── Divider ── */
+.kit-divider{height:1px;background:var(--b1);margin:32px 0}
+
+/* ── Tags ── */
+.kit-tag{
+  display:inline-block;
+  padding:2px 7px;border-radius:var(--rf);
+  font-size:10px;font-weight:700;
+  background:var(--s3);color:var(--t3);
+  margin-right:4px;margin-bottom:4px;
+}
+.kit-tag.new{background:var(--ad);color:var(--a)}
+.kit-tag.updated{background:var(--ams);color:var(--amber)}
+
+/* ── Screen preview shell ── */
+.phone-shell{
+  width:280px;height:590px;
+  background:var(--bg);
+  border-radius:38px;
+  overflow:hidden;
+  border:1.5px solid rgba(255,255,255,.1);
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+  flex-shrink:0;
+  position:relative;
+}
+.phone-content{
+  height:100%;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:none;
+  display:flex;flex-direction:column;
+  padding-bottom:60px;
+}
+.phone-content::-webkit-scrollbar{display:none}
+.phone-status{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px 0;font-size:11px;font-weight:700;color:var(--t1);
+  flex-shrink:0;
+}
+
+/* ── Pattern grid ── */
+.patterns-grid{
+  display:flex;flex-wrap:wrap;gap:20px;
+}
+
+/* ── Integration item ── */
+.intg-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;background:var(--s1);
+  border-radius:14px;border:1px solid var(--b1);
+}
+.intg-icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════
+   COMPONENT STYLES (from prototype_v3.html — exact copy)
+═══════════════════════════════════════════════════ */
+
+/* ── Buttons ── */
+.btn{
+  width:100%;padding:15px;border-radius:var(--rf);
+  font-family:var(--font);font-size:15px;font-weight:700;
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .15s;
+}
+.btn:active{transform:scale(.97)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.btn-primary{background:var(--a);color:#07221A}
+.btn-primary:active{background:#1AEDB5}
+.btn-secondary{background:var(--s2);color:var(--t1);border:1px solid var(--b2)}
+.btn-secondary:active{background:var(--s3)}
+.btn-confirm{background:rgba(45,212,160,.13);color:#00E5A8;border:none}
+.btn-confirm:active{background:rgba(45,212,160,.22)}
+.btn-danger{background:rgba(240,100,73,.13);color:#F06449;border:none}
+.btn-danger:active{background:rgba(240,100,73,.22)}
+.btn-cancel{background:rgba(240,100,73,.13);color:#F06449;border:none}
+.btn-cancel:active{background:rgba(240,100,73,.22)}
+.btn-disabled{background:var(--s2);color:var(--t3);border:1px solid var(--b1);cursor:not-allowed;opacity:.5}
+
+/* ── Hero join ── */
+.hero-join{
+  display:flex;align-items:center;gap:6px;
+  background:var(--a);color:#07221A;
+  border:none;border-radius:var(--rf);
+  padding:9px 16px;font-family:var(--font);
+  font-size:13px;font-weight:800;cursor:pointer;
+  transition:all .15s;
+}
+.hero-join:active{transform:scale(.93)}
+.hero-join svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--rf);font-size:11px;font-weight:700}
+.bd{width:5px;height:5px;border-radius:50%;background:currentColor}
+.b-green{background:var(--gs);color:var(--green)}
+.b-amber{background:var(--ams);color:var(--amber)}
+.b-red{background:var(--rs);color:var(--red)}
+.b-muted{background:var(--s3);color:var(--t3)}
+.b-blue{background:rgba(91,142,255,.13);color:#7aaaff}
+
+/* ── Meeting status ── */
+.mst{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.mst svg{display:block;flex-shrink:0;width:14px;height:14px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mst-label{font-size:11px;font-weight:700;line-height:14px}
+.mst-confirmed svg{stroke:#2DD4A0}.mst-confirmed .mst-label{color:#2DD4A0}
+.mst-pending svg{stroke:#F5A623}.mst-pending .mst-label{color:#F5A623}
+.mst-noans svg{stroke:#7AAAFF}.mst-noans .mst-label{color:#7AAAFF}
+.mst-cancelled svg{stroke:#F06449;stroke-width:2.5}.mst-cancelled .mst-label{color:#F06449}
+.mst-done svg{stroke:var(--t3)}.mst-done .mst-label{color:var(--t3)}
+
+/* ── Meet card ── */
+.meet-card{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;background:var(--s1);
+  border-radius:var(--r2);margin:0 0 8px;
+  border:1px solid var(--b1);cursor:pointer;
+  transition:all .14s;
+}
+.meet-card:active{background:var(--s2);transform:scale(.99)}
+.meet-av{
+  width:44px;height:44px;border-radius:12px;
+  background:var(--s3);display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:var(--a);flex-shrink:0;
+  border:1px solid var(--b1);letter-spacing:-.02em;
+}
+.meet-info{flex:1;min-width:0}
+.meet-name{font-size:14px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meet-meta{font-size:12px;color:var(--t2);margin-top:3px;display:flex;align-items:center;gap:5px;font-weight:500}
+.meta-dot{width:3px;height:3px;border-radius:50%;background:var(--t3);flex-shrink:0}
+
+/* ── Link card ── */
+.link-card{
+  background:var(--s1);border-radius:var(--r3);
+  border:1px solid var(--b1);margin:0 0 10px;
+  overflow:hidden;cursor:pointer;transition:all .14s;
+}
+.link-card:active{background:var(--s2)}
+.link-card-body{padding:16px 16px 0}
+.lc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.lc-name{font-size:16px;font-weight:700;color:var(--t1)}
+.lc-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.lc-pill{padding:3px 9px;background:var(--s3);border-radius:var(--rf);font-size:11px;font-weight:600;color:var(--t2)}
+.lc-footer{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-top:1px solid var(--b1)}
+.lc-url{font-size:11px;color:var(--t3);font-weight:500;letter-spacing:.01em}
+.lc-btns{display:flex;gap:6px}
+.lc-btn{display:flex;align-items:center;gap:4px;padding:6px 11px;border-radius:var(--rf);font-size:11px;font-weight:700;border:none;cursor:pointer;font-family:var(--font);transition:all .12s}
+.lc-btn:active{transform:scale(.95)}
+.lc-share{background:var(--ad);color:var(--a)}
+.lc-copy{background:var(--s3);color:var(--t2)}
+.lc-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+
+/* ── Stat grid ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--s1);border-radius:var(--r2);padding:14px;border:1px solid var(--b1)}
+.stat-val{font-size:28px;font-weight:800;color:var(--t1);line-height:1;letter-spacing:-.03em}
+.stat-val.ac{color:var(--a)}
+.stat-lbl{font-size:11px;color:var(--t2);margin-top:5px;font-weight:600;letter-spacing:.01em}
+
+/* ── Hero card ── */
+.hero-card{
+  background:#182020;
+  border-radius:var(--r3);padding:18px;
+  border:1px solid rgba(0,229,168,.18);
+}
+.hero-card.hero-unconfirmed{background:#1E1200;border-color:rgba(245,166,35,.3)}
+.hero-card.hero-waiting{background:#0A111E;border-color:rgba(91,142,255,.3)}
+.hero-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:10px}
+.hero-label.amber{color:var(--amber)}
+.hero-label.blue{color:#7AAAFF}
+.hero-name{font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.hero-type{font-size:13px;color:var(--t2);margin-top:3px;font-weight:500}
+.hero-footer{display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px}
+.hero-time{font-size:30px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1}
+.hero-date{font-size:12px;color:var(--t2);margin-top:4px;font-weight:500}
+
+/* ── Detail card ── */
+.detail-card{background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px}
+.detail-row{padding:10px 0;border-bottom:1px solid var(--b1);display:flex;flex-direction:column;gap:3px}
+.detail-row:last-child{border-bottom:none}
+.dr-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.dr-val{font-size:14px;font-weight:600;color:var(--t1)}
+.dr-val.link{color:var(--a)}
+
+/* ── Navbar ── */
+.navbar-outer{
+  display:flex;align-items:center;flex-wrap:nowrap;gap:8px;
+  padding:8px 14px 14px;
+  background:transparent;
+}
+.nav-pill{
+  flex:1 1 0%;min-width:0;display:flex;align-items:center;
+  background:rgba(10,14,13,.45);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:var(--rf);
+  padding:5px;
+  height:56px;
+}
+.nav-item{
+  flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.nav-ic{
+  width:71px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:30px;
+  border:none;
+  transition:background .15s;
+}
+.nav-item svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+.nav-item.on .nav-ic{background:rgba(0,229,168,.13)}
+.nav-item.on svg{stroke:var(--a)}
+.nav-dot{width:4px;height:4px;border-radius:50%;background:var(--a);opacity:0;transition:opacity .15s}
+.nav-item.on .nav-dot{opacity:1}
+.nav-ai-pill{
+  width:56px;height:56px;flex-shrink:0;flex-grow:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(15,22,21,.90);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:50%;
+  cursor:pointer;transition:all .15s;
+}
+.nav-ai-pill svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.nav-ai-pill:active{transform:scale(.91);background:var(--as)}
+
+/* ── Notif badge ── */
+.notif-badge{
+  position:absolute;top:-3px;right:-3px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--bg);
+}
+
+/* ── Tab pills ── */
+.tab-pills{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;padding:4px 0}
+.tab-pills::-webkit-scrollbar{display:none}
+.tab-pill{
+  flex-shrink:0;padding:0 14px;height:32px;border-radius:var(--rf);
+  font-size:12px;font-weight:700;cursor:pointer;
+  background:var(--s2);color:var(--t2);border:1px solid var(--b1);
+  display:flex;align-items:center;gap:5px;transition:all .12s;
+  font-family:var(--font);
+}
+.tab-pill:active{transform:scale(.95)}
+.tab-pill.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.2)}
+.tab-count{background:var(--ams);color:var(--amber);padding:1px 5px;border-radius:var(--rf);font-size:10px}
+
+/* ── Page header ── */
+.page-head{padding:20px 0 0;flex-shrink:0}
+.page-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
+.page-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
+
+/* ── Inner header ── */
+.inner-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;
+  background:var(--s1);
+  border-bottom:1px solid var(--b1);
+  flex-shrink:0;
+}
+.back-btn{
+  display:flex;align-items:center;gap:3px;
+  background:var(--s2);border:none;border-radius:var(--rf);
+  padding:7px 12px 7px 8px;font-family:var(--font);
+  font-size:13px;font-weight:700;color:var(--t2);cursor:pointer;
+  transition:all .12s;
+}
+.back-btn:active{background:var(--s3);color:var(--t1)}
+.back-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round}
+.inner-title{font-size:16px;font-weight:700;color:var(--t1);flex:1}
+.inner-action{
+  background:none;border:none;font-family:var(--font);
+  font-size:14px;font-weight:700;color:var(--a);cursor:pointer;padding:4px 0;
+}
+
+/* ── Section head ── */
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0;margin:20px 0 10px;
+}
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.section-action{font-size:12px;font-weight:700;color:var(--a);background:none;border:none;font-family:var(--font);cursor:pointer}
+
+/* ── Group title ── */
+.group-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:16px 0 8px}
+
+/* ── Input ── */
+.inp-wrap{margin-bottom:14px}
+.inp-label{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase}
+.inp{
+  width:100%;background:var(--s2);border:1px solid var(--b1);
+  border-radius:var(--r2);padding:0 14px;height:50px;
+  font-family:var(--font);font-size:14px;color:var(--t1);
+  outline:none;transition:border .15s;
+  -webkit-appearance:none;
+}
+.inp::placeholder{color:var(--t3)}
+.inp:focus{border-color:var(--a);box-shadow:0 0 0 3px var(--as)}
+textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
+
+/* ── Chips ── */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  padding:0 14px;height:37px;
+  border-radius:var(--rf);font-size:13px;font-weight:700;
+  background:var(--s2);color:var(--t2);
+  border:1px solid var(--b1);cursor:pointer;
+  transition:all .12s;display:flex;align-items:center;
+  white-space:nowrap;
+}
+.chip:active{transform:scale(.95)}
+.chip.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.25)}
+.chip-day{width:40px;height:40px;padding:0;border-radius:var(--r1);font-size:12px;justify-content:center}
+
+/* ── Toggle row ── */
+.tog-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--b1);
+}
+.tog-row:last-child{border-bottom:none}
+.tog-info{flex:1}
+.tog-title{font-size:14px;font-weight:700;color:var(--t1)}
+.tog-sub{font-size:12px;color:var(--t2);margin-top:2px;font-weight:500}
+.tog{
+  width:48px;height:28px;border-radius:var(--rf);
+  background:var(--s3);border:1px solid var(--b2);
+  position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+}
+.tog.on{background:var(--a);border-color:transparent}
+.tog::after{
+  content:'';position:absolute;width:22px;height:22px;
+  border-radius:50%;background:#fff;top:2px;left:2px;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.tog.on::after{transform:translateX(20px)}
+
+/* ── Settings ── */
+.settings-group{background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden;margin-bottom:8px}
+.set-row{
+  display:flex;align-items:center;gap:12px;padding:13px 16px;
+  border-bottom:1px solid var(--b1);cursor:pointer;transition:background .12s;
+}
+.set-row:last-child{border-bottom:none}
+.set-row:active{background:var(--s2)}
+.set-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.set-icon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.si-a{background:var(--ad);color:var(--a)}
+.si-am{background:var(--ams);color:var(--amber)}
+.si-r{background:var(--rs);color:var(--red)}
+.si-b{background:rgba(91,142,255,.15);color:#7aaaff}
+.si-m{background:var(--s3);color:var(--t2)}
+.set-content{flex:1}
+.set-title{font-size:14px;font-weight:600;color:var(--t1)}
+.set-sub{font-size:12px;color:var(--t2);margin-top:2px;font-weight:500}
+.set-right{display:flex;align-items:center;gap:6px}
+.set-val{font-size:13px;color:var(--t2);font-weight:500}
+.chev svg{width:15px;height:15px;stroke:var(--t3);fill:none;stroke-width:2;stroke-linecap:round}
+
+/* ── Calendar ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0 0}
+.cal-month{font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.cal-nav-btns{display:flex;gap:6px}
+.cal-nav-btn{
+  width:32px;height:32px;border-radius:var(--r1);
+  background:var(--s2);border:1px solid var(--b1);
+  color:var(--t1);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .12s;
+}
+.cal-nav-btn:active{background:var(--s3)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:12px 0}
+.cal-dh{font-size:9px;font-weight:700;text-align:center;color:var(--t3);padding:4px 0;text-transform:uppercase;letter-spacing:.06em}
+.cal-cell{aspect-ratio:1;border-radius:var(--r1);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;position:relative}
+.cal-cell:active{transform:scale(.88)}
+.cn{font-size:13px;font-weight:700}
+.cs{font-size:7px;font-weight:700;margin-top:1px}
+.c-free{background:var(--gs)}.c-free .cn{color:var(--green)}.c-free .cs{color:var(--green);opacity:.8}
+.c-busy{background:var(--rs)}.c-busy .cn{color:var(--red)}.c-busy .cs{color:var(--red);opacity:.8}
+.c-part{background:var(--ams)}.c-part .cn{color:var(--amber)}.c-part .cs{color:var(--amber);opacity:.8}
+.c-past{background:transparent}.c-past .cn{color:var(--t3)}.c-past .cs{color:var(--t3)}
+.c-today{outline:2px solid var(--a);outline-offset:-2px}
+.cal-legend{display:flex;gap:12px;justify-content:center;padding:0 0 16px}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3);font-weight:600}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+
+/* ── Time slots ── */
+.slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+.slot{
+  height:50px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;cursor:pointer;transition:all .13s;border:1.5px solid transparent;
+}
+.slot:active{transform:scale(.94)}
+.s-free{background:var(--gs);color:var(--green);border-color:rgba(45,212,160,.15)}
+.s-free:active{background:rgba(45,212,160,.2)}
+.s-taken{background:var(--s2);color:var(--t3);cursor:not-allowed}
+.s-sel{background:var(--a);color:#07221A;box-shadow:0 3px 14px rgba(0,229,168,.3)}
+
+/* ── Wizard progress ── */
+.wiz-progress{display:flex;gap:5px;padding:16px 0 0}
+.wiz-step{height:3px;border-radius:var(--rf);flex:1;background:var(--s3);transition:background .3s}
+.wiz-step.done{background:var(--a)}
+.wiz-step.cur{background:var(--a);opacity:.5}
+
+/* ── Bottom sheet ── */
+.overlay{
+  position:relative;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(6px);
+  display:flex;flex-direction:column;justify-content:flex-end;
+  border-radius:var(--r3);
+  overflow:hidden;
+}
+.sheet{
+  background:var(--s1);border-radius:var(--r4) var(--r4) var(--r3) var(--r3);
+  border:1px solid var(--b1);border-bottom:none;
+  padding:0 0 20px;
+}
+.sheet-handle{width:36px;height:4px;border-radius:var(--rf);background:var(--s3);margin:12px auto 16px}
+.sheet-title{font-size:18px;font-weight:800;color:var(--t1);padding:0 20px;letter-spacing:-.02em;margin-bottom:6px}
+.sheet-sub{font-size:13px;color:var(--t2);padding:0 20px 16px;border-bottom:1px solid var(--b1);margin-bottom:14px;font-weight:500;line-height:1.5}
+.sheet-body{padding:0 16px}
+.sheet-actions{display:flex;gap:8px;padding:0 16px;margin-top:8px}
+.sheet-actions .btn{font-size:14px;padding:13px}
+
+/* ── Inline edit overlay (IEO) ── */
+.ieo-box{background:var(--s1);border-radius:20px;padding:20px;width:250px;border:1px solid var(--b1)}
+.ieo-title{font-size:11px;font-weight:700;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em}
+.ieo-inp{width:100%;background:var(--s2);border:1.5px solid var(--a);border-radius:8px;padding:0 12px;height:48px;font-family:var(--font);font-size:22px;font-weight:800;color:var(--t1);outline:none;text-align:center}
+.ieo-sfx{font-size:13px;color:var(--t2);text-align:center;margin-top:5px}
+.ieo-btns{display:flex;gap:8px;margin-top:14px}
+.ieo-ok{flex:1;background:var(--a);color:#07221A;border:none;border-radius:999px;padding:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer}
+.ieo-cancel{flex:1;background:var(--s3);color:var(--t2);border:none;border-radius:999px;padding:11px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer}
+
+/* ── Profile ── */
+.profile-head{display:flex;flex-direction:column;align-items:center;padding:24px 0 20px;text-align:center}
+.profile-av{
+  width:72px;height:72px;border-radius:var(--r3);
+  background:linear-gradient(135deg,var(--a),#009E73);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:800;color:#07221A;
+  margin-bottom:12px;
+}
+.profile-name{font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em}
+.profile-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
+
+/* ── Empty state ── */
+.empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 28px}
+.empty-icon{width:64px;height:64px;border-radius:var(--r3);background:var(--s2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;border:1px solid var(--b1)}
+.empty-icon svg{width:28px;height:28px;stroke:var(--t3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-title{font-size:17px;font-weight:800;color:var(--t1);margin-bottom:6px;letter-spacing:-.01em}
+.empty-desc{font-size:13px;color:var(--t2);line-height:1.6;max-width:220px;margin-bottom:20px;font-weight:500}
+
+/* ── Success screen ── */
+.success-hero{display:flex;flex-direction:column;align-items:center;padding:40px 20px 24px;text-align:center}
+.success-icon{
+  width:80px;height:80px;border-radius:50%;
+  background:var(--gs);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;
+  border:2px solid rgba(45,212,160,.3);
+}
+.success-icon svg{width:36px;height:36px;stroke:var(--green);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.success-title{font-size:24px;font-weight:800;color:var(--t1);letter-spacing:-.02em;margin-bottom:6px}
+.success-sub{font-size:14px;color:var(--t2);font-weight:500;line-height:1.6}
+
+/* ── Slider ── */
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer;width:100%}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--a);cursor:pointer;box-shadow:0 2px 8px rgba(0,229,168,.4);border:2px solid var(--bg)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--a);cursor:pointer;border:2px solid var(--bg)}
+
+/* ── Platform option ── */
+.plat-opt{
+  display:flex;align-items:center;gap:12px;
+  background:var(--s2);border:1px solid var(--b1);
+  border-radius:var(--r2);padding:14px;
+}
+.plat-opt.on{background:var(--ad);border:1.5px solid rgba(0,229,168,.3)}
+
+/* ── Utility ── */
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.px-4{padding-left:16px;padding-right:16px}.mt-1{margin-top:4px}.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
+.pb-6{padding-bottom:24px}.w-full{width:100%}
+.scroll-fill{padding-bottom:24px}
+
+/* ── Slot panel ── */
+.slot-panel{padding:16px;border-top:1px solid var(--b1)}
+.slot-panel-title{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:3px}
+.slot-panel-sub{font-size:12px;color:var(--t2);margin-bottom:14px;font-weight:500}
+
+/* ── Status bar ── */
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px 0;font-size:11px;font-weight:700;color:var(--t1);
+}
+.sb-right{display:flex;align-items:center;gap:5px}
+
+/* ─ Inline action buttons (confirm/cancel in meet row) ─ */
+.inline-action-row{display:flex;gap:8px;margin-top:10px}
+.inline-btn{
+  flex:1;height:40px;
+  border:none;border-radius:999px;
+  font-family:var(--font);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .12s;
+}
+.inline-btn:active{transform:scale(.96)}
+.inline-btn-confirm{background:rgba(45,212,160,.13);color:#00E5A8}
+.inline-btn-cancel{background:rgba(240,100,73,.13);color:#F06449}
+.inline-btn-write{background:rgba(91,142,255,.15);color:#7AAAFF;border:1px solid rgba(91,142,255,.3)}
+
+/* ─ Create schedule button ─ */
+.create-sched-btn{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;background:rgba(0,229,168,.1);
+  border-radius:14px;border:1.5px dashed rgba(0,229,168,.3);
+  cursor:pointer;transition:all .14s;
+  margin-bottom:14px;
+}
+.create-sched-btn span{font-size:14px;font-weight:700;color:var(--a)}
+
+/* ─ Tooltip hint ─ */
+.tooltip-box{
+  background:var(--s4);color:var(--t1);
+  padding:8px 12px;border-radius:12px;
+  font-size:11px;font-weight:500;
+  border:1px solid var(--b1);
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+  line-height:1.5;max-width:200px;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-title">До встречи</div>
+    <div class="sidebar-logo-sub">UI Kit v3.0 · 2026-04-04</div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Токены</div>
+    <a href="#colors" class="nav-link">Цвета</a>
+    <a href="#typography" class="nav-link">Типографика</a>
+    <a href="#spacing" class="nav-link">Spacing</a>
+    <a href="#radius" class="nav-link">Border Radius</a>
+    <a href="#shadows" class="nav-link">Тени</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Компоненты</div>
+    <a href="#buttons" class="nav-link">Кнопки</a>
+    <a href="#badges" class="nav-link">Бейджи и статусы</a>
+    <a href="#cards" class="nav-link">Карточки</a>
+    <a href="#hero-cards" class="nav-link">Hero Cards</a>
+    <a href="#navigation" class="nav-link">Навигация</a>
+    <a href="#forms" class="nav-link">Формы</a>
+    <a href="#chips" class="nav-link">Chips</a>
+    <a href="#toggles" class="nav-link">Тоггл</a>
+    <a href="#settings" class="nav-link">Settings rows</a>
+    <a href="#calendar" class="nav-link">Календарь</a>
+    <a href="#slots" class="nav-link">Слоты времени</a>
+    <a href="#overlays" class="nav-link">Оверлеи / Sheets</a>
+    <a href="#typography-comp" class="nav-link">Типографика UI</a>
+    <a href="#profile" class="nav-link">Профиль</a>
+    <a href="#wizard" class="nav-link">Wizard Progress</a>
+    <a href="#empty" class="nav-link">Empty State</a>
+    <a href="#success" class="nav-link">Success Screen</a>
+    <a href="#utility" class="nav-link">Utility классы</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Паттерны</div>
+    <a href="#pat-home" class="nav-link">Главная</a>
+    <a href="#pat-meetings" class="nav-link">Встречи</a>
+    <a href="#pat-detail" class="nav-link">Детали встречи</a>
+    <a href="#pat-wizard" class="nav-link">Создание расписания</a>
+    <a href="#pat-integrations" class="nav-link">Интеграции</a>
+  </div>
+</nav>
+
+<!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+<main class="main">
+
+  <!-- PAGE HEADER -->
+  <div class="kit-head">
+    <div class="kit-eyebrow">Telegram Mini App</div>
+    <div class="kit-title">До встречи<br>UI Kit v3.0</div>
+    <div class="kit-meta">
+      Обновлён: 2026-04-04 · Синхронизирован с prototype_v3.html<br>
+      Шрифт: Manrope · Акцент: #00E5A8 · Тёмная тема · Фон: #0A0E0D
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       1. DESIGN TOKENS
+  ════════════════════════════════════════ -->
+
+  <!-- COLORS -->
+  <section class="kit-section" id="colors">
+    <div class="kit-section-title">1.1 Цвета</div>
+    <p class="kit-section-sub">Все CSS-переменные из <code style="font-family:var(--font-mono);color:var(--a)">:root</code> прототипа. Используйте только переменные, не хардкодьте цвета.</p>
+
+    <div class="comp-block">
+      <div class="comp-title">Background Scale</div>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-swatch" style="background:#05100E"></div>
+          <div class="token-name">body bg</div>
+          <div class="token-val">#05100E</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--bg)"></div>
+          <div class="token-name">--bg</div>
+          <div class="token-val">#0A0E0D</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--s1)"></div>
+          <div class="token-name">--s1</div>
+          <div class="token-val">#121918</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--s2)"></div>
+          <div class="token-name">--s2</div>
+          <div class="token-val">#182020</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--s3)"></div>
+          <div class="token-name">--s3</div>
+          <div class="token-val">#1F2A29</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--s4)"></div>
+          <div class="token-name">--s4</div>
+          <div class="token-val">#263330</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Accent</div>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--a)"></div>
+          <div class="token-name">--a</div>
+          <div class="token-val">#00E5A8</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--ad);border:1px solid var(--b2)"></div>
+          <div class="token-name">--ad</div>
+          <div class="token-val">rgba(0,229,168,.14)</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--as);border:1px solid var(--b2)"></div>
+          <div class="token-name">--as</div>
+          <div class="token-val">rgba(0,229,168,.07)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Text</div>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--t1)"></div>
+          <div class="token-name">--t1</div>
+          <div class="token-val">#EDF2F0</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--t2)"></div>
+          <div class="token-name">--t2</div>
+          <div class="token-val">#7B9490</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--t3)"></div>
+          <div class="token-name">--t3</div>
+          <div class="token-val">#435450</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Semantic</div>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--green)"></div>
+          <div class="token-name">--green</div>
+          <div class="token-val">#2DD4A0</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--gs);border:1px solid var(--b2)"></div>
+          <div class="token-name">--gs</div>
+          <div class="token-val">rgba(45,212,160,.13)</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--amber)"></div>
+          <div class="token-name">--amber</div>
+          <div class="token-val">#F5A623</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--ams);border:1px solid var(--b2)"></div>
+          <div class="token-name">--ams</div>
+          <div class="token-val">rgba(245,166,35,.13)</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--red)"></div>
+          <div class="token-name">--red</div>
+          <div class="token-val">#F06449</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--rs);border:1px solid var(--b2)"></div>
+          <div class="token-name">--rs</div>
+          <div class="token-val">rgba(240,100,73,.13)</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--blue)"></div>
+          <div class="token-name">--blue / #7aaaff</div>
+          <div class="token-val">#7AAAFF</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--blue-soft);border:1px solid var(--b2)"></div>
+          <div class="token-name">blue-soft</div>
+          <div class="token-val">rgba(91,142,255,.13)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Borders</div>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--b1);border:1px solid rgba(255,255,255,.2)"></div>
+          <div class="token-name">--b1</div>
+          <div class="token-val">rgba(255,255,255,.06)</div>
+        </div>
+        <div class="token-item">
+          <div class="token-swatch" style="background:var(--b2);border:1px solid rgba(255,255,255,.2)"></div>
+          <div class="token-name">--b2</div>
+          <div class="token-val">rgba(255,255,255,.1)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY TOKENS -->
+  <section class="kit-section" id="typography">
+    <div class="kit-section-title">1.2 Типографика</div>
+    <p class="kit-section-sub">Шрифт: <strong style="color:var(--t1)">Manrope</strong>, fallback: system-ui, sans-serif. Переменная: <code style="font-family:var(--font-mono);color:var(--a)">--font</code></p>
+
+    <div class="comp-block">
+      <div class="comp-title">Размеры и веса</div>
+      <div class="comp-preview">
+        <div class="type-row"><div class="type-meta">30px / 800</div><div class="type-sample" style="font-size:30px;font-weight:800;letter-spacing:-.03em">15:00</div></div>
+        <div class="type-row"><div class="type-meta">28px / 800</div><div class="type-sample" style="font-size:28px;font-weight:800;letter-spacing:-.03em">12</div></div>
+        <div class="type-row"><div class="type-meta">26px / 800</div><div class="type-sample" style="font-size:26px;font-weight:800;letter-spacing:-.03em">Привет, Иван 👋</div></div>
+        <div class="type-row"><div class="type-meta">24px / 800</div><div class="type-sample" style="font-size:24px;font-weight:800;letter-spacing:-.02em">Встреча забронирована!</div></div>
+        <div class="type-row"><div class="type-meta">22px / 800</div><div class="type-sample" style="font-size:22px;font-weight:800;letter-spacing:-.02em">Иван Цех</div></div>
+        <div class="type-row"><div class="type-meta">20px / 800</div><div class="type-sample" style="font-size:20px;font-weight:800;letter-spacing:-.02em">У тебя 3 встречи</div></div>
+        <div class="type-row"><div class="type-meta">18px / 800</div><div class="type-sample" style="font-size:18px;font-weight:800;letter-spacing:-.02em">Анна Смирнова</div></div>
+        <div class="type-row"><div class="type-meta">17px / 800</div><div class="type-sample" style="font-size:17px;font-weight:800;letter-spacing:-.02em">Апрель 2026</div></div>
+        <div class="type-row"><div class="type-meta">16px / 700</div><div class="type-sample" style="font-size:16px;font-weight:700">Консультация</div></div>
+        <div class="type-row"><div class="type-meta">15px / 700</div><div class="type-sample" style="font-size:15px;font-weight:700">Сохранить изменения</div></div>
+        <div class="type-row"><div class="type-meta">14px / 700</div><div class="type-sample" style="font-size:14px;font-weight:700">Анна Смирнова</div></div>
+        <div class="type-row"><div class="type-meta">14px / 600</div><div class="type-sample" style="font-size:14px;font-weight:600;color:var(--t2)">Принимать записи</div></div>
+        <div class="type-row"><div class="type-meta">13px / 700</div><div class="type-sample" style="font-size:13px;font-weight:700">Подключиться</div></div>
+        <div class="type-row"><div class="type-meta">13px / 500</div><div class="type-sample" style="font-size:13px;font-weight:500;color:var(--t2)">Консультация по маркетингу</div></div>
+        <div class="type-row"><div class="type-meta">12px / 700</div><div class="type-sample" style="font-size:12px;font-weight:700;color:var(--t2)">НАЗВАНИЕ</div></div>
+        <div class="type-row"><div class="type-meta">12px / 500</div><div class="type-sample" style="font-size:12px;font-weight:500;color:var(--t2)">2 апр · 60 мин · Jitsi</div></div>
+        <div class="type-row"><div class="type-meta">11px / 700</div><div class="type-sample" style="font-size:11px;font-weight:700">Всё в силе</div></div>
+        <div class="type-row"><div class="type-meta">11px / 700 caps</div><div class="type-sample" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Встречи сегодня</div></div>
+        <div class="type-row"><div class="type-meta">10px / 700 caps</div><div class="type-sample" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a)">Ближайшая встреча</div></div>
+        <div class="type-row"><div class="type-meta">9px / 700 caps</div><div class="type-sample" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">ПН ВТ СР ЧТ ПТ СБ ВС</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPACING -->
+  <section class="kit-section" id="spacing">
+    <div class="kit-section-title">1.3 Spacing</div>
+    <p class="kit-section-sub">Шкала 4px. Используется для gap, padding, margin.</p>
+
+    <div class="comp-preview">
+      <div class="sp-row"><div class="sp-block" style="width:4px"></div><div class="sp-label">4px</div><div class="sp-desc">Минимальный gap, micro-spacing</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:8px"></div><div class="sp-label">8px</div><div class="sp-desc">gap между элементами, btn gap</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:12px"></div><div class="sp-label">12px</div><div class="sp-desc">gap в карточках, gap nav-items</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:14px"></div><div class="sp-label">14px</div><div class="sp-desc">padding cards, margin-bottom inp</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:16px"></div><div class="sp-label">16px</div><div class="sp-desc">горизонтальный padding экрана</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:20px"></div><div class="sp-label">20px</div><div class="sp-desc">padding page-head, sheet</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:24px"></div><div class="sp-label">24px</div><div class="sp-desc">scroll-fill, profile-head</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:28px"></div><div class="sp-label">28px</div><div class="sp-desc">status bar padding</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:32px"></div><div class="sp-label">32px</div><div class="sp-desc">section margins, hero margin-top</div></div>
+      <div class="sp-row"><div class="sp-block" style="width:48px"></div><div class="sp-label">48px</div><div class="sp-desc">empty-state, large gaps</div></div>
+    </div>
+  </section>
+
+  <!-- BORDER RADIUS -->
+  <section class="kit-section" id="radius">
+    <div class="kit-section-title">1.4 Border Radius</div>
+
+    <div class="comp-preview">
+      <div class="radius-grid">
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--r1)"></div>
+          <div class="radius-label">--r1</div>
+          <div class="radius-val">8px · chips-day, cal-cell, nav-btn</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--r2)"></div>
+          <div class="radius-label">--r2</div>
+          <div class="radius-val">14px · meet-card, inp, slot</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--r3)"></div>
+          <div class="radius-label">--r3</div>
+          <div class="radius-val">20px · link-card, hero, detail</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--r4)"></div>
+          <div class="radius-label">--r4</div>
+          <div class="radius-val">28px · sheet top corners</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:var(--rf)"></div>
+          <div class="radius-label">--rf</div>
+          <div class="radius-val">999px · кнопки, бейджи, nav-pill</div>
+        </div>
+        <div class="radius-item">
+          <div class="radius-box" style="border-radius:50%"></div>
+          <div class="radius-label">50%</div>
+          <div class="radius-val">Круг · nav-ai-pill, success-icon</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SHADOWS -->
+  <section class="kit-section" id="shadows">
+    <div class="kit-section-title">1.5 Тени</div>
+
+    <div class="comp-preview" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center">
+      <div>
+        <div style="width:120px;height:70px;background:var(--bg);border-radius:var(--r3);border:1.5px solid rgba(255,255,255,.1);box-shadow:0 40px 120px rgba(0,0,0,.7),0 0 0 6px rgba(255,255,255,.04),inset 0 0 0 1px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3);text-align:center;padding:8px">Phone Shell</div>
+      </div>
+      <div>
+        <div style="background:var(--a);border-radius:var(--rf);padding:9px 16px;font-size:13px;font-weight:800;color:#07221A;box-shadow:0 3px 14px rgba(0,229,168,.3)">hero-join</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:var(--font-mono)">0 3px 14px rgba(0,229,168,.3)</div>
+      </div>
+      <div>
+        <div class="slot s-sel" style="width:80px">14:00</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:var(--font-mono)">0 3px 14px rgba(0,229,168,.3)</div>
+      </div>
+      <div>
+        <input type="range" style="width:140px;background:linear-gradient(to right,var(--a) 60%,var(--s3) 60%)" value="60" max="100">
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:var(--font-mono)">slider thumb: 0 2px 8px rgba(0,229,168,.4)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       2. COMPONENTS
+  ════════════════════════════════════════ -->
+
+  <!-- BUTTONS -->
+  <section class="kit-section" id="buttons">
+    <div class="kit-section-title">2.1 Кнопки</div>
+
+    <div class="comp-block">
+      <div class="comp-title">btn-primary</div>
+      <div class="comp-desc">Основное действие. Цвет текста #07221A (не белый!). Полная ширина.</div>
+      <div class="comp-preview" style="max-width:360px">
+        <button class="btn btn-primary">Далее →</button>
+      </div>
+      <pre class="comp-code">&lt;button class="btn btn-primary"&gt;Далее →&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">btn-secondary</div>
+      <div class="comp-desc">Вторичное действие. Тёмный фон, border rgba(255,255,255,.1).</div>
+      <div class="comp-preview" style="max-width:360px">
+        <button class="btn btn-secondary">Скопировать ссылку</button>
+      </div>
+      <pre class="comp-code">&lt;button class="btn btn-secondary"&gt;Скопировать ссылку&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">btn-confirm</div>
+      <div class="comp-desc">Подтверждение действия. Зелёный tint.</div>
+      <div class="comp-preview" style="max-width:360px">
+        <button class="btn btn-confirm">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Подтвердить
+        </button>
+      </div>
+      <pre class="comp-code">&lt;button class="btn btn-confirm"&gt;Подтвердить&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">btn-danger / btn-cancel</div>
+      <div class="comp-desc">Деструктивные действия. Красный tint. Оба класса идентичны.</div>
+      <div class="comp-preview" style="max-width:360px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-danger">Удалить расписание</button>
+        <button class="btn btn-cancel">Отменить встречу</button>
+      </div>
+      <pre class="comp-code">&lt;button class="btn btn-danger"&gt;Удалить расписание&lt;/button&gt;
+&lt;button class="btn btn-cancel"&gt;Отменить встречу&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">btn-disabled</div>
+      <div class="comp-desc">Кнопка недоступна. opacity: .5, cursor: not-allowed.</div>
+      <div class="comp-preview" style="max-width:360px">
+        <button class="btn btn-disabled">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Сохранить изменения
+        </button>
+      </div>
+      <pre class="comp-code">&lt;button class="btn btn-disabled"&gt;Сохранить изменения&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">hero-join</div>
+      <div class="comp-desc">Кнопка "Подключиться" в hero-карточке. Маленькая, pill-форма.</div>
+      <div class="comp-preview">
+        <button class="hero-join">
+          <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+          Подключиться
+        </button>
+      </div>
+      <pre class="comp-code">&lt;button class="hero-join"&gt;
+  &lt;svg ...&gt;&lt;/svg&gt;
+  Подключиться
+&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Inline action кнопки (в строке встречи)</div>
+      <div class="comp-desc">height: 40px, border-radius: 999px. Используются для быстрых действий прямо в карточке.</div>
+      <div class="comp-preview">
+        <div class="inline-action-row">
+          <button class="inline-btn inline-btn-confirm">Подтвердить</button>
+          <button class="inline-btn inline-btn-cancel">Отклонить</button>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="inline-btn inline-btn-write" style="flex:none;padding:0 16px">Написать</button>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div style="display:flex;gap:8px"&gt;
+  &lt;button style="flex:1;height:40px;background:rgba(45,212,160,.13);border:none;
+    border-radius:999px;font-size:13px;font-weight:700;color:#00E5A8;cursor:pointer"&gt;
+    Подтвердить
+  &lt;/button&gt;
+  &lt;button style="flex:1;height:40px;background:rgba(240,100,73,.13);border:none;
+    border-radius:999px;font-size:13px;font-weight:700;color:#F06449;cursor:pointer"&gt;
+    Отклонить
+  &lt;/button&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">lc-btn (link card кнопки)</div>
+      <div class="comp-desc">Маленькие кнопки в карточке расписания. .lc-share (зелёный) и .lc-copy (серый).</div>
+      <div class="comp-preview">
+        <div style="display:flex;gap:6px">
+          <button class="lc-btn lc-share">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Поделиться
+          </button>
+          <button class="lc-btn lc-copy">
+            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Копировать
+          </button>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;button class="lc-btn lc-share"&gt;Поделиться&lt;/button&gt;
+&lt;button class="lc-btn lc-copy"&gt;Копировать&lt;/button&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">inner-action / back-btn / section-action / cal-nav-btn</div>
+      <div class="comp-desc">Текстовые и маленькие кнопки для навигации и действий.</div>
+      <div class="comp-preview" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        <button class="back-btn">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <button class="inner-action">•••</button>
+        <button class="section-action">Все</button>
+        <div class="cal-nav-btn">‹</div>
+        <div class="cal-nav-btn">›</div>
+      </div>
+      <pre class="comp-code">&lt;button class="back-btn"&gt;
+  &lt;svg...&gt;&lt;/svg&gt; Назад
+&lt;/button&gt;
+
+&lt;button class="inner-action"&gt;•••&lt;/button&gt;
+&lt;button class="section-action"&gt;Все&lt;/button&gt;
+&lt;div class="cal-nav-btn"&gt;‹&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">Специальные состояния кнопок btn-primary</div>
+      <div class="comp-desc">Кнопка "Поставить на паузу" — amber tint. Кнопка "Написать" — blue.</div>
+      <div class="comp-variants">
+        <button class="btn" style="background:var(--ams);color:var(--amber);border:1px solid rgba(245,166,35,.2);width:auto;padding:13px 20px;font-size:14px">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+          Поставить на паузу
+        </button>
+        <button class="btn" style="background:rgba(91,142,255,.15);color:#7AAAFF;border:1px solid rgba(91,142,255,.3);width:auto;padding:9px 16px;font-size:13px">Написать</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BADGES & STATUS -->
+  <section class="kit-section" id="badges">
+    <div class="kit-section-title">2.2 Бейджи и статусы</div>
+
+    <div class="comp-block">
+      <div class="comp-title">badge (для расписаний и фильтров)</div>
+      <div class="comp-variants">
+        <span class="badge b-green"><span class="bd"></span>Активно</span>
+        <span class="badge b-amber"><span class="bd"></span>На паузе</span>
+        <span class="badge b-red"><span class="bd"></span>Ошибка</span>
+        <span class="badge b-muted"><span class="bd"></span>Неактивно</span>
+        <span class="badge b-blue"><span class="bd"></span>Ожидание</span>
+      </div>
+      <pre class="comp-code">&lt;span class="badge b-green"&gt;&lt;span class="bd"&gt;&lt;/span&gt;Активно&lt;/span&gt;
+&lt;span class="badge b-amber"&gt;&lt;span class="bd"&gt;&lt;/span&gt;На паузе&lt;/span&gt;
+&lt;span class="badge b-red"&gt;Ошибка&lt;/span&gt;
+&lt;span class="badge b-muted"&gt;Неактивно&lt;/span&gt;
+&lt;span class="badge b-blue"&gt;Ожидание&lt;/span&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">mst — Meeting Status (иконка + текст)</div>
+      <div class="comp-desc">Используется в карточках встреч и в detail-row статуса.</div>
+      <div class="comp-variants col">
+        <div class="mst mst-confirmed">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span class="mst-label">Всё в силе</span>
+        </div>
+        <div class="mst mst-pending">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="mst-label">Ожидает</span>
+        </div>
+        <div class="mst mst-noans">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="mst-label">Нет ответа</span>
+        </div>
+        <div class="mst mst-cancelled">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span class="mst-label">Отменено</span>
+        </div>
+        <div class="mst mst-done">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          <span class="mst-label">Завершено</span>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="mst mst-confirmed"&gt;
+  &lt;svg ...&gt;&lt;polyline points="20 6 9 17 4 12"/&gt;&lt;/svg&gt;
+  &lt;span class="mst-label"&gt;Всё в силе&lt;/span&gt;
+&lt;/div&gt;
+&lt;!-- mst-pending | mst-noans | mst-cancelled | mst-done --&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">notif-badge</div>
+      <div class="comp-desc">Красный счётчик уведомлений поверх иконки. position: absolute.</div>
+      <div class="comp-preview">
+        <div style="position:relative;width:24px;height:24px">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+          <div class="notif-badge">3</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div style="position:relative;width:24px;height:24px"&gt;
+  &lt;svg ...&gt;&lt;/svg&gt;
+  &lt;div class="notif-badge"&gt;3&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- CARDS -->
+  <section class="kit-section" id="cards">
+    <div class="kit-section-title">2.3 Карточки</div>
+
+    <div class="comp-block">
+      <div class="comp-title">meet-card — карточка встречи</div>
+      <div class="comp-desc">Строка встречи в списке. Аватар, имя, мета-данные, статус.</div>
+      <div class="comp-preview" style="max-width:420px">
+        <div class="meet-card">
+          <div class="meet-av">АС</div>
+          <div class="meet-info">
+            <div class="meet-name">Анна Смирнова</div>
+            <div class="meet-meta">
+              15:00 – 16:00
+              <span class="meta-dot"></span>
+              Консультация
+            </div>
+          </div>
+          <div class="mst mst-confirmed">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="mst-label">Всё в силе</span>
+          </div>
+        </div>
+        <div class="meet-card">
+          <div class="meet-av" style="color:var(--amber)">ЕК</div>
+          <div class="meet-info">
+            <div class="meet-name">Елена Козлова</div>
+            <div class="meet-meta">
+              14:00 – 15:30
+              <span class="meta-dot"></span>
+              Стратегическая сессия
+            </div>
+          </div>
+          <div class="mst mst-pending">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="mst-label">Ожидает</span>
+          </div>
+        </div>
+        <div class="meet-card">
+          <div class="meet-av" style="color:#7aaaff">МП</div>
+          <div class="meet-info">
+            <div class="meet-name">Михаил Петров</div>
+            <div class="meet-meta">11:00 – 11:45<span class="meta-dot"></span>Демо</div>
+          </div>
+          <div class="mst mst-noans">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span class="mst-label">Нет ответа</span>
+          </div>
+        </div>
+        <div class="meet-card" style="opacity:.7">
+          <div class="meet-av" style="color:var(--red)">ПО</div>
+          <div class="meet-info">
+            <div class="meet-name">Павел Орлов</div>
+            <div class="meet-meta">17:00 – 18:00<span class="meta-dot"></span>Демо</div>
+          </div>
+          <div class="mst mst-cancelled">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span class="mst-label">Отменено</span>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="meet-card"&gt;
+  &lt;div class="meet-av"&gt;АС&lt;/div&gt;
+  &lt;div class="meet-info"&gt;
+    &lt;div class="meet-name"&gt;Анна Смирнова&lt;/div&gt;
+    &lt;div class="meet-meta"&gt;
+      15:00 – 16:00
+      &lt;span class="meta-dot"&gt;&lt;/span&gt;
+      Консультация
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="mst mst-confirmed"&gt;...&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">link-card — карточка расписания</div>
+      <div class="comp-preview" style="max-width:420px">
+        <div class="link-card" style="padding:14px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+            <div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Консультация по маркетингу</div>
+            <span class="badge b-green" style="flex-shrink:0">Активно</span>
+          </div>
+          <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Обсудим вашу маркетинговую стратегию</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div style="display:flex;gap:5px;flex-wrap:wrap;flex:1">
+              <span class="lc-pill">60 мин</span><span class="lc-pill">Пн–Пт</span><span class="lc-pill">Jitsi</span>
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0">
+              <button class="lc-btn lc-copy" style="width:30px;height:30px;padding:0;justify-content:center">
+                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+              <button class="lc-btn lc-share" style="width:30px;height:30px;padding:0;justify-content:center">
+                <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="link-card" style="padding:14px 16px"&gt;
+  &lt;div style="display:flex;align-items:center;justify-content:space-between"&gt;
+    &lt;div class="lc-name"&gt;Консультация&lt;/div&gt;
+    &lt;span class="badge b-green"&gt;Активно&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;div style="display:flex;gap:5px"&gt;
+    &lt;span class="lc-pill"&gt;60 мин&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;!-- lc-btns --&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">stat-card — статистика</div>
+      <div class="comp-preview">
+        <div class="stat-grid" style="max-width:300px">
+          <div class="stat-card">
+            <div class="stat-val">12</div>
+            <div class="stat-lbl">Встреч всего</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val ac">8</div>
+            <div class="stat-lbl">Подтверждено</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" style="color:var(--amber)">3</div>
+            <div class="stat-lbl">Ожидают ответа</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" style="color:var(--t2)">1</div>
+            <div class="stat-lbl">Отменено</div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="stat-grid"&gt;
+  &lt;div class="stat-card"&gt;
+    &lt;div class="stat-val"&gt;12&lt;/div&gt;
+    &lt;div class="stat-lbl"&gt;Встреч всего&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="stat-card"&gt;
+    &lt;div class="stat-val ac"&gt;8&lt;/div&gt;  &lt;!-- .ac = accent color --&gt;
+    &lt;div class="stat-lbl"&gt;Подтверждено&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">detail-card — детали встречи</div>
+      <div class="comp-preview" style="max-width:420px">
+        <div class="detail-card">
+          <div class="detail-row">
+            <div class="dr-label">Расписание</div>
+            <div class="dr-val">Консультация по маркетингу</div>
+          </div>
+          <div class="detail-row">
+            <div class="dr-label">Дата и время</div>
+            <div class="dr-val">Сегодня, 2 апреля · 15:00 – 16:00</div>
+          </div>
+          <div class="detail-row">
+            <div class="dr-label">Статус</div>
+            <div class="dr-val">
+              <div class="mst mst-confirmed">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="mst-label">Всё в силе</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="dr-label">Место</div>
+            <div class="dr-val">Jitsi Meet · <span class="dr-val link">meet.jit.si/dovstrechi</span></div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="detail-card"&gt;
+  &lt;div class="detail-row"&gt;
+    &lt;div class="dr-label"&gt;Расписание&lt;/div&gt;
+    &lt;div class="dr-val"&gt;Консультация&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;!-- .dr-val.link для ссылок --&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- HERO CARDS -->
+  <section class="kit-section" id="hero-cards">
+    <div class="kit-section-title">2.4 Hero Cards (3 варианта)</div>
+    <p class="kit-section-sub">Карточка ближайшей встречи на главном экране. Три состояния: confirmed (зелёный), unconfirmed/soon (оранжевый), waiting (синий).</p>
+
+    <div class="comp-preview" style="display:flex;flex-wrap:wrap;gap:16px">
+
+      <!-- Confirmed -->
+      <div style="flex:1;min-width:260px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Confirmed (зелёный)</div>
+        <div class="hero-card">
+          <div class="hero-label">Ближайшая встреча</div>
+          <div class="hero-name">Анна Смирнова</div>
+          <div class="hero-type">Консультация по маркетингу</div>
+          <div class="hero-footer">
+            <div>
+              <div class="hero-time">15:00</div>
+              <div class="hero-date">2 апр · 60 мин · Jitsi</div>
+            </div>
+            <button class="hero-join">
+              <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+              Подключиться
+            </button>
+          </div>
+        </div>
+        <pre class="comp-code" style="font-size:10px">bg:#182020
+border:1px solid rgba(0,229,168,.18)
+label color: var(--a)</pre>
+      </div>
+
+      <!-- Unconfirmed -->
+      <div style="flex:1;min-width:260px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Soon / Unconfirmed (оранжевый)</div>
+        <div class="hero-card hero-unconfirmed">
+          <div class="hero-label amber">До встречи меньше часа</div>
+          <div class="hero-name">Елена Козлова</div>
+          <div class="hero-type">Стратегическая сессия</div>
+          <div style="margin-top:12px">
+            <div class="hero-time">14:00</div>
+            <div class="hero-date">3 апр · 90 мин · Zoom</div>
+          </div>
+          <div class="inline-action-row">
+            <button class="inline-btn inline-btn-confirm">Подтвердить</button>
+            <button class="inline-btn inline-btn-cancel">Отклонить</button>
+          </div>
+        </div>
+        <pre class="comp-code" style="font-size:10px">bg:#1E1200
+border:1px solid rgba(245,166,35,.3)
+label color: var(--amber)</pre>
+      </div>
+
+      <!-- Waiting -->
+      <div style="flex:1;min-width:260px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Waiting answer (синий)</div>
+        <div class="hero-card hero-waiting">
+          <div class="hero-label blue">Ждём ответа от участника</div>
+          <div class="hero-name">Михаил Петров</div>
+          <div class="hero-type">Демо продукта</div>
+          <div class="hero-footer">
+            <div>
+              <div class="hero-time">11:00</div>
+              <div class="hero-date">3 апр · 45 мин · Zoom</div>
+            </div>
+            <button class="inline-btn inline-btn-write" style="flex:none;padding:0 16px">Написать</button>
+          </div>
+        </div>
+        <pre class="comp-code" style="font-size:10px">bg:#0A111E
+border:1px solid rgba(91,142,255,.3)
+label color: #7AAAFF</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAVIGATION -->
+  <section class="kit-section" id="navigation">
+    <div class="kit-section-title">2.5 Навигация</div>
+
+    <div class="comp-block">
+      <div class="comp-title">navbar-outer — нижняя навигация</div>
+      <div class="comp-preview" style="background:#0A0E0D;padding:8px;border-radius:var(--r3)">
+        <div class="navbar-outer">
+          <div class="nav-pill">
+            <div class="nav-item on">
+              <div class="nav-ic">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+              <div class="nav-dot"></div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-ic">
+                <div style="position:relative;width:24px;height:24px">
+                  <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                  <div class="notif-badge">3</div>
+                </div>
+              </div>
+              <div class="nav-dot"></div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-ic">
+                <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+              </div>
+              <div class="nav-dot"></div>
+            </div>
+            <div class="nav-item">
+              <div class="nav-ic">
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div class="nav-dot"></div>
+            </div>
+          </div>
+          <button class="nav-ai-pill">
+            <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:#fff;stroke:none"><path d="M20.9967 17.8896C20.9969 18.8418 20.9878 19.5262 20.3202 20.26C19.6381 21.0096 18.9482 21.0047 18.0981 20.9987C13.9662 20.9776 9.83362 20.9982 5.70159 20.9984C4.88761 20.9975 4.27533 20.9248 3.66048 20.2427C3.33266 19.8842 3.11576 19.421 3.04061 18.919C2.99421 18.6154 2.99857 18.0738 3.00191 17.6596C3.00269 17.5622 3.00342 17.4718 3.00342 17.3933L3.00316 5.66849C3.00766 4.89588 3.18151 4.27141 3.6928 3.71576C4.3755 2.97381 5.1834 2.98923 6.05227 3.00581C6.14765 3.00763 6.24375 3.00947 6.34051 3.01031L13.3023 3.01035C13.6876 3.01036 14 3.32275 14 3.7081C14 4.09311 13.6881 4.40536 13.3031 4.40584L5.4442 4.41563C5.0789 4.42183 4.82561 4.42614 4.54154 4.74336C4.24922 5.06979 4.25172 5.48047 4.25426 5.89541C4.25468 5.96458 4.25511 6.03386 4.25416 6.1029C4.25168 6.28545 4.25387 6.46956 4.25607 6.65371C4.25924 6.91951 4.26241 7.18538 4.2515 7.44672L4.25483 8.84684C4.2652 9.37525 4.26205 9.92904 4.25894 10.475C4.25745 10.7351 4.25598 10.9935 4.25599 11.2465L4.2563 15.902L4.25463 17.6652C4.25458 17.7433 4.25284 17.8239 4.25108 17.906C4.24042 18.4014 4.22863 18.9497 4.57704 19.2939C4.81703 19.5309 5.03535 19.5955 5.35034 19.5974C9.78948 19.6242 14.2303 19.6224 18.6696 19.5941C19.0332 19.5918 19.19 19.5124 19.4599 19.2581C19.57 19.0999 19.6909 18.9158 19.713 18.7129C19.7436 18.433 19.7421 18.1235 19.7408 17.8325C19.7405 17.7779 19.7402 17.724 19.7402 17.671L19.7387 16.0401L19.739 10.9062C19.739 10.5591 20.0203 10.2778 20.3674 10.2778C20.7145 10.2778 20.9959 10.5591 20.9959 10.9062L20.9967 17.8896Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M10.0839 8.00001C10.171 7.99996 10.2582 8.0001 10.3453 8.00053C10.7777 8.00269 11.1504 8.29494 11.2765 8.70862C11.876 10.6759 12.5985 12.655 13.2155 14.6368C13.3458 15.0554 13.0312 15.4767 12.5927 15.4773C12.2899 15.4777 12.0273 15.2705 11.9369 14.9815C11.8257 14.6262 11.7008 14.2869 11.5897 13.9227C11.5247 13.7098 11.3343 13.5564 11.1118 13.5524C10.4855 13.5411 9.85871 13.5456 9.23229 13.552C9.02483 13.5541 8.84091 13.6843 8.7804 13.8827C8.67857 14.2167 8.55626 14.666 8.46287 15.0251C8.39487 15.2866 8.20371 15.4776 7.93356 15.4818C7.4936 15.4888 7.15226 15.0432 7.28576 14.6239C7.55241 13.7864 7.80876 12.8891 8.05724 12.0949C8.40588 10.9806 8.77863 9.84199 9.12213 8.71756C9.25156 8.29386 9.64089 8.00024 10.0839 8.00001ZM11.113 12.1455C10.9206 11.6077 10.5982 10.5291 10.3773 9.8015C10.285 9.49745 10.0374 9.50934 9.95168 9.81531C9.72917 10.6092 9.50721 11.3953 9.24821 12.1767C9.20501 12.307 9.30159 12.4421 9.43889 12.4421L10.2638 12.4418C10.4698 12.4408 10.7009 12.4436 10.9216 12.4394C11.0655 12.4366 11.1614 12.281 11.113 12.1455Z"/><path d="M15.8005 14.8267V8.65797C15.8005 8.29546 15.5065 8.00165 15.144 8.00188C14.7814 8.00211 14.4878 8.29641 14.4883 8.65901L14.4981 14.8278C14.4986 15.187 14.7899 15.4779 15.1492 15.478C15.5089 15.4781 15.8005 15.1865 15.8005 14.8267Z"/><path d="M17.8573 3.85557C17.1867 4.52031 16.1303 4.80747 15.5074 4.92451C15.4589 4.93363 15.4593 5.06037 15.5078 5.06924C16.1315 5.18312 17.1891 5.46707 17.8573 6.14129C18.5265 6.81638 18.8127 7.87879 18.9282 8.50061C18.9372 8.54906 19.0621 8.54892 19.071 8.50045C19.1855 7.87774 19.4706 6.81367 20.143 6.14129C20.8128 5.47158 21.871 5.18599 22.4942 5.07061C22.5427 5.06163 22.5427 4.93524 22.4942 4.92626C21.871 4.81089 20.8128 4.52531 20.143 3.85557C19.4763 3.18882 19.1903 2.13771 19.0739 1.51388C19.0648 1.46533 18.9365 1.46547 18.9276 1.51403C18.8123 2.13875 18.5273 3.19149 17.8573 3.85557Z"/></svg>
+          </button>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="navbar-outer"&gt;
+  &lt;div class="nav-pill"&gt;
+    &lt;div class="nav-item on"&gt;  &lt;!-- .on = активный таб --&gt;
+      &lt;div class="nav-ic"&gt;&lt;svg...&gt;&lt;/svg&gt;&lt;/div&gt;
+      &lt;div class="nav-dot"&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    ...
+  &lt;/div&gt;
+  &lt;button class="nav-ai-pill"&gt;&lt;svg...&gt;&lt;/svg&gt;&lt;/button&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">tab-pills — горизонтальные фильтры</div>
+      <div class="comp-preview">
+        <div class="tab-pills">
+          <div class="tab-pill on">Нужно подтвердить</div>
+          <div class="tab-pill">Все</div>
+          <div class="tab-pill">Нет ответа <span class="tab-count">2</span></div>
+          <div class="tab-pill">Всё в силе</div>
+          <div class="tab-pill">Архив</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="tab-pills"&gt;
+  &lt;div class="tab-pill on"&gt;Нужно подтвердить&lt;/div&gt;
+  &lt;div class="tab-pill"&gt;Все&lt;/div&gt;
+  &lt;div class="tab-pill"&gt;Нет ответа &lt;span class="tab-count"&gt;2&lt;/span&gt;&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">inner-header — шапка вложенного экрана</div>
+      <div class="comp-preview" style="padding:0;overflow:hidden;border-radius:var(--r2)">
+        <div class="inner-header">
+          <button class="back-btn">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            Назад
+          </button>
+          <div class="inner-title">Встреча</div>
+          <button class="inner-action">•••</button>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="inner-header"&gt;
+  &lt;button class="back-btn"&gt;
+    &lt;svg...&gt;&lt;/svg&gt; Назад
+  &lt;/button&gt;
+  &lt;div class="inner-title"&gt;Встреча&lt;/div&gt;
+  &lt;button class="inner-action"&gt;•••&lt;/button&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- FORMS -->
+  <section class="kit-section" id="forms">
+    <div class="kit-section-title">2.6 Формы</div>
+
+    <div class="comp-block">
+      <div class="comp-title">inp-wrap — обёртка поля ввода</div>
+      <div class="comp-preview" style="max-width:400px">
+        <div class="inp-wrap">
+          <div class="inp-label">Название *</div>
+          <input class="inp" placeholder="Например: Консультация, Демо, Звонок">
+        </div>
+        <div class="inp-wrap">
+          <div class="inp-label">Описание</div>
+          <textarea class="inp" rows="3" placeholder="Расскажите, о чём встреча…"></textarea>
+        </div>
+        <div class="inp-wrap">
+          <div class="inp-label">Имя (заполнено)</div>
+          <input class="inp" value="Мария Иванова">
+        </div>
+        <div class="inp-wrap" style="margin-bottom:0">
+          <div class="inp-label">Время</div>
+          <input class="inp" type="time" value="10:00">
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="inp-wrap"&gt;
+  &lt;div class="inp-label"&gt;Название *&lt;/div&gt;
+  &lt;input class="inp" placeholder="..."&gt;
+&lt;/div&gt;
+&lt;!-- textarea --&gt;
+&lt;div class="inp-wrap"&gt;
+  &lt;div class="inp-label"&gt;Описание&lt;/div&gt;
+  &lt;textarea class="inp" rows="3"&gt;&lt;/textarea&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">input[type=range] — кастомный слайдер</div>
+      <div class="comp-preview" style="max-width:400px">
+        <div class="inp-wrap" style="margin-bottom:0">
+          <div class="inp-label">Длительность</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+            <input type="range" min="5" max="480" step="5" value="60" style="flex:1;background:linear-gradient(to right,var(--a) 12%,var(--s3) 12%)">
+            <div style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">60 мин</div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div style="display:flex;align-items:center;gap:10px"&gt;
+  &lt;input type="range" min="5" max="480" step="5" value="60" style="flex:1"&gt;
+  &lt;div style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);
+    border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;color:var(--t1);cursor:pointer"&gt;60 мин&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- CHIPS -->
+  <section class="kit-section" id="chips">
+    <div class="kit-section-title">2.7 Chips</div>
+
+    <div class="comp-block">
+      <div class="comp-title">chip — обычный выбор</div>
+      <div class="comp-preview">
+        <div class="chips">
+          <div class="chip on">Jitsi Meet</div>
+          <div class="chip">Zoom</div>
+          <div class="chip">Google Meet</div>
+          <div class="chip">Своя ссылка</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="chips"&gt;
+  &lt;div class="chip on"&gt;Jitsi Meet&lt;/div&gt;  &lt;!-- .on = выбран --&gt;
+  &lt;div class="chip"&gt;Zoom&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">chip-day — дни недели</div>
+      <div class="comp-desc">width:40px, height:40px, border-radius: --r1 (8px).</div>
+      <div class="comp-preview">
+        <div class="chips">
+          <div class="chip chip-day on">Пн</div>
+          <div class="chip chip-day on">Вт</div>
+          <div class="chip chip-day on">Ср</div>
+          <div class="chip chip-day on">Чт</div>
+          <div class="chip chip-day on">Пт</div>
+          <div class="chip chip-day">Сб</div>
+          <div class="chip chip-day">Вс</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="chips"&gt;
+  &lt;div class="chip chip-day on"&gt;Пн&lt;/div&gt;
+  &lt;div class="chip chip-day"&gt;Сб&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- TOGGLE -->
+  <section class="kit-section" id="toggles">
+    <div class="kit-section-title">2.8 Toggle</div>
+
+    <div class="comp-block">
+      <div class="comp-title">tog-row — строка с тогглом</div>
+      <div class="comp-preview" style="max-width:400px;background:var(--s2);border-radius:var(--r2);padding:0 16px">
+        <div class="tog-row">
+          <div class="tog-info">
+            <div class="tog-title">Подтверждать вручную</div>
+            <div class="tog-sub">Каждая запись требует вашего согласования</div>
+          </div>
+          <div class="tog on"></div>
+        </div>
+        <div class="tog-row">
+          <div class="tog-info">
+            <div class="tog-title">Принимать записи</div>
+            <div class="tog-sub">Открыть доступ к бронированию</div>
+          </div>
+          <div class="tog"></div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="tog-row"&gt;
+  &lt;div class="tog-info"&gt;
+    &lt;div class="tog-title"&gt;Подтверждать вручную&lt;/div&gt;
+    &lt;div class="tog-sub"&gt;...&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="tog on"&gt;&lt;/div&gt;  &lt;!-- .on = включён --&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="kit-section" id="settings">
+    <div class="kit-section-title">2.9 Settings Rows</div>
+
+    <div class="comp-block">
+      <div class="comp-title">settings-group + set-row</div>
+      <div class="comp-preview" style="max-width:420px">
+        <div class="settings-group">
+          <div class="set-row">
+            <div class="set-icon si-a">
+              <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div class="set-content">
+              <div class="set-title">Моя страница</div>
+            </div>
+            <div class="set-right">
+              <div class="set-val" style="font-size:11px">dovstrechi.ru/ivan</div>
+              <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-am">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="set-content">
+              <div class="set-title">Часовой пояс</div>
+              <div class="set-sub">Текущее время UTC+3</div>
+            </div>
+            <div class="set-right">
+              <div class="set-val">Europe/Moscow</div>
+              <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-b">
+              <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div class="set-content">
+              <div class="set-title">Интеграции</div>
+              <div class="set-sub">Google, Яндекс, Zoom, Jitsi</div>
+            </div>
+            <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-r">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div class="set-content">
+              <div class="set-title">Отмена встречи</div>
+            </div>
+            <div class="tog on"></div>
+          </div>
+          <div class="set-row">
+            <div class="set-icon si-m">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="set-content">
+              <div class="set-title">Связаться с поддержкой</div>
+            </div>
+            <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="settings-group"&gt;
+  &lt;div class="set-row"&gt;
+    &lt;div class="set-icon si-a"&gt;&lt;svg...&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;div class="set-content"&gt;
+      &lt;div class="set-title"&gt;Моя страница&lt;/div&gt;
+      &lt;div class="set-sub"&gt;...&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class="set-right"&gt;
+      &lt;div class="set-val"&gt;значение&lt;/div&gt;
+      &lt;div class="chev"&gt;&lt;svg...&gt;&lt;/svg&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;!-- .si-a=green .si-am=amber .si-r=red .si-b=blue .si-m=muted --&gt;</pre>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section class="kit-section" id="calendar">
+    <div class="kit-section-title">2.10 Календарь</div>
+
+    <div class="comp-block">
+      <div class="comp-title">cal-grid — сетка календаря</div>
+      <div class="comp-preview" style="max-width:340px">
+        <div class="cal-nav">
+          <div class="cal-month">Апрель 2026</div>
+          <div class="cal-nav-btns">
+            <div class="cal-nav-btn">‹</div>
+            <div class="cal-nav-btn">›</div>
+          </div>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-dh">ПН</div><div class="cal-dh">ВТ</div><div class="cal-dh">СР</div>
+          <div class="cal-dh">ЧТ</div><div class="cal-dh">ПТ</div><div class="cal-dh">СБ</div><div class="cal-dh">ВС</div>
+          <div style="aspect-ratio:1"></div>
+          <div class="cal-cell c-past"><div class="cn">1</div></div>
+          <div class="cal-cell c-free"><div class="cn">2</div><div class="cs">3</div></div>
+          <div class="cal-cell c-free c-today"><div class="cn">3</div><div class="cs">2</div></div>
+          <div class="cal-cell c-part"><div class="cn">4</div><div class="cs">5</div></div>
+          <div class="cal-cell c-busy"><div class="cn">5</div><div class="cs">8</div></div>
+          <div class="cal-cell c-past"><div class="cn">6</div></div>
+          <div class="cal-cell c-free"><div class="cn">7</div><div class="cs">1</div></div>
+          <div class="cal-cell c-free"><div class="cn">8</div><div class="cs">4</div></div>
+          <div class="cal-cell c-busy"><div class="cn">9</div><div class="cs">6</div></div>
+          <div class="cal-cell c-part"><div class="cn">10</div><div class="cs">3</div></div>
+          <div class="cal-cell c-free"><div class="cn">11</div><div class="cs">2</div></div>
+          <div class="cal-cell c-past"><div class="cn">12</div></div>
+          <div class="cal-cell c-past"><div class="cn">13</div></div>
+        </div>
+        <div class="cal-legend">
+          <div class="leg"><div class="leg-dot" style="background:var(--gs)"></div>Свободно</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--ams)"></div>Частично</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--rs)"></div>Занято</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;!-- Заголовок --&gt;
+&lt;div class="cal-nav"&gt;
+  &lt;div class="cal-month"&gt;Апрель 2026&lt;/div&gt;
+  &lt;div class="cal-nav-btns"&gt;
+    &lt;div class="cal-nav-btn"&gt;‹&lt;/div&gt;
+    &lt;div class="cal-nav-btn"&gt;›&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;!-- Сетка --&gt;
+&lt;div class="cal-grid"&gt;
+  &lt;div class="cal-dh"&gt;ПН&lt;/div&gt; ... (7 заголовков)
+  &lt;div class="cal-cell c-free"&gt;
+    &lt;div class="cn"&gt;2&lt;/div&gt;
+    &lt;div class="cs"&gt;3&lt;/div&gt;  &lt;!-- кол-во встреч --&gt;
+  &lt;/div&gt;
+  &lt;!-- c-free | c-busy | c-part | c-past | c-today --&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- SLOTS -->
+  <section class="kit-section" id="slots">
+    <div class="kit-section-title">2.11 Слоты времени</div>
+
+    <div class="comp-block">
+      <div class="comp-title">slots-grid — сетка временных слотов</div>
+      <div class="comp-preview" style="max-width:360px">
+        <div class="slot-panel">
+          <div class="slot-panel-title">Слоты на 7 апреля</div>
+          <div class="slot-panel-sub">Выберите удобное время</div>
+          <div class="slots-grid">
+            <div class="slot s-free">09:00</div>
+            <div class="slot s-free">10:00</div>
+            <div class="slot s-taken">11:00</div>
+            <div class="slot s-free">12:00</div>
+            <div class="slot s-sel">14:00</div>
+            <div class="slot s-free">15:00</div>
+            <div class="slot s-taken">16:00</div>
+            <div class="slot s-free">17:00</div>
+            <div class="slot s-free">18:00</div>
+          </div>
+          <button class="btn btn-primary">Продолжить →</button>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="slots-grid"&gt;
+  &lt;div class="slot s-free"&gt;09:00&lt;/div&gt;   &lt;!-- свободен --&gt;
+  &lt;div class="slot s-taken"&gt;11:00&lt;/div&gt;  &lt;!-- занят --&gt;
+  &lt;div class="slot s-sel"&gt;14:00&lt;/div&gt;    &lt;!-- выбран --&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- OVERLAYS -->
+  <section class="kit-section" id="overlays">
+    <div class="kit-section-title">2.12 Оверлеи / Bottom Sheets</div>
+
+    <div class="comp-block">
+      <div class="comp-title">sheet — нижний лист</div>
+      <div class="comp-preview" style="padding:0;overflow:hidden">
+        <div class="sheet" style="border-radius:var(--r4);border-bottom:1px solid var(--b1)">
+          <div class="sheet-handle"></div>
+          <div class="sheet-title">Отклонить встречу?</div>
+          <div class="sheet-sub">Участник получит уведомление об отклонении. Слот освободится.</div>
+          <div class="sheet-actions">
+            <button class="btn btn-secondary" style="flex:1;padding:13px;font-size:14px">Не надо</button>
+            <button class="btn btn-danger" style="flex:1;padding:13px;font-size:14px">Отклонить встречу</button>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="overlay" id="my-sheet"&gt;
+  &lt;div class="sheet"&gt;
+    &lt;div class="sheet-handle"&gt;&lt;/div&gt;
+    &lt;div class="sheet-title"&gt;Заголовок&lt;/div&gt;
+    &lt;div class="sheet-sub"&gt;Подзаголовок / описание&lt;/div&gt;
+    &lt;div class="sheet-body"&gt;...контент...&lt;/div&gt;
+    &lt;div class="sheet-actions"&gt;
+      &lt;button class="btn btn-secondary" style="flex:1"&gt;Отмена&lt;/button&gt;
+      &lt;button class="btn btn-danger" style="flex:1"&gt;Действие&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">ieo — inline edit overlay (редактирование числа)</div>
+      <div class="comp-preview" style="display:flex;justify-content:center">
+        <div class="ieo-box">
+          <div class="ieo-title">Длительность встречи</div>
+          <input type="number" class="ieo-inp" value="60">
+          <div class="ieo-sfx">мин</div>
+          <div class="ieo-btns">
+            <button class="ieo-cancel">Отмена</button>
+            <button class="ieo-ok">Применить</button>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="ieo-box"&gt;
+  &lt;div class="ieo-title"&gt;Длительность встречи&lt;/div&gt;
+  &lt;input type="number" class="ieo-inp" value="60"&gt;
+  &lt;div class="ieo-sfx"&gt;мин&lt;/div&gt;
+  &lt;div class="ieo-btns"&gt;
+    &lt;button class="ieo-cancel"&gt;Отмена&lt;/button&gt;
+    &lt;button class="ieo-ok"&gt;Применить&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-title">sheet с settings-group внутри (контекстное меню)</div>
+      <div class="comp-preview" style="padding:0;overflow:hidden">
+        <div class="sheet" style="border-radius:var(--r4);border-bottom:1px solid var(--b1)">
+          <div class="sheet-handle"></div>
+          <div class="sheet-body" style="margin-bottom:8px">
+            <div class="settings-group">
+              <div class="set-row">
+                <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+                <div class="set-content"><div class="set-title">Поделиться</div></div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon si-b"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+                <div class="set-content"><div class="set-title">Скопировать ссылку</div></div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon si-r"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+                <div class="set-content"><div class="set-title" style="color:var(--red)">Удалить</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY COMPONENTS -->
+  <section class="kit-section" id="typography-comp">
+    <div class="kit-section-title">2.13 Типографические компоненты</div>
+
+    <div class="comp-preview" style="display:flex;flex-direction:column;gap:16px">
+      <!-- page-head -->
+      <div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:6px">.page-head → .page-title + .page-sub</div>
+        <div class="page-head" style="padding:0">
+          <div class="page-title">Встречи</div>
+          <div class="page-sub">У вас 3 встречи сегодня</div>
+        </div>
+      </div>
+      <div class="kit-divider" style="margin:0"></div>
+      <!-- inner-title -->
+      <div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:6px">.inner-title (16px/700)</div>
+        <div class="inner-title" style="flex:none">Встреча</div>
+      </div>
+      <div class="kit-divider" style="margin:0"></div>
+      <!-- section-head -->
+      <div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:6px">.section-head → .section-label + .section-action</div>
+        <div class="section-head" style="padding:0;margin:0">
+          <div class="section-label">Встречи сегодня</div>
+          <button class="section-action">Все</button>
+        </div>
+      </div>
+      <div class="kit-divider" style="margin:0"></div>
+      <!-- group-title -->
+      <div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:6px">.group-title (11px/700 caps)</div>
+        <div class="group-title" style="padding:0">Уведомления</div>
+      </div>
+      <div class="kit-divider" style="margin:0"></div>
+      <!-- hero labels -->
+      <div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:8px">.hero-label / .hero-name / .hero-type / .hero-time</div>
+        <div class="hero-label">Ближайшая встреча</div>
+        <div class="hero-name">Анна Смирнова</div>
+        <div class="hero-type">Консультация по маркетингу</div>
+        <div class="hero-time" style="margin-top:8px">15:00</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROFILE -->
+  <section class="kit-section" id="profile">
+    <div class="kit-section-title">2.14 Профиль</div>
+
+    <div class="comp-block">
+      <div class="comp-title">profile-head</div>
+      <div class="comp-preview">
+        <div class="profile-head">
+          <div class="profile-av">И</div>
+          <div class="profile-name">Иван Цех</div>
+          <div class="profile-sub">@iwantproger · Telegram ID: 5109612976</div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="profile-head"&gt;
+  &lt;div class="profile-av"&gt;И&lt;/div&gt;
+  &lt;div class="profile-name"&gt;Иван Цех&lt;/div&gt;
+  &lt;div class="profile-sub"&gt;@iwantproger&lt;/div&gt;
+&lt;/div&gt;</pre>
+    </div>
+
+    <!-- Client profile view -->
+    <div class="comp-block">
+      <div class="comp-title">Профиль организатора (клиентский вид)</div>
+      <div class="comp-preview" style="max-width:320px">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 0 16px">
+          <div style="width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:#07221A;margin-bottom:14px">И</div>
+          <div style="font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Иван Цех</div>
+          <div style="font-size:14px;color:var(--t2);margin-top:4px">@iwantproger</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WIZARD PROGRESS -->
+  <section class="kit-section" id="wizard">
+    <div class="kit-section-title">2.15 Wizard Progress</div>
+
+    <div class="comp-block">
+      <div class="comp-title">wiz-progress — прогресс создания расписания</div>
+      <div class="comp-preview" style="max-width:360px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Шаг 1 из 3</div>
+          <div class="wiz-progress" style="padding:0">
+            <div class="wiz-step cur"></div>
+            <div class="wiz-step"></div>
+            <div class="wiz-step"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Шаг 2 из 3</div>
+          <div class="wiz-progress" style="padding:0">
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+            <div class="wiz-step cur"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px">Шаг 3 из 3 (завершён)</div>
+          <div class="wiz-progress" style="padding:0">
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+          </div>
+        </div>
+      </div>
+      <pre class="comp-code">&lt;div class="wiz-progress"&gt;
+  &lt;div class="wiz-step cur"&gt;&lt;/div&gt;   &lt;!-- текущий (50% opacity) --&gt;
+  &lt;div class="wiz-step done"&gt;&lt;/div&gt;  &lt;!-- пройден (полный accent) --&gt;
+  &lt;div class="wiz-step"&gt;&lt;/div&gt;       &lt;!-- не пройден (серый) --&gt;
+&lt;/div&gt;</pre>
+    </div>
+  </section>
+
+  <!-- EMPTY STATE -->
+  <section class="kit-section" id="empty">
+    <div class="kit-section-title">2.16 Empty State</div>
+
+    <div class="comp-preview" style="max-width:320px">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+        </div>
+        <div class="empty-title">Нет встреч</div>
+        <div class="empty-desc">Создайте расписание и поделитесь ссылкой, чтобы люди могли записаться к вам</div>
+        <button class="btn btn-primary" style="max-width:200px">Создать расписание</button>
+      </div>
+    </div>
+    <pre class="comp-code">&lt;div class="empty-state"&gt;
+  &lt;div class="empty-icon"&gt;&lt;svg...&gt;&lt;/svg&gt;&lt;/div&gt;
+  &lt;div class="empty-title"&gt;Нет встреч&lt;/div&gt;
+  &lt;div class="empty-desc"&gt;...&lt;/div&gt;
+  &lt;button class="btn btn-primary"&gt;...&lt;/button&gt;
+&lt;/div&gt;</pre>
+  </section>
+
+  <!-- SUCCESS SCREEN -->
+  <section class="kit-section" id="success">
+    <div class="kit-section-title">2.17 Success Screen</div>
+
+    <div class="comp-preview" style="max-width:340px">
+      <div class="success-hero">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="success-title">Ура, расписание готово!</div>
+        <div class="success-sub">Поделитесь ссылкой, чтобы люди смогли записаться к вам</div>
+      </div>
+    </div>
+    <pre class="comp-code">&lt;div class="success-hero"&gt;
+  &lt;div class="success-icon"&gt;
+    &lt;svg ...&gt;&lt;polyline points="20 6 9 17 4 12"/&gt;&lt;/svg&gt;
+  &lt;/div&gt;
+  &lt;div class="success-title"&gt;Ура, расписание готово!&lt;/div&gt;
+  &lt;div class="success-sub"&gt;...&lt;/div&gt;
+&lt;/div&gt;</pre>
+  </section>
+
+  <!-- UTILITY -->
+  <section class="kit-section" id="utility">
+    <div class="kit-section-title">2.18 Utility классы</div>
+
+    <div class="comp-preview">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--font-mono)">
+        <tr style="border-bottom:1px solid var(--b1)">
+          <th style="text-align:left;padding:8px;color:var(--t3)">Класс</th>
+          <th style="text-align:left;padding:8px;color:var(--t3)">CSS</th>
+        </tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.flex</td><td style="padding:8px;color:var(--t2)">display:flex</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.items-center</td><td style="padding:8px;color:var(--t2)">align-items:center</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.justify-between</td><td style="padding:8px;color:var(--t2)">justify-content:space-between</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.px-4</td><td style="padding:8px;color:var(--t2)">padding-left:16px; padding-right:16px</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.mt-1 / .mt-2 / .mt-3 / .mt-4</td><td style="padding:8px;color:var(--t2)">margin-top: 4px / 8px / 12px / 16px</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.pb-6</td><td style="padding:8px;color:var(--t2)">padding-bottom:24px</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.w-full</td><td style="padding:8px;color:var(--t2)">width:100%</td></tr>
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:8px;color:var(--a)">.scroll-fill</td><td style="padding:8px;color:var(--t2)">padding-bottom:24px (отступ у конца скролла)</td></tr>
+        <tr><td style="padding:8px;color:var(--a)">.meta-dot</td><td style="padding:8px;color:var(--t2)">3px•3px круг цвета --t3 (разделитель в мета)</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       3. PATTERNS
+  ════════════════════════════════════════ -->
+
+  <!-- HOME SCREEN -->
+  <section class="kit-section" id="pat-home">
+    <div class="kit-section-title">3.1 Паттерн: Главная</div>
+    <p class="kit-section-sub">Главный экран с приветствием, hero-карточкой ближайшей встречи и списком встреч дня.</p>
+
+    <div class="patterns-grid">
+      <div class="phone-shell">
+        <div class="phone-content">
+          <div class="phone-status">
+            <span>9:41</span>
+            <div style="display:flex;align-items:center;gap:4px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 8.5a13 13 0 0 1 21 0M5 12a10 10 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v2" stroke-width="2"/></svg>
+            </div>
+          </div>
+          <!-- Home header -->
+          <div style="padding:12px 14px 0;display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:19px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Привет, Иван 👋</div>
+              <div style="font-size:15px;font-weight:800;color:var(--t1);margin-top:2px">У тебя <span style="color:var(--a)">3 встречи</span> сегодня</div>
+            </div>
+            <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--a),#009E73);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#07221A">И</div>
+          </div>
+          <!-- Hero card -->
+          <div style="margin:16px 12px 0;background:#182020;border-radius:18px;padding:14px;border:1px solid rgba(0,229,168,.18)">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:6px">Ближайшая встреча</div>
+            <div style="font-size:14px;font-weight:800;color:var(--t1)">Анна Смирнова</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:2px">Консультация по маркетингу</div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px">
+              <div>
+                <div style="font-size:24px;font-weight:800;color:var(--t1);line-height:1">15:00</div>
+                <div style="font-size:10px;color:var(--t2);margin-top:2px">2 апр · 60 мин · Jitsi</div>
+              </div>
+              <button style="height:32px;padding:0 12px;background:var(--a);border:none;border-radius:999px;font-family:var(--font);font-size:11px;font-weight:800;color:#07221A;cursor:pointer">Подключиться</button>
+            </div>
+          </div>
+          <!-- Section header -->
+          <div style="padding:20px 14px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Встречи сегодня</div>
+          <!-- Meeting items -->
+          <div style="margin:0 12px 6px;background:var(--s1);border-radius:12px;padding:12px 12px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700;color:var(--t1)">Михаил Петров</div>
+                <div style="font-size:11px;color:var(--t2);margin-top:1px">11:00 – 11:45 · Демо</div>
+              </div>
+              <div class="mst mst-noans" style="padding-top:1px">
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="mst-label">Нет ответа</span>
+              </div>
+            </div>
+          </div>
+          <div style="margin:0 12px 6px;background:var(--s1);border-radius:12px;padding:12px 12px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px">
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700;color:var(--t1)">Елена Козлова</div>
+                <div style="font-size:11px;color:var(--t2);margin-top:1px">14:00 – 15:30 · Стратегия</div>
+              </div>
+              <div class="mst mst-pending" style="padding-top:1px">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="mst-label">Ожидает</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button style="flex:1;height:32px;background:rgba(45,212,160,.13);border:none;border-radius:999px;font-family:var(--font);font-size:11px;font-weight:700;color:var(--a);cursor:pointer">Подтвердить</button>
+              <button style="flex:1;height:32px;background:rgba(240,100,73,.13);border:none;border-radius:999px;font-family:var(--font);font-size:11px;font-weight:700;color:var(--red);cursor:pointer">Отклонить</button>
+            </div>
+          </div>
+          <div style="margin:0 12px;background:var(--s1);border-radius:12px;padding:12px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700;color:var(--t1)">Анна Смирнова</div>
+                <div style="font-size:11px;color:var(--t2);margin-top:1px">15:00 – 16:00 · Консультация</div>
+              </div>
+              <div class="mst mst-confirmed" style="padding-top:1px">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="mst-label">Всё в силе</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Navbar -->
+        <div style="position:absolute;bottom:0;left:0;right:0;display:flex;gap:6px;padding:6px 10px 10px;background:transparent">
+          <div style="flex:1;display:flex;align-items:center;background:rgba(10,14,13,.85);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.09);border-radius:999px;padding:4px;height:44px">
+            <div style="flex:1;height:100%;display:flex;align-items:center;justify-content:center">
+              <div style="width:52px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:24px;background:rgba(0,229,168,.13)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              </div>
+            </div>
+            <div style="flex:1;height:100%;display:flex;align-items:center;justify-content:center">
+              <div style="position:relative;width:18px;height:18px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:var(--red);color:#fff;font-size:7px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid var(--bg)">3</div>
+              </div>
+            </div>
+            <div style="flex:1;height:100%;display:flex;align-items:center;justify-content:center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+            </div>
+            <div style="flex:1;height:100%;display:flex;align-items:center;justify-content:center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+          </div>
+          <div style="width:44px;height:44px;border-radius:50%;background:rgba(15,22,21,.9);border:1px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.5 8.5L22 12l-8.5 1.5L12 22l-1.5-8.5L2 12l8.5-1.5z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:280px">
+        <div class="comp-title">Структура экрана Главная</div>
+        <div class="comp-code" style="margin-top:8px">Главная
+├── status-bar
+├── header (приветствие + аватар)
+├── hero-card (ближайшая встреча)
+│   ├── Вариант 1: confirmed + hero-join
+│   ├── Вариант 2: pending + confirm/cancel buttons
+│   └── Вариант 3: waiting + "Написать" button
+├── section-head "Встречи сегодня"
+├── meet-row × N
+│   ├── Имя + время + статус
+│   └── (если pending) inline-action-row
+└── navbar-outer</div>
+
+        <div style="margin-top:16px">
+          <div class="comp-title">Ключевые отступы</div>
+          <div style="font-size:12px;color:var(--t2);line-height:2;font-family:var(--font-mono)">
+            Header padding: 20px 20px 0<br>
+            Hero margin: 32px 16px 0<br>
+            Meet items margin: 0 16px 8px<br>
+            Section header padding: 32px 20px 12px<br>
+            Screen padding-bottom: 82px (nav height)
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MEETINGS LIST -->
+  <section class="kit-section" id="pat-meetings">
+    <div class="kit-section-title">3.2 Паттерн: Список встреч</div>
+    <p class="kit-section-sub">Все 4 варианта карточки встречи в списке (статусы).</p>
+
+    <div class="comp-preview" style="max-width:420px">
+      <!-- Confirmed -->
+      <div style="margin:0 0 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t1)">Анна Смирнова</div>
+            <div style="font-size:12px;color:var(--t1);margin-top:1px">15:00 – 16:00</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Консультация по маркетингу</div>
+          </div>
+          <div class="mst mst-confirmed" style="padding-top:2px">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="mst-label">Всё в силе</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending (с кнопками) -->
+      <div style="margin:0 0 8px;background:var(--s1);border-radius:14px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t1)">Елена Козлова</div>
+            <div style="font-size:12px;color:var(--t1);margin-top:1px">14:00 – 15:30</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Стратегическая сессия</div>
+          </div>
+          <div class="mst mst-pending" style="padding-top:2px">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="mst-label">Ожидает</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button style="flex:1;height:40px;background:rgba(45,212,160,.13);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--a);cursor:pointer">Подтвердить</button>
+          <button style="flex:1;height:40px;background:rgba(240,100,73,.13);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:var(--red);cursor:pointer">Отклонить</button>
+        </div>
+      </div>
+
+      <!-- No answer -->
+      <div style="margin:0 0 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t1)">Михаил Петров</div>
+            <div style="font-size:12px;color:var(--t1);margin-top:1px">11:00 – 11:45</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Демо продукта</div>
+          </div>
+          <div class="mst mst-noans" style="padding-top:2px">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span class="mst-label">Нет ответа</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cancelled -->
+      <div style="margin:0 0 0;background:var(--s1);border-radius:14px;padding:14px 16px;opacity:.65">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--t1)">Павел Орлов</div>
+            <div style="font-size:12px;color:var(--t1);margin-top:1px">17:00 – 18:00</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Демо продукта</div>
+          </div>
+          <div class="mst mst-cancelled" style="padding-top:2px">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span class="mst-label">Отменено</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DETAIL SCREEN -->
+  <section class="kit-section" id="pat-detail">
+    <div class="kit-section-title">3.3 Паттерн: Детали встречи</div>
+
+    <div class="comp-preview" style="max-width:420px">
+      <div class="inner-header" style="margin:-24px -24px 20px;padding:14px 24px">
+        <button class="back-btn"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Назад</button>
+        <div class="inner-title">Встреча</div>
+      </div>
+      <div class="flex items-center" style="gap:14px;margin-bottom:20px">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--a);border:1px solid rgba(45,212,160,.25)">АС</div>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">Анна Смирнова</div>
+          <div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">@anna_smirnova</div>
+        </div>
+      </div>
+      <div class="detail-card" style="margin:0 0 16px;border-color:rgba(45,212,160,.25)">
+        <div class="detail-row"><div class="dr-label">Расписание</div><div class="dr-val">Консультация по маркетингу</div></div>
+        <div class="detail-row"><div class="dr-label">Дата и время</div><div class="dr-val">Сегодня, 2 апреля · 15:00 – 16:00</div></div>
+        <div class="detail-row"><div class="dr-label">Статус</div><div class="dr-val"><div class="mst mst-confirmed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="mst-label">Всё в силе</span></div></div></div>
+        <div class="detail-row"><div class="dr-label">Место</div><div class="dr-val">Jitsi Meet · <span style="color:var(--a)">meet.jit.si/dovstrechi</span></div></div>
+        <div class="detail-row">
+          <div class="dr-label">Контакт</div>
+          <div class="dr-val" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>@anna_smirnova · Telegram</span>
+            <button style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Написать
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px">Подключиться</button>
+        <button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px">Отменить</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CREATE WIZARD -->
+  <section class="kit-section" id="pat-wizard">
+    <div class="kit-section-title">3.4 Паттерн: Создание расписания (Wizard)</div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:20px">
+
+      <!-- Step 1 -->
+      <div style="flex:1;min-width:280px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Шаг 1/3 — Основное</div>
+        <div style="background:var(--bg);border-radius:var(--r3);padding:16px;border:1px solid var(--b1)">
+          <div class="wiz-progress" style="padding:0;margin-bottom:16px">
+            <div class="wiz-step cur"></div>
+            <div class="wiz-step"></div>
+            <div class="wiz-step"></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:3px">Шаг 1 из 3</div>
+          <div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:16px;letter-spacing:-.02em">Основное</div>
+          <div class="inp-wrap">
+            <div class="inp-label">Название *</div>
+            <input class="inp" placeholder="Например: Консультация…" style="height:42px">
+          </div>
+          <div class="inp-wrap">
+            <div class="inp-label">Описание</div>
+            <textarea class="inp" rows="2" placeholder="Опционально…"></textarea>
+          </div>
+          <button class="btn btn-primary" style="font-size:13px;padding:12px">Далее →</button>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="flex:1;min-width:280px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Шаг 2/3 — Расписание</div>
+        <div style="background:var(--bg);border-radius:var(--r3);padding:16px;border:1px solid var(--b1)">
+          <div class="wiz-progress" style="padding:0;margin-bottom:16px">
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+            <div class="wiz-step cur"></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:3px">Шаг 2 из 3</div>
+          <div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:16px;letter-spacing:-.02em">Расписание</div>
+          <div class="inp-wrap">
+            <div class="inp-label">Рабочие дни *</div>
+            <div class="chips mt-1">
+              <div class="chip chip-day on">Пн</div><div class="chip chip-day on">Вт</div>
+              <div class="chip chip-day on">Ср</div><div class="chip chip-day on">Чт</div>
+              <div class="chip chip-day on">Пт</div><div class="chip chip-day">Сб</div>
+              <div class="chip chip-day">Вс</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="inp-wrap"><div class="inp-label">Начало</div><input class="inp" type="time" value="10:00" style="height:42px"></div>
+            <div class="inp-wrap"><div class="inp-label">Конец</div><input class="inp" type="time" value="18:00" style="height:42px"></div>
+          </div>
+          <button class="btn btn-primary" style="font-size:13px;padding:12px">Далее →</button>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="flex:1;min-width:280px;max-width:340px">
+        <div class="comp-title" style="margin-bottom:8px">Шаг 3/3 — Платформа</div>
+        <div style="background:var(--bg);border-radius:var(--r3);padding:16px;border:1px solid var(--b1)">
+          <div class="wiz-progress" style="padding:0;margin-bottom:16px">
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+            <div class="wiz-step done"></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:3px">Шаг 3 из 3</div>
+          <div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:16px;letter-spacing:-.02em">Платформа</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+            <div class="plat-opt on">
+              <div style="width:28px;height:28px;border-radius:7px;background:var(--as);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+              </div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:700;color:var(--a)">Jitsi Meet</div><div style="font-size:11px;color:var(--t2)">Автоматически</div></div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="plat-opt">
+              <div style="width:28px;height:28px;border-radius:7px;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+              </div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t1)">Zoom</div><div style="font-size:11px;color:var(--t2)">Укажите ссылку</div></div>
+            </div>
+            <div class="plat-opt">
+              <div style="width:28px;height:28px;border-radius:7px;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+              </div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t1)">Google Meet</div><div style="font-size:11px;color:var(--t2)">OAuth-интеграция</div></div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="font-size:13px;padding:12px">
+            <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+            Создать расписание
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTEGRATIONS -->
+  <section class="kit-section" id="pat-integrations">
+    <div class="kit-section-title">3.5 Паттерн: Интеграции</div>
+    <p class="kit-section-sub">Список карточек интеграций с цветными иконками и кнопками статуса.</p>
+
+    <div class="comp-preview" style="max-width:420px;display:flex;flex-direction:column;gap:8px">
+      <!-- Active -->
+      <div class="intg-item">
+        <div class="intg-icon" style="background:#34A853">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Google Календарь</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Синхронизация занятых слотов</div>
+        </div>
+        <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+      </div>
+      <!-- Connectable -->
+      <div class="intg-item">
+        <div class="intg-icon" style="background:#2D8CFF">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Zoom</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Введите ссылку на конференцию</div>
+        </div>
+        <button style="padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:var(--ad);color:var(--a);border:none;cursor:pointer;font-family:var(--font);flex-shrink:0">Подключить</button>
+      </div>
+      <!-- Built-in -->
+      <div class="intg-item">
+        <div class="intg-icon" style="background:#1E88B4">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Jitsi Meet</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Встроено · ссылки создаются автоматически</div>
+        </div>
+        <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+      </div>
+      <!-- Telegram -->
+      <div class="intg-item">
+        <div class="intg-icon" style="background:#2AABEE">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Telegram</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Уже подключён через бот</div>
+        </div>
+        <span style="padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(45,212,160,.15);color:var(--green);flex-shrink:0">Активно</span>
+      </div>
+    </div>
+
+    <pre class="comp-code">&lt;!-- Структура карточки интеграции --&gt;
+&lt;div style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+  background:var(--s1);border-radius:14px;border:1px solid var(--b1)"&gt;
+  &lt;div style="width:38px;height:38px;border-radius:10px;background:#34A853;
+    display:flex;align-items:center;justify-content:center"&gt;
+    &lt;svg ...&gt;&lt;/svg&gt;
+  &lt;/div&gt;
+  &lt;div style="flex:1"&gt;
+    &lt;div style="font-size:14px;font-weight:700;color:var(--t1)"&gt;Google Календарь&lt;/div&gt;
+    &lt;div style="font-size:12px;color:var(--t2)"&gt;Синхронизация...&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;!-- Статус или кнопка --&gt;
+  &lt;span style="...;background:rgba(45,212,160,.15);color:var(--green)"&gt;Активно&lt;/span&gt;
+  &lt;button style="...;background:var(--ad);color:var(--a)"&gt;Подключить&lt;/button&gt;
+&lt;/div&gt;</pre>
+  </section>
+
+</main>
+
+<script>
+// Highlight active sidebar link on scroll
+const sections = document.querySelectorAll('.kit-section');
+const navLinks = document.querySelectorAll('.nav-link');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(link => link.classList.remove('active'));
+      const id = entry.target.id;
+      const activeLink = document.querySelector(`.nav-link[href="#${id}"]`);
+      if (activeLink) {
+        activeLink.classList.add('active');
+        activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  });
+}, { threshold: 0.3, rootMargin: '-10% 0px -60% 0px' });
+
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
