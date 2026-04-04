@@ -1,41 +1,146 @@
-# До встречи 🗓
+# До встречи 📅
 
-Telegram Mini App для записи на встречи. Аналог Calendly, работает прямо в Telegram.
-
-**Стек:** FastAPI · asyncpg · PostgreSQL 16 · aiogram 3.x · Vanilla JS · Docker · Nginx  
-**152-ФЗ:** данные хранятся на серверах Timeweb в России ✓
+Telegram Mini App для записи на встречи — аналог Calendly, работает прямо внутри Telegram.
 
 ---
 
-## Быстрый старт на VPS
+## О проекте
+
+«До встречи» позволяет любому пользователю Telegram настроить своё расписание доступности и принимать бронирования от других. Не нужно устанавливать сторонние приложения — всё происходит прямо в чате. Проект разворачивается на собственном VPS, данные хранятся на вашем сервере.
+
+## Возможности
+
+- Создание расписания доступности (дни недели, временные слоты)
+- Просмотр свободных слотов и бронирование встречи
+- Управление встречами: подтвердить, отменить
+- Telegram-уведомления обеим сторонам при изменении статуса
+- Личная статистика встреч
+
+## Стек технологий
+
+| Компонент     | Технология                        |
+|---------------|-----------------------------------|
+| Backend       | FastAPI, asyncpg                  |
+| База данных   | PostgreSQL 16                     |
+| Telegram-бот  | aiogram 3.x                       |
+| Frontend      | Vanilla JS / HTML (Mini App)      |
+| Инфраструктура| Docker, docker-compose, nginx     |
+| SSL           | Let's Encrypt (Certbot)           |
+
+## Архитектура
+
+```
+Пользователь Telegram
+       │
+       ▼
+Telegram Bot (aiogram)  ◄──►  Mini App (HTML/JS)
+       │                              │
+       └──────────┬───────────────────┘
+                  ▼
+          Backend API (FastAPI)
+                  │
+                  ▼
+           PostgreSQL 16
+                  │
+         (nginx — reverse proxy + SSL)
+```
+
+## Быстрый старт
+
+### Требования
+
+- Docker и Docker Compose
+- Домен с A-записью, указывающей на ваш сервер (для SSL)
+- Telegram Bot Token от [@BotFather](https://t.me/BotFather)
+
+### Установка
 
 ```bash
-# 1. Клонируй репозиторий
-git clone https://github.com/YOUR_USERNAME/do-vstrechi.git /opt/dovstrechi
-cd /opt/dovstrechi
+git clone https://github.com/YOUR_USERNAME/do-vstrechi.git
+cd do-vstrechi
 
-# 2. Создай .env
 cp .env.example .env
-nano .env   # заполни BOT_TOKEN, POSTGRES_PASSWORD, SECRET_KEY, MINI_APP_URL
+# Заполни .env своими значениями (см. раздел «Конфигурация»)
 
-# 3. Запуск (без SSL — для теста)
 docker compose up -d
 
-# 4. Проверь
+# Проверить что всё поднялось:
 curl http://localhost/health
 ```
 
----
+### SSL-сертификат
+
+```bash
+# Убедись что порт 80 открыт и домен прописан в nginx/nginx.conf
+make ssl
+docker compose restart nginx
+```
+
+## Конфигурация
+
+Все настройки задаются через переменные окружения. Скопируй `.env.example` → `.env` и заполни:
+
+| Переменная          | Описание                                              |
+|---------------------|-------------------------------------------------------|
+| `BOT_TOKEN`         | Токен бота от @BotFather                              |
+| `POSTGRES_DB`       | Имя базы данных                                       |
+| `POSTGRES_USER`     | Пользователь PostgreSQL                               |
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL                                     |
+| `SECRET_KEY`        | Секретный ключ (сгенерируй: `openssl rand -hex 32`)  |
+| `MINI_APP_URL`      | Публичный URL задеплоенного Mini App                  |
+
+## Полезные команды
+
+```bash
+make up            # запустить все сервисы
+make down          # остановить все сервисы
+make logs          # логи всех сервисов
+make logs-backend  # логи backend
+make logs-bot      # логи бота
+make psql          # открыть psql (интерактивная консоль)
+make backup        # сделать дамп БД
+make restart       # полный перезапуск с ребилдом
+```
+
+## API
+
+| Метод    | URL                                          | Описание                      |
+|----------|----------------------------------------------|-------------------------------|
+| `GET`    | `/health`                                    | Статус сервиса                |
+| `POST`   | `/api/users/auth`                            | Авторизация / регистрация     |
+| `POST`   | `/api/schedules`                             | Создать расписание            |
+| `GET`    | `/api/schedules?telegram_id=X`              | Список расписаний             |
+| `GET`    | `/api/schedules/{id}`                        | Расписание по ID              |
+| `DELETE` | `/api/schedules/{id}?telegram_id=X`         | Удалить расписание            |
+| `GET`    | `/api/available-slots/{id}?date=YYYY-MM-DD` | Свободные слоты               |
+| `POST`   | `/api/bookings`                              | Создать бронирование          |
+| `GET`    | `/api/bookings?telegram_id=X`               | Список встреч                 |
+| `PATCH`  | `/api/bookings/{id}/confirm?telegram_id=X`  | Подтвердить встречу           |
+| `PATCH`  | `/api/bookings/{id}/cancel?telegram_id=X`   | Отменить встречу              |
+| `GET`    | `/api/stats?telegram_id=X`                  | Статистика                    |
+
+## CI/CD
+
+Проект поддерживает автодеплой через GitHub Actions.  
+Добавь секреты в **Settings → Secrets and variables → Actions**:
+
+| Секрет        | Значение                          |
+|---------------|-----------------------------------|
+| `VPS_HOST`    | IP-адрес вашего VPS               |
+| `VPS_USER`    | SSH-пользователь (например, root) |
+| `VPS_SSH_KEY` | Приватный SSH-ключ                |
+
+При каждом `git push` в `main` → автоматический деплой на VPS.
 
 ## Структура проекта
 
 ```
 do-vstrechi/
-├── backend/          FastAPI + asyncpg (PostgreSQL)
+├── backend/          FastAPI + asyncpg
 │   ├── main.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── bot/              aiogram 3.x бот
+├── bot/              aiogram 3.x
 │   ├── bot.py
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -48,82 +153,9 @@ do-vstrechi/
 │   └── init.sql
 ├── docker-compose.yml
 ├── .env.example
-├── Makefile          удобные команды
-└── deploy.sh         деплой одной командой
+└── Makefile
 ```
-
----
-
-## Получение SSL сертификата
-
-```bash
-# 1. Сначала запусти nginx без SSL (проверь что 80 порт открыт)
-# 2. Замени YOUR_DOMAIN.ru в nginx/nginx.conf и Makefile на твой домен
-# 3. Получи сертификат
-make ssl
-
-# 4. После получения — перезапусти nginx
-docker compose restart nginx
-```
-
----
-
-## Полезные команды
-
-```bash
-make up           # запустить все
-make down         # остановить все
-make logs         # логи всех сервисов
-make logs-backend # логи только backend
-make logs-bot     # логи только бота
-make psql         # открыть psql
-make backup       # сделать дамп БД
-make restart      # полный перезапуск с ребилдом
-```
-
----
-
-## API Endpoints
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/health` | Здоровье сервиса |
-| POST | `/api/users/auth` | Авторизация / регистрация |
-| POST | `/api/schedules` | Создать расписание |
-| GET | `/api/schedules?telegram_id=X` | Список расписаний |
-| GET | `/api/schedules/{id}` | Расписание по ID |
-| DELETE | `/api/schedules/{id}?telegram_id=X` | Удалить расписание |
-| GET | `/api/available-slots/{id}?date=YYYY-MM-DD` | Свободные слоты |
-| POST | `/api/bookings` | Создать бронирование |
-| GET | `/api/bookings?telegram_id=X` | Список встреч |
-| PATCH | `/api/bookings/{id}/confirm?telegram_id=X` | Подтвердить |
-| PATCH | `/api/bookings/{id}/cancel?telegram_id=X` | Отменить |
-| GET | `/api/stats?telegram_id=X` | Статистика |
-
----
-
-## CI/CD (GitHub Actions)
-
-Добавь секреты в GitHub → Settings → Secrets:
-- `VPS_HOST` — IP адрес VPS
-- `VPS_USER` — пользователь SSH (обычно `root`)
-- `VPS_SSH_KEY` — приватный SSH ключ
-
-При каждом `git push main` → автоматический деплой на VPS.
-
----
-
-## Регистрация домена
-
-1. Зайди на [timeweb.com](https://timeweb.com) → Домены
-2. Найди подходящий `.ru` домен
-3. Зарегистрируй (от 199 ₽/год)
-4. Подключи к хостингу или настрой A-запись на IP твоего VPS
-5. Замени `YOUR_DOMAIN.ru` в `nginx/nginx.conf`
-
----
 
 ## Лицензия
 
 MIT
-# deploy test
