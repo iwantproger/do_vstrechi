@@ -36,6 +36,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dovstrechi}
       SECRET_KEY: ${SECRET_KEY}
+      BOT_TOKEN: ${BOT_TOKEN}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +62,7 @@ services:
       BOT_TOKEN: ${BOT_TOKEN}
       BACKEND_API_URL: http://backend:8000
       MINI_APP_URL: ${MINI_APP_URL}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     depends_on:
       backend:
         condition: service_healthy
@@ -69,7 +72,7 @@ services:
   # ─────────────────────────────────────────────
   # Nginx — reverse proxy + статика frontend
   # ─────────────────────────────────────────────
- nginx:
+  nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
@@ -87,20 +90,6 @@ services:
       - backend
     networks:
       - internal
-
-  certbot:
-    image: certbot/certbot:latest
-    container_name: dovstrechi_certbot
-    volumes:
-      - certbot_www:/var/www/certbot
-      - certbot_certs:/etc/letsencrypt
-    profiles:
-      - ssl
-
-  volumes:
-  postgres_data:
-  certbot_www:
-  certbot_certs:
 
   # ─────────────────────────────────────────────
   # Certbot — SSL Let's Encrypt (запускать вручную)
