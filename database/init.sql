@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     guest_contact       TEXT NOT NULL,
     guest_telegram_id   BIGINT,
     scheduled_time      TIMESTAMPTZ NOT NULL,
-    status              TEXT NOT NULL DEFAULT 'pending',
+    status              TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
     meeting_link        TEXT,
     notes               TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),

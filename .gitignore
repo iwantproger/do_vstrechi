@@ -22,6 +22,7 @@ build/
 *.db
 *.sqlite3
 pgdata/
+backup_*.sql
 
 # ===== Docker =====
 docker-compose.override.yml
@@ -43,11 +44,12 @@ logs/
 Thumbs.db
 desktop.ini
 
-# ===== IDE =====
+# ===== IDE / AI =====
 .idea/
 .vscode/
 *.swp
 *.swo
+.claude/
 
 # ===== Frontend =====
 node_modules/

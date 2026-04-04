@@ -5,14 +5,18 @@ FastAPI + asyncpg (PostgreSQL)
 
 import os
 import uuid
+import hmac
+import hashlib
+import json
 import asyncio
 import logging
-from datetime import datetime, timedelta, date, time
+from datetime import datetime, timedelta, date, time, timezone
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
+from urllib.parse import parse_qs
 
 import asyncpg
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -20,6 +24,69 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 DATABASE_URL = os.environ["DATABASE_URL"]
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+
+# ─────────────────────────────────────────────────────────
+# Telegram initData validation (HMAC-SHA256)
+# ─────────────────────────────────────────────────────────
+
+def validate_init_data(init_data: str, bot_token: str) -> dict | None:
+    """Validate Telegram WebApp initData per https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app"""
+    try:
+        parsed = dict(parse_qs(init_data, keep_blank_values=True))
+        parsed = {k: v[0] for k, v in parsed.items()}
+        check_hash = parsed.pop("hash", "")
+        if not check_hash:
+            return None
+        data_check_string = "\n".join(
+            f"{k}={parsed[k]}" for k in sorted(parsed.keys())
+        )
+        secret_key = hmac.new(
+            b"WebAppData", bot_token.encode(), hashlib.sha256
+        ).digest()
+        computed_hash = hmac.new(
+            secret_key, data_check_string.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(computed_hash, check_hash):
+            return None
+        user_json = parsed.get("user")
+        if not user_json:
+            return None
+        return json.loads(user_json)
+    except Exception:
+        return None
+
+
+async def get_current_user(request: Request) -> dict:
+    """FastAPI dependency: extract authenticated user from Telegram initData or internal key."""
+    # Internal API key for bot-to-backend calls
+    internal_key = request.headers.get("X-Internal-Key")
+    if internal_key and INTERNAL_API_KEY and hmac.compare_digest(internal_key, INTERNAL_API_KEY):
+        tid = request.query_params.get("telegram_id")
+        if tid:
+            return {"id": int(tid)}
+        raise HTTPException(status_code=401, detail="Missing telegram_id for internal call")
+
+    # Telegram initData validation
+    init_data = request.headers.get("X-Init-Data")
+    if not init_data:
+        raise HTTPException(status_code=401, detail="Требуется авторизация через Telegram")
+
+    user = validate_init_data(init_data, BOT_TOKEN)
+    if not user:
+        raise HTTPException(status_code=401, detail="Невалидная подпись Telegram")
+
+    return user
+
+
+async def get_optional_user(request: Request) -> dict | None:
+    """Same as get_current_user but returns None instead of 401 (for public endpoints)."""
+    init_data = request.headers.get("X-Init-Data")
+    if not init_data:
+        return None
+    return validate_init_data(init_data, BOT_TOKEN)
+
 
 # ─────────────────────────────────────────────────────────
 # Database pool
@@ -54,12 +121,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="До встречи API", version="2.0.0", lifespan=lifespan)
 
+MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://dovstrechiapp.ru",
+        "https://www.dovstrechiapp.ru",
+        *([] if not MINI_APP_URL else [MINI_APP_URL]),
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "X-Init-Data"],
 )
 
 # ─────────────────────────────────────────────────────────
@@ -67,30 +139,28 @@ app.add_middleware(
 # ─────────────────────────────────────────────────────────
 
 class UserAuth(BaseModel):
-    telegram_id: int
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    username: Optional[str] = Field(None, max_length=100)
+    first_name: Optional[str] = Field(None, max_length=200)
+    last_name: Optional[str] = Field(None, max_length=200)
 
 class ScheduleCreate(BaseModel):
-    telegram_id: int
-    title: str
-    description: Optional[str] = None
-    duration: int = 60
-    buffer_time: int = 0
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    duration: int = Field(60, ge=5, le=480)
+    buffer_time: int = Field(0, ge=0, le=120)
     work_days: List[int] = [0, 1, 2, 3, 4]
-    start_time: str = "09:00"
-    end_time: str = "18:00"
-    location_mode: str = "fixed"
-    platform: str = "jitsi"
+    start_time: str = Field("09:00", pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field("18:00", pattern=r"^\d{2}:\d{2}$")
+    location_mode: str = Field("fixed", max_length=50)
+    platform: str = Field("jitsi", max_length=50)
 
 class BookingCreate(BaseModel):
-    schedule_id: str
-    guest_name: str
-    guest_contact: str
+    schedule_id: str = Field(..., max_length=50)
+    guest_name: str = Field(..., min_length=1, max_length=200)
+    guest_contact: str = Field(..., min_length=1, max_length=200)
     guest_telegram_id: Optional[int] = None
-    scheduled_time: str
-    notes: Optional[str] = None
+    scheduled_time: str = Field(..., max_length=50)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 def row_to_dict(row) -> dict:
     """asyncpg Record → plain dict"""
@@ -125,14 +195,20 @@ async def health(conn: asyncpg.Connection = Depends(db)):
         await conn.fetchval("SELECT 1")
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"DB error: {e}")
+        log.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Database unavailable")
 
 # ─────────────────────────────────────────────────────────
 # Users
 # ─────────────────────────────────────────────────────────
 
 @app.post("/api/users/auth")
-async def auth_user(data: UserAuth, conn: asyncpg.Connection = Depends(db)):
+async def auth_user(
+    data: UserAuth,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db)
+):
+    telegram_id = user["id"]
     row = await conn.fetchrow(
         """
         INSERT INTO users (telegram_id, username, first_name, last_name)
@@ -144,7 +220,7 @@ async def auth_user(data: UserAuth, conn: asyncpg.Connection = Depends(db)):
                 updated_at = NOW()
         RETURNING *
         """,
-        data.telegram_id, data.username, data.first_name, data.last_name
+        telegram_id, data.username, data.first_name, data.last_name
     )
     return row_to_dict(row)
 
@@ -160,9 +236,14 @@ async def get_user(telegram_id: int, conn: asyncpg.Connection = Depends(db)):
 # ─────────────────────────────────────────────────────────
 
 @app.post("/api/schedules")
-async def create_schedule(data: ScheduleCreate, conn: asyncpg.Connection = Depends(db)):
-    # Находим или создаём пользователя
-    user = await conn.fetchrow("SELECT id FROM users WHERE telegram_id = $1", data.telegram_id)
+async def create_schedule(
+    data: ScheduleCreate,
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db)
+):
+    telegram_id = auth_user["id"]
+    # Находим пользователя
+    user = await conn.fetchrow("SELECT id FROM users WHERE telegram_id = $1", telegram_id)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден. Сначала /start")
 
@@ -184,11 +265,10 @@ async def create_schedule(data: ScheduleCreate, conn: asyncpg.Connection = Depen
 
 @app.get("/api/schedules")
 async def list_schedules(
-    telegram_id: Optional[int] = Query(None),
+    auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db)
 ):
-    if not telegram_id:
-        raise HTTPException(status_code=400, detail="Нужен telegram_id")
+    telegram_id = auth_user["id"]
 
     rows = await conn.fetch(
         """
@@ -216,7 +296,7 @@ async def get_schedule(schedule_id: str, conn: asyncpg.Connection = Depends(db))
 @app.delete("/api/schedules/{schedule_id}")
 async def delete_schedule(
     schedule_id: str,
-    telegram_id: int = Query(...),
+    auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db)
 ):
     try:
@@ -224,6 +304,7 @@ async def delete_schedule(
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат ID")
 
+    telegram_id = auth_user["id"]
     result = await conn.execute(
         """
         UPDATE schedules SET is_active = FALSE
@@ -282,7 +363,7 @@ async def available_slots(
     step = timedelta(minutes=schedule["duration"] + schedule["buffer_time"])
     slot_duration = timedelta(minutes=schedule["duration"])
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     slots = []
     current = slot_start
 
@@ -304,7 +385,8 @@ async def create_booking(data: BookingCreate, conn: asyncpg.Connection = Depends
         sid = uuid.UUID(data.schedule_id)
         scheduled_time = datetime.fromisoformat(data.scheduled_time.replace("Z", "+00:00"))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Неверный формат данных: {e}")
+        log.warning(f"Invalid booking data: {e}")
+        raise HTTPException(status_code=400, detail="Неверный формат данных")
 
     schedule = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1 AND is_active = TRUE", sid)
     if not schedule:
@@ -346,18 +428,17 @@ async def create_booking(data: BookingCreate, conn: asyncpg.Connection = Depends
 
 @app.get("/api/bookings")
 async def list_bookings(
-    telegram_id: Optional[int] = Query(None),
+    auth_user: dict = Depends(get_current_user),
     role: Optional[str] = Query(None, description="organizer | guest | all"),
     conn: asyncpg.Connection = Depends(db)
 ):
     """
-    Возвращает встречи для telegram_id:
+    Возвращает встречи для текущего пользователя:
     - role=organizer → встречи, где пользователь организатор
     - role=guest     → встречи, где пользователь гость
     - role=all (по умолчанию) → и те и другие
     """
-    if not telegram_id:
-        raise HTTPException(status_code=400, detail="Нужен telegram_id")
+    telegram_id = auth_user["id"]
 
     rows = await conn.fetch(
         """
@@ -406,9 +487,10 @@ async def list_bookings(
 @app.patch("/api/bookings/{booking_id}/confirm")
 async def confirm_booking(
     booking_id: str,
-    telegram_id: int = Query(...),
+    auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db)
 ):
+    telegram_id = auth_user["id"]
     try:
         bid = uuid.UUID(booking_id)
     except ValueError:
@@ -436,9 +518,10 @@ async def confirm_booking(
 @app.patch("/api/bookings/{booking_id}/cancel")
 async def cancel_booking(
     booking_id: str,
-    telegram_id: int = Query(...),
+    auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db)
 ):
+    telegram_id = auth_user["id"]
     try:
         bid = uuid.UUID(booking_id)
     except ValueError:
@@ -475,9 +558,10 @@ async def cancel_booking(
 
 @app.get("/api/stats")
 async def get_stats(
-    telegram_id: int = Query(...),
+    auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db)
 ):
+    telegram_id = auth_user["id"]
     stats = await conn.fetchrow(
         """
         SELECT

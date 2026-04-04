@@ -25,9 +25,10 @@ from aiogram.types import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-BOT_TOKEN      = os.environ["BOT_TOKEN"]
-BACKEND_URL    = os.environ.get("BACKEND_API_URL", "http://backend:8000")
-MINI_APP_URL   = os.environ.get("MINI_APP_URL", "https://YOUR_DOMAIN.ru")
+BOT_TOKEN        = os.environ["BOT_TOKEN"]
+BACKEND_URL      = os.environ.get("BACKEND_API_URL", "http://backend:8000")
+MINI_APP_URL     = os.environ.get("MINI_APP_URL", "https://YOUR_DOMAIN.ru")
+INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────
 # FSM States
@@ -48,9 +49,13 @@ class CreateSchedule(StatesGroup):
 
 async def api(method: str, path: str, **kwargs) -> dict | list | None:
     url = f"{BACKEND_URL}{path}"
+    headers = kwargs.pop("headers", {})
+    if INTERNAL_API_KEY:
+        headers["X-Internal-Key"] = INTERNAL_API_KEY
     try:
-        async with aiohttp.ClientSession() as session:
-            async with getattr(session, method)(url, **kwargs) as r:
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with getattr(session, method)(url, headers=headers, **kwargs) as r:
                 if r.status in (200, 201):
                     return await r.json()
                 text = await r.text()
@@ -165,8 +170,7 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(msg: Message):
     user = msg.from_user
-    await api("post", "/api/users/auth", json={
-        "telegram_id": user.id,
+    await api("post", f"/api/users/auth?telegram_id={user.id}", json={
         "username":    user.username,
         "first_name":  user.first_name,
         "last_name":   user.last_name,
@@ -390,11 +394,11 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
     platform = cb.data.split("_")[1]
     data = await state.get_data()
     data["platform"] = platform
-    data["telegram_id"] = cb.from_user.id
-    
+    telegram_id = cb.from_user.id
+
     await state.clear()
-    
-    result = await api("post", "/api/schedules", json=data)
+
+    result = await api("post", f"/api/schedules?telegram_id={telegram_id}", json=data)
     
     if result:
         days_str = ", ".join(DAYS_RU[d] for d in sorted(data.get("work_days", [])))

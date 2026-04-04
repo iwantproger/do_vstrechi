@@ -89,6 +89,8 @@ make logs        # Посмотреть логи
 | `BACKEND_API_URL` | bot | URL backend API (default: `http://backend:8000`) | — |
 | `DATABASE_URL` | backend | PostgreSQL connection string (формируется в docker-compose) | ✅ |
 | `SECRET_KEY` | backend | Секретный ключ приложения | ✅ |
+| `BOT_TOKEN` | backend, bot | Токен бота (нужен backend для валидации initData) | ✅ |
+| `INTERNAL_API_KEY` | backend, bot | Ключ для аутентификации бот→backend | ✅ |
 | `POSTGRES_DB` | postgres | Имя базы данных (default: `dovstrechi`) | — |
 | `POSTGRES_USER` | postgres | Пользователь PostgreSQL (default: `dovstrechi`) | — |
 | `POSTGRES_PASSWORD` | postgres | Пароль PostgreSQL | ✅ |
@@ -205,7 +207,11 @@ make logs        # Посмотреть логи
 - **Бот → Backend → БД** — бот не ходит в БД напрямую, только через HTTP API
 - **Изменения схемы БД** — только через `database/init.sql` (миграции пока не выделены)
 - **UUID** как первичные ключи во всех таблицах
-- **CORS** настроен с `allow_origins=["*"]` — учитывать при добавлении авторизации
+- **CORS** ограничен whitelist'ом доменов (`dovstrechiapp.ru`)
+- **Аутентификация** — все защищённые эндпоинты используют `Depends(get_current_user)`, **не** `telegram_id` из query/body
+- **SQL** — только параметризованные запросы (`$1, $2`), **никогда** f-строки
+- **XSS** — весь пользовательский ввод проходит через `escHtml()` перед вставкой в DOM
+- **Security audit log** — при любом изменении, связанном с безопасностью, обновлять `docs/SECURITY.md`
 
 ### Запрещено
 - Хардкодить токены, пароли, ключи
@@ -213,15 +219,21 @@ make logs        # Посмотреть логи
 - Прямые запросы из бота в PostgreSQL
 - Менять схему БД без обновления `database/init.sql`
 - Зарубежные managed-сервисы для хранения данных (требование 152-ФЗ — данные только на российском VPS)
+- Принимать `telegram_id` из query params или тела запроса для авторизации
+- Использовать `innerHTML` с непроверенными данными без `escHtml()`
+- Добавлять `allow_origins=["*"]` в CORS
 
 ## Как добавить новый API-эндпоинт
 
 Сейчас весь backend — один файл `backend/main.py`. Новые эндпоинты добавляются туда же:
 
-1. Определить Pydantic-модель (если нужна) — рядом с существующими (`UserAuth`, `ScheduleCreate`, `BookingCreate`)
+1. Определить Pydantic-модель (если нужна) с `Field(min_length=, max_length=)` — рядом с существующими
 2. Добавить роут-функцию с декоратором `@app.get/post/patch/delete`
-3. Использовать dependency `conn = Depends(db)` для доступа к asyncpg-соединению
-4. Для конвертации результатов из asyncpg: `row_to_dict(row)` / `rows_to_list(rows)`
+3. **Если эндпоинт требует авторизации** — добавить `auth_user: dict = Depends(get_current_user)` и извлекать `telegram_id = auth_user["id"]`
+4. Если эндпоинт публичный (гостевой доступ) — использовать `Depends(get_optional_user)` или без auth
+5. Использовать dependency `conn = Depends(db)` для доступа к asyncpg-соединению
+6. SQL — только `$1, $2` параметры, никогда f-строки
+7. Для конвертации результатов из asyncpg: `row_to_dict(row)` / `rows_to_list(rows)`
 
 ## Как добавить новый handler бота
 
@@ -267,7 +279,9 @@ make logs        # Посмотреть логи
 - **Inline-режим бота** требует активации в BotFather: Bot Settings → Inline Mode
 - **Trailing slash** в URL вызывает двойной слеш — убирать `/` в конце `MINI_APP_URL`
 - **Бот работает polling'ом** (не webhook) — `dp.start_polling(bot)`
-- **CORS настроен на `*`** — для продакшена нужно ограничить origins
+- **CORS** ограничен whitelist'ом — менять в `backend/main.py` переменную `allow_origins`
+- **Аутентификация** двухканальная: Mini App через `X-Init-Data` (HMAC-SHA256), бот через `X-Internal-Key`
+- **Security audit log** ведётся в `docs/SECURITY.md` — обновлять при каждом изменении безопасности
 - **Нет миграций** — схема БД применяется только при первой инициализации через `init.sql`
 - **Meeting link** генерируется как Jitsi-ссылка по UUID: `https://meet.jit.si/dovstrechi-{uuid4}`
 - **Расписание удаляется мягко** — `is_active=FALSE`, данные остаются в БД
