@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UX Design System — Schedule Booking Mini App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ds-bg: #F7F6F3;
+  --ds-surface: #FFFFFF;
+  --ds-border: #E5E2DA;
+  --ds-text-primary: #0E0D0B;
+  --ds-text-secondary: #6B6860;
+  --ds-text-muted: #A09D98;
+  --ds-accent: #2563EB;
+  --ds-accent-soft: #EEF3FD;
+
+  /* App colors (shown inside phone frames) */
+  --app-bg: #0C1220;
+  --app-surface: #141B2D;
+  --app-surface-2: #1C2640;
+  --app-border: rgba(255,255,255,0.08);
+  --app-text: #F0F2F8;
+  --app-text-2: #8B92A5;
+  --app-accent: #3B82F6;
+  --app-accent-2: #60A5FA;
+  --app-success: #22C55E;
+  --app-warning: #F59E0B;
+  --app-error: #EF4444;
+  --app-mint: #10D9B4;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--ds-bg);
+  color: var(--ds-text-primary);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* ========== LAYOUT ========== */
+.page-wrap { max-width: 1280px; margin: 0 auto; padding: 0 32px 80px; }
+
+.masthead {
+  border-bottom: 1px solid var(--ds-border);
+  padding: 32px 0 28px;
+  margin-bottom: 64px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.masthead-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-muted); }
+.masthead h1 { font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 800; line-height: 1.1; margin-top: 6px; }
+.masthead-meta { font-size: 13px; color: var(--ds-text-secondary); text-align: right; }
+.masthead-meta strong { display: block; font-family: 'Syne', sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-muted); margin-bottom: 2px; }
+
+/* ========== NAV ========== */
+.toc {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(247,246,243,0.96);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ds-border);
+  padding: 0;
+  margin: 0 -32px 64px;
+}
+.toc-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.toc-inner::-webkit-scrollbar { display: none; }
+.toc-btn {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ds-text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.toc-btn:hover { color: var(--ds-text-primary); }
+.toc-btn.active { color: var(--ds-accent); border-bottom-color: var(--ds-accent); }
+
+/* ========== SECTIONS ========== */
+.section { display: none; }
+.section.visible { display: block; }
+
+.section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ds-text-muted);
+  margin-bottom: 8px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px; font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+.section-desc {
+  font-size: 16px; color: var(--ds-text-secondary);
+  max-width: 640px; line-height: 1.7;
+  margin-bottom: 48px;
+}
+
+/* ========== PHONE FRAME ========== */
+.phone-grid {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.phone-col { flex: 0 0 auto; }
+.phone-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ds-text-muted);
+  margin-bottom: 10px;
+  text-align: center;
+}
+.phone {
+  width: 280px;
+  background: #1A1A2E;
+  border-radius: 36px;
+  padding: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12), 0 0 0 1px rgba(0,0,0,0.15);
+  position: relative;
+}
+.phone::before {
+  content: '';
+  display: block;
+  width: 80px; height: 6px;
+  background: #2A2A3E;
+  border-radius: 3px;
+  margin: 0 auto 10px;
+}
+.phone-screen {
+  background: var(--app-bg);
+  border-radius: 24px;
+  overflow: hidden;
+  min-height: 560px;
+  position: relative;
+  font-family: 'DM Sans', sans-serif;
+}
+.phone-status {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+.status-right { display: flex; gap: 6px; align-items: center; }
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--app-text); }
+
+/* ========== APP UI COMPONENTS ========== */
+.app-header {
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+.app-header-back {
+  font-size: 12px;
+  color: var(--app-accent-2);
+  margin-bottom: 4px;
+}
+.app-header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--app-text);
+}
+.app-header-sub {
+  font-size: 12px;
+  color: var(--app-text-2);
+  margin-top: 2px;
+}
+
+.app-body { padding: 16px; }
+
+.app-greeting {
+  padding: 20px 16px 4px;
+}
+.app-greeting-wave {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+.app-greeting-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--app-text);
+}
+.app-greeting-sub {
+  font-size: 13px;
+  color: var(--app-text-2);
+  margin-top: 2px;
+}
+
+.app-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 10px;
+  text-align: left;
+}
+.app-btn-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.app-btn-text { flex: 1; }
+.app-btn-title { font-size: 14px; font-weight: 600; }
+.app-btn-sub { font-size: 11px; margin-top: 1px; }
+.app-btn-arrow { font-size: 14px; color: rgba(255,255,255,0.3); }
+
+.btn-blue { background: rgba(59,130,246,0.15); }
+.btn-blue .app-btn-icon { background: rgba(59,130,246,0.25); }
+.btn-blue .app-btn-title { color: #93C5FD; }
+.btn-blue .app-btn-sub { color: rgba(147,197,253,0.6); }
+
+.btn-green { background: rgba(34,197,94,0.12); }
+.btn-green .app-btn-icon { background: rgba(34,197,94,0.2); }
+.btn-green .app-btn-title { color: #86EFAC; }
+.btn-green .app-btn-sub { color: rgba(134,239,172,0.6); }
+
+.btn-purple { background: rgba(139,92,246,0.12); }
+.btn-purple .app-btn-icon { background: rgba(139,92,246,0.2); }
+.btn-purple .app-btn-title { color: #C4B5FD; }
+.btn-purple .app-btn-sub { color: rgba(196,181,253,0.6); }
+
+.btn-gray { background: rgba(255,255,255,0.05); }
+.btn-gray .app-btn-icon { background: rgba(255,255,255,0.1); }
+.btn-gray .app-btn-title { color: var(--app-text); }
+.btn-gray .app-btn-sub { color: var(--app-text-2); }
+
+.app-web-link {
+  text-align: center;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: var(--app-accent-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Specialist info */
+.app-specialist-card {
+  background: var(--app-surface);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  border: 1px solid var(--app-border);
+}
+.app-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: white;
+  flex-shrink: 0;
+}
+.app-specialist-name { font-size: 14px; font-weight: 600; color: var(--app-text); }
+.app-specialist-meta { font-size: 11px; color: var(--app-text-2); margin-top: 1px; }
+
+/* Calendar mini */
+.app-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 8px;
+}
+.app-cal-month { font-size: 14px; font-weight: 600; color: var(--app-text); }
+.app-cal-nav { display: flex; gap: 8px; }
+.app-cal-nav-btn {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+
+.app-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-bottom: 16px;
+}
+.app-cal-dow {
+  text-align: center;
+  font-size: 10px;
+  color: var(--app-text-2);
+  padding: 4px 0;
+  font-weight: 500;
+}
+.app-cal-day {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--app-text);
+}
+.app-cal-day.disabled { color: rgba(255,255,255,0.15); }
+.app-cal-day.available { background: rgba(34,197,94,0.15); color: #86EFAC; }
+.app-cal-day.selected { background: var(--app-accent); color: white; }
+.app-cal-day.today { border: 1px solid var(--app-accent); }
+.app-cal-day.empty { }
+
+/* Time slots */
+.app-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.app-slot {
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text);
+  background: var(--app-surface);
+}
+.app-slot.selected { background: var(--app-accent); border-color: var(--app-accent); color: white; }
+
+/* Form */
+.app-form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--app-text-2);
+  margin-bottom: 6px;
+  display: block;
+}
+.app-form-input {
+  width: 100%;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--app-text);
+  margin-bottom: 12px;
+  font-family: 'DM Sans', sans-serif;
+}
+.app-form-input::placeholder { color: rgba(255,255,255,0.2); }
+
+.app-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  margin-bottom: 6px;
+  background: var(--app-surface);
+}
+.app-radio-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--app-border);
+  flex-shrink: 0;
+}
+.app-radio-dot.checked {
+  border-color: var(--app-accent);
+  background: var(--app-accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.app-radio-dot.checked::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: white;
+}
+.app-radio-label { font-size: 13px; color: var(--app-text); }
+
+/* Success screen */
+.app-success-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: rgba(34,197,94,0.15);
+  display: flex; align-items: center; justify-content: center;
+  margin: 24px auto 16px;
+  font-size: 32px;
+}
+.app-success-title {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 6px;
+}
+.app-success-sub {
+  text-align: center;
+  font-size: 13px;
+  color: var(--app-text-2);
+  padding: 0 20px;
+}
+.app-detail-card {
+  background: var(--app-surface);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  margin: 16px 0;
+}
+.app-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--app-text);
+  border-bottom: 1px solid var(--app-border);
+}
+.app-detail-row:last-child { border-bottom: none; }
+.app-detail-row-icon { font-size: 14px; width: 20px; }
+.app-detail-row-val { flex: 1; }
+.app-detail-row-link { color: var(--app-accent-2); font-size: 12px; text-decoration: underline; }
+
+.app-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px 16px;
+}
+.badge-pending { background: rgba(245,158,11,0.15); color: #FCD34D; }
+.badge-confirmed { background: rgba(34,197,94,0.15); color: #86EFAC; }
+
+/* History cards */
+.app-meeting-card {
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-left: 3px solid;
+  background: var(--app-surface);
+}
+.app-meeting-card.confirmed { border-left-color: var(--app-success); }
+.app-meeting-card.pending { border-left-color: var(--app-warning); }
+.app-meeting-card.completed { border-left-color: var(--app-text-2); }
+.app-meeting-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--app-text);
+  margin-bottom: 3px;
+}
+.app-meeting-card-sub {
+  font-size: 12px;
+  color: var(--app-text-2);
+  margin-bottom: 6px;
+}
+.app-meeting-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+.app-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.tag-confirmed { background: rgba(34,197,94,0.15); color: #86EFAC; }
+.tag-pending { background: rgba(245,158,11,0.12); color: #FCD34D; }
+.tag-completed { background: rgba(255,255,255,0.08); color: var(--app-text-2); }
+.app-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.app-mini-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-2);
+  color: var(--app-text);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+}
+.app-mini-btn.danger { border-color: rgba(239,68,68,0.3); color: #FCA5A5; background: rgba(239,68,68,0.08); }
+
+/* Settings */
+.app-settings-section {
+  background: var(--app-surface);
+  border-radius: 12px;
+  border: 1px solid var(--app-border);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.app-settings-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--app-border);
+  gap: 10px;
+}
+.app-settings-row:last-child { border-bottom: none; }
+.app-settings-icon { font-size: 16px; width: 28px; text-align: center; }
+.app-settings-label { flex: 1; font-size: 13px; color: var(--app-text); }
+.app-settings-value { font-size: 12px; color: var(--app-text-2); }
+.app-toggle {
+  width: 36px; height: 20px;
+  border-radius: 10px;
+  background: var(--app-accent);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.app-toggle::after {
+  content: '';
+  position: absolute;
+  right: 3px; top: 3px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: white;
+}
+.app-toggle.off { background: rgba(255,255,255,0.15); }
+.app-toggle.off::after { right: auto; left: 3px; }
+
+/* Profile in settings */
+.app-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+/* Timeline */
+.app-timeline { padding: 0 4px; }
+.app-timeline-item {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  position: relative;
+}
+.app-timeline-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--app-accent);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.app-timeline-dot.completed { background: var(--app-success); }
+.app-timeline-text { font-size: 12px; color: var(--app-text-2); }
+.app-timeline-date { font-size: 11px; color: rgba(255,255,255,0.25); }
+
+/* Tabs */
+.app-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+.app-tab {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+.app-tab.active { background: var(--app-accent); color: white; }
+.app-tab.inactive { background: var(--app-surface); color: var(--app-text-2); border: 1px solid var(--app-border); }
+
+/* Search */
+.app-search {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.app-search-icon { font-size: 14px; color: var(--app-text-2); }
+.app-search-placeholder { font-size: 13px; color: rgba(255,255,255,0.2); }
+
+/* Meeting type card (screen 2) */
+.app-type-card {
+  background: var(--app-surface);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--app-border);
+  cursor: pointer;
+}
+.app-type-card:hover { border-color: var(--app-accent); }
+.app-type-title { font-size: 14px; font-weight: 600; color: var(--app-text); margin-bottom: 3px; }
+.app-type-sub { font-size: 12px; color: var(--app-text-2); }
+.app-type-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--app-border);
+}
+.app-type-chip {
+  font-size: 11px;
+  color: var(--app-text-2);
+}
+
+/* Bottom button */
+.app-bottom-btn {
+  position: absolute;
+  bottom: 16px; left: 16px; right: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--app-accent);
+  color: white;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+.app-bottom-btn.disabled { background: rgba(59,130,246,0.25); color: rgba(255,255,255,0.4); }
+.app-bottom-btn.green { background: #16A34A; }
+
+/* Onboarding */
+.app-onboard-hero {
+  padding: 24px 16px 16px;
+  text-align: center;
+}
+.app-onboard-emoji { font-size: 56px; margin-bottom: 12px; }
+.app-onboard-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--app-text);
+  margin-bottom: 8px;
+}
+.app-onboard-desc {
+  font-size: 13px;
+  color: var(--app-text-2);
+  line-height: 1.6;
+}
+.app-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+.app-dot {
+  width: 6px; height: 6px;
+  border-radius: 3px;
+  background: var(--app-border);
+}
+.app-dot.active { width: 20px; background: var(--app-accent); }
+
+/* Error screen */
+.app-error {
+  text-align: center;
+  padding: 32px 20px;
+}
+.app-error-icon { font-size: 40px; margin-bottom: 12px; }
+.app-error-title { font-size: 16px; font-weight: 600; color: var(--app-text); margin-bottom: 6px; }
+.app-error-desc { font-size: 13px; color: var(--app-text-2); margin-bottom: 20px; line-height: 1.5; }
+.app-error-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Loading skeleton */
+.app-skeleton {
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%,100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ========== DESIGN SYSTEM SECTION ========== */
+.ds-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+.ds-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+.ds-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+
+.ds-card {
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: 16px;
+  padding: 24px;
+}
+.ds-card-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ds-text-muted);
+  margin-bottom: 16px;
+}
+
+/* Color swatches */
+.color-swatch {
+  height: 48px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.color-name { font-size: 12px; font-weight: 500; color: var(--ds-text-secondary); }
+.color-hex { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--ds-text-muted); }
+
+/* Type specimen */
+.type-specimen { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--ds-border); }
+.type-specimen:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.type-specimen-meta { font-size: 11px; color: var(--ds-text-muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+
+/* Component demos (light surface with dark mock inside) */
+.comp-demo {
+  background: #1C2640;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+/* ========== FLOW DIAGRAM ========== */
+.flow-wrap { overflow-x: auto; padding-bottom: 8px; }
+.flow-diagram {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 900px;
+}
+.flow-step-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.flow-node {
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+  width: 120px;
+}
+.flow-node.highlight {
+  background: #EEF3FD;
+  border-color: #93B5FA;
+}
+.flow-node-icon { font-size: 20px; margin-bottom: 4px; }
+.flow-node-label { font-size: 12px; font-weight: 500; color: var(--ds-text-secondary); }
+.flow-node-screen { font-size: 10px; color: var(--ds-text-muted); margin-top: 3px; font-family: 'DM Mono', monospace; }
+.flow-arrow {
+  height: 2px;
+  background: var(--ds-border);
+  flex: 1;
+  margin-top: 28px;
+  position: relative;
+}
+.flow-arrow::after {
+  content: '▶';
+  position: absolute;
+  right: -4px;
+  top: -8px;
+  font-size: 10px;
+  color: var(--ds-text-muted);
+}
+
+.flow-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  width: 120px;
+}
+.flow-branch-line {
+  width: 1px;
+  height: 20px;
+  background: var(--ds-border);
+  margin: 0 auto;
+}
+
+/* ========== SPEC TABLE ========== */
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.spec-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--ds-bg);
+  border-bottom: 1px solid var(--ds-border);
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-text-muted);
+}
+.spec-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ds-border);
+  color: var(--ds-text-secondary);
+  vertical-align: top;
+}
+.spec-table td:first-child { font-weight: 500; color: var(--ds-text-primary); white-space: nowrap; }
+.spec-table tr:last-child td { border-bottom: none; }
+.spec-table .mono { font-family: 'DM Mono', monospace; font-size: 12px; background: var(--ds-bg); padding: 2px 6px; border-radius: 4px; }
+
+/* Divider */
+.divider { height: 1px; background: var(--ds-border); margin: 48px 0; }
+
+/* Badge */
+.ds-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent);
+}
+
+/* Pill list */
+.pill-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text-secondary);
+  background: var(--ds-surface);
+}
+
+/* Interaction rules */
+.rule-list { list-style: none; }
+.rule-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ds-border);
+  font-size: 14px;
+}
+.rule-list li:last-child { border-bottom: none; }
+.rule-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-text-muted);
+  width: 24px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Error state row */
+.error-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--ds-border);
+  margin-bottom: 12px;
+  background: var(--ds-surface);
+}
+.error-code {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  width: 64px;
+  flex-shrink: 0;
+  color: #EF4444;
+}
+.error-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.error-desc { font-size: 13px; color: var(--ds-text-secondary); }
+
+/* Checklist */
+.checklist { list-style: none; }
+.checklist li {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  border-bottom: 1px solid var(--ds-border);
+  align-items: flex-start;
+}
+.checklist li:last-child { border-bottom: none; }
+.check-icon {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #DCFCE7;
+  color: #16A34A;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Anim principle cards */
+.anim-card {
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: 14px;
+  padding: 20px;
+}
+.anim-card-icon { font-size: 28px; margin-bottom: 10px; }
+.anim-card-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.anim-card-desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.6; }
+.anim-card-spec {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: var(--ds-bg);
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--ds-text-secondary);
+}
+
+@media (max-width: 900px) {
+  .ds-grid-2, .ds-grid-3, .ds-grid-4 { grid-template-columns: 1fr 1fr; }
+  .phone-grid { justify-content: center; }
+  .masthead h1 { font-size: 28px; }
+}
+@media (max-width: 600px) {
+  .page-wrap { padding: 0 16px 60px; }
+  .ds-grid-2, .ds-grid-3, .ds-grid-4 { grid-template-columns: 1fr; }
+  .masthead { flex-direction: column; align-items: flex-start; }
+  .masthead-meta { text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- MASTHEAD -->
+  <div class="masthead">
+    <div>
+      <div class="masthead-title">UI/UX Design System</div>
+      <h1>Schedule Booking<br>Mini App</h1>
+    </div>
+    <div class="masthead-meta">
+      <strong>Версия</strong>MVP 1.0 · Март 2026
+      <br><br>
+      <strong>Платформа</strong>Telegram Mini App + Web
+      <br><br>
+      <strong>Аудитория</strong>RU · Специалисты + Клиенты
+    </div>
+  </div>
+
+  <!-- TOC NAV -->
+  <div class="toc">
+    <div class="toc-inner">
+      <button class="toc-btn active" onclick="showSection('overview')">Обзор продукта</button>
+      <button class="toc-btn" onclick="showSection('flows')">Сценарии и флоу</button>
+      <button class="toc-btn" onclick="showSection('screens')">Все экраны</button>
+      <button class="toc-btn" onclick="showSection('system')">Дизайн-система</button>
+      <button class="toc-btn" onclick="showSection('interactions')">Взаимодействие</button>
+      <button class="toc-btn" onclick="showSection('errors')">Ошибки и edge cases</button>
+      <button class="toc-btn" onclick="showSection('animation')">Анимации</button>
+      <button class="toc-btn" onclick="showSection('checklist')">Чеклист</button>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: OVERVIEW -->
+  <!-- ======================================= -->
+  <div id="section-overview" class="section visible">
+    <div class="section-label">01 — Product UX Overview</div>
+    <div class="section-title">Концепция и дизайн-направление</div>
+    <div class="section-desc">
+      Schedule Booking Mini App — лаконичный, скоростной инструмент синхронизации встреч внутри Telegram. Дизайн ориентирован на <strong>нулевой порог входа</strong>: клиент записывается за 3 касания, специалист тратит 2 минуты на настройку расписания.
+    </div>
+
+    <div class="ds-grid-3">
+      <div class="ds-card">
+        <div class="ds-card-label">Aesthetic Direction</div>
+        <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Dark Minimal<br>+ Electric Accent</div>
+        <div style="font-size: 13px; color: var(--ds-text-secondary); line-height: 1.7;">Тёмный фон со сдержанными поверхностями. Синие акценты в стиле Telegram. Чистая типографика. Нет шума, нет лишних элементов.</div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">UX Philosophy</div>
+        <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Tap-First,<br>Zero Friction</div>
+        <div style="font-size: 13px; color: var(--ds-text-secondary); line-height: 1.7;">Максимум — 3 тапа до подтверждения встречи. Автозаполнение из Telegram. Умные дефолты. Одно действие на экран.</div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Key Constraint</div>
+        <div style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">360px<br>Mobile-Only</div>
+        <div style="font-size: 13px; color: var(--ds-text-secondary); line-height: 1.7;">Telegram WebView. Только вертикальная раскладка. Нет URL-бара. Thumb-friendly зоны. Загрузка &lt;2 сек на 3G.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">Роли и задачи (JTBD)</div>
+    <div style="font-size: 22px; font-weight: 700; margin-bottom: 24px;">Кто использует и зачем</div>
+
+    <div class="ds-grid-2">
+      <div class="ds-card">
+        <div class="ds-card-label">Роль — Организатор (Специалист)</div>
+        <div style="padding: 4px 0;">
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">📅 Настроить расписание один раз → шарить ссылку</div>
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">🔔 Получать уведомления о записях</div>
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">✅ Подтверждать или автоматически принимать встречи</div>
+          <div style="font-size: 14px; padding: 8px 0; color: var(--ds-text-secondary);">📋 Видеть историю и статусы</div>
+        </div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Роль — Клиент (Участник)</div>
+        <div style="padding: 4px 0;">
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">🔍 Открыть ссылку → сразу видеть свободные слоты</div>
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">📆 Выбрать дату и время в 2-3 касания</div>
+          <div style="font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--ds-border); color: var(--ds-text-secondary);">🎥 Получить ссылку на видеозвонок</div>
+          <div style="font-size: 14px; padding: 8px 0; color: var(--ds-text-secondary);">❌ Легко отменить встречу при необходимости</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">Навигационная карта</div>
+    <div style="font-size: 22px; font-weight: 700; margin-bottom: 24px;">Карта переходов между экранами</div>
+
+    <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 16px; padding: 24px; overflow-x: auto;">
+      <div style="min-width: 700px;">
+        <!-- Row 1: Main flow -->
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-muted); margin-bottom: 16px;">Основной сценарий: Клиент записывается</div>
+        <div style="display: flex; align-items: center; gap: 0; margin-bottom: 32px;">
+          <div style="text-align: center; width: 110px; flex-shrink:0;">
+            <div style="background: #EEF3FD; border: 1px solid #93B5FA; border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">📱</div>
+              <div style="font-size: 11px; font-weight: 600; color: #2563EB;">Ссылка от специалиста</div>
+            </div>
+          </div>
+          <div style="flex:1; height:1px; background: var(--ds-border); position:relative;"><span style="position:absolute; right:-4px; top:-7px; font-size:10px; color:var(--ds-text-muted);">▶</span></div>
+          <div style="text-align: center; width: 110px; flex-shrink:0;">
+            <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">📅</div>
+              <div style="font-size: 11px; font-weight: 600;">Экран 3</div>
+              <div style="font-size: 10px; color: var(--ds-text-muted);">Календарь</div>
+            </div>
+          </div>
+          <div style="flex:1; height:1px; background: var(--ds-border); position:relative;"><span style="position:absolute; right:-4px; top:-7px; font-size:10px; color:var(--ds-text-muted);">▶</span></div>
+          <div style="text-align: center; width: 110px; flex-shrink:0;">
+            <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">⏰</div>
+              <div style="font-size: 11px; font-weight: 600;">Слоты</div>
+              <div style="font-size: 10px; color: var(--ds-text-muted);">выбор времени</div>
+            </div>
+          </div>
+          <div style="flex:1; height:1px; background: var(--ds-border); position:relative;"><span style="position:absolute; right:-4px; top:-7px; font-size:10px; color:var(--ds-text-muted);">▶</span></div>
+          <div style="text-align: center; width: 110px; flex-shrink:0;">
+            <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">📝</div>
+              <div style="font-size: 11px; font-weight: 600;">Экран 4</div>
+              <div style="font-size: 10px; color: var(--ds-text-muted);">Форма</div>
+            </div>
+          </div>
+          <div style="flex:1; height:1px; background: var(--ds-border); position:relative;"><span style="position:absolute; right:-4px; top:-7px; font-size:10px; color:var(--ds-text-muted);">▶</span></div>
+          <div style="text-align: center; width: 110px; flex-shrink:0;">
+            <div style="background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">✅</div>
+              <div style="font-size: 11px; font-weight: 600; color: #16A34A;">Экран 5</div>
+              <div style="font-size: 10px; color: #16A34A;">Успех</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: From main menu -->
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ds-text-muted); margin-bottom: 16px;">Сценарий: Из главного меню</div>
+        <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+          <div style="text-align: center; width: 110px;">
+            <div style="background: var(--ds-surface); border: 2px solid var(--ds-accent); border-radius: 10px; padding: 10px 8px; margin-bottom: 6px;">
+              <div style="font-size: 18px;">🏠</div>
+              <div style="font-size: 11px; font-weight: 600; color: var(--ds-accent);">Экран 1</div>
+              <div style="font-size: 10px; color: var(--ds-text-muted);">Главная</div>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 40px; height: 1px; background: var(--ds-border); flex-shrink: 0;"></div>
+                <div style="font-size: 11px; color: var(--ds-text-muted);">→ Экран 2 (Выбор встречи) → Экран 3 (Календарь)</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 40px; height: 1px; background: var(--ds-border); flex-shrink: 0;"></div>
+                <div style="font-size: 11px; color: var(--ds-text-muted);">→ Экран 6 (Мои встречи) → Экран 7 (Детали)</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 40px; height: 1px; background: var(--ds-border); flex-shrink: 0;"></div>
+                <div style="font-size: 11px; color: var(--ds-text-muted);">→ Экран 8 (Настройки)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: FLOWS -->
+  <!-- ======================================= -->
+  <div id="section-flows" class="section">
+    <div class="section-label">02 — User Journey Map</div>
+    <div class="section-title">Сценарии использования</div>
+    <div class="section-desc">Полные пользовательские пути с состояниями, условиями и точками принятия решений.</div>
+
+    <!-- Flow A -->
+    <div style="margin-bottom: 40px;">
+      <div style="font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; padding: 10px 14px; background: var(--ds-accent-soft); border-radius: 8px; color: var(--ds-accent);">
+        Сценарий A: Новый пользователь — первое открытие
+      </div>
+      <table class="spec-table">
+        <thead><tr><th>Шаг</th><th>Экран / Состояние</th><th>Действие пользователя</th><th>Реакция системы</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Telegram чат</td><td>Нажимает кнопку бота или ссылку от специалиста</td><td>Открывается Mini App, загрузка данных</td></tr>
+          <tr><td>2</td><td>Загрузка (Skeleton)</td><td>Ждёт (&lt;2 сек)</td><td>Skeleton placeholders вместо кнопок</td></tr>
+          <tr><td>3</td><td>Онбординг (если без schedule_id)</td><td>Просматривает 3 шага онбординга</td><td>Пояснение продукта, не требует ввода</td></tr>
+          <tr><td>4</td><td>Экран 1 — Главная</td><td>Видит приветствие с именем из Telegram</td><td>Имя и аватар из InitData</td></tr>
+          <tr><td>5 (если с ссылкой)</td><td>Экран 3 — Сразу Календарь</td><td>Пропускает шаги 3-4, прямо на календарь</td><td>schedule_id в URL → skip to Экран 3</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Flow B -->
+    <div style="margin-bottom: 40px;">
+      <div style="font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; padding: 10px 14px; background: #FFF3E0; border-radius: 8px; color: #E65100;">
+        Сценарий B: Возвращающийся пользователь
+      </div>
+      <table class="spec-table">
+        <thead><tr><th>Шаг</th><th>Экран</th><th>Действие</th><th>Состояние</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Экран 1</td><td>Открывает приложение</td><td>Быстрый вход, данные закешированы</td></tr>
+          <tr><td>2</td><td>Экран 6 — Мои встречи</td><td>Нажимает "Мои встречи"</td><td>Предстоящие встречи сверху</td></tr>
+          <tr><td>3</td><td>Экран 7 — Детали</td><td>Нажимает "Подробнее"</td><td>Ссылка на zoom, история изменений</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Flow C -->
+    <div style="margin-bottom: 40px;">
+      <div style="font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; padding: 10px 14px; background: #E8F5E9; border-radius: 8px; color: #2E7D32;">
+        Сценарий C: Полный цикл бронирования (Happy Path)
+      </div>
+      <table class="spec-table">
+        <thead><tr><th>Шаг</th><th>Экран</th><th>Действие</th><th>Состояние / Логика</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Экран 3</td><td>Выбирает дату</td><td>Зелёные дни — доступны, серые — нет</td></tr>
+          <tr><td>2</td><td>Экран 3</td><td>Выбирает время-слот</td><td>Слот становится синим. Кнопка "Продолжить" активна</td></tr>
+          <tr><td>3</td><td>Экран 4</td><td>Проверяет данные (имя из TG)</td><td>Автозаполнено из Telegram InitData</td></tr>
+          <tr><td>4</td><td>Экран 4</td><td>Выбирает платформу (если нужно)</td><td>Radio: Zoom / Google Meet / Jitsi и др.</td></tr>
+          <tr><td>5</td><td>Экран 4</td><td>Нажимает "Забронировать"</td><td>POST /api/bookings → spinner</td></tr>
+          <tr><td>6a</td><td>Экран 5 — Успех</td><td>Видит детали встречи</td><td>requires_approval=false → подтверждено сразу</td></tr>
+          <tr><td>6b</td><td>Экран 5 — Ожидание</td><td>Видит статус "Ожидает подтверждения"</td><td>requires_approval=true → оранжевый бейдж</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Flow D: Cancel -->
+    <div style="margin-bottom: 40px;">
+      <div style="font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 16px; padding: 10px 14px; background: #FFEBEE; border-radius: 8px; color: #C62828;">
+        Сценарий D: Отмена встречи
+      </div>
+      <table class="spec-table">
+        <thead><tr><th>Шаг</th><th>Экран</th><th>Действие</th><th>Результат</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Экран 6 / 7</td><td>Нажимает "Отменить"</td><td>Появляется Modal подтверждения</td></tr>
+          <tr><td>2</td><td>Modal</td><td>Подтверждает отмену</td><td>PATCH /api/meetings/{id} → status=cancelled</td></tr>
+          <tr><td>3</td><td>Экран 6</td><td>Возврат на список</td><td>Встреча помечена ❌, слот освобождён, специалист получает уведомление</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: SCREENS -->
+  <!-- ======================================= -->
+  <div id="section-screens" class="section">
+    <div class="section-label">03 — Screen-by-Screen Breakdown</div>
+    <div class="section-title">Все экраны приложения</div>
+    <div class="section-desc">Макеты всех 10 экранов с полными спецификациями компонентов, состояний и поведений.</div>
+
+    <!-- SCREEN 0: Onboarding -->
+    <div class="divider"></div>
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_000 · Онбординг</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-onboard-hero">
+              <div class="app-onboard-emoji">📅</div>
+              <div class="app-onboard-title">Умное расписание<br>для встреч</div>
+              <div class="app-onboard-desc">Специалист настраивает расписание один раз — клиенты записываются сами, без переписки</div>
+            </div>
+            <div class="app-dots">
+              <div class="app-dot active"></div>
+              <div class="app-dot"></div>
+              <div class="app-dot"></div>
+            </div>
+            <div style="padding: 0 16px; margin-top: 12px;">
+              <div style="background: var(--app-surface); border-radius: 12px; padding: 12px; border: 1px solid var(--app-border); margin-bottom: 10px;">
+                <div style="font-size: 13px; font-weight: 600; color: #86EFAC; margin-bottom: 4px;">✓ Без лишних переписок</div>
+                <div style="font-size: 11px; color: var(--app-text-2);">Клиент видит только свободные слоты</div>
+              </div>
+              <div style="background: var(--app-surface); border-radius: 12px; padding: 12px; border: 1px solid var(--app-border); margin-bottom: 10px;">
+                <div style="font-size: 13px; font-weight: 600; color: #93C5FD; margin-bottom: 4px;">✓ Zoom, Meet, Jitsi и другие</div>
+                <div style="font-size: 11px; color: var(--app-text-2);">Ссылка создаётся автоматически</div>
+              </div>
+            </div>
+            <button class="app-bottom-btn" style="position: relative; margin: 16px; width: calc(100% - 32px); display: block;">Начать →</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--ds-text-muted); text-transform: uppercase; letter-spacing: 0.08em;">Спецификация</div>
+        <table class="spec-table">
+          <tr><td>Триггер</td><td>Первый запуск без schedule_id в URL</td></tr>
+          <tr><td>Шагов</td><td>3 (свайп или кнопка "Далее")</td></tr>
+          <tr><td>Шаг 1</td><td>Ценностное предложение + ключевые фичи</td></tr>
+          <tr><td>Шаг 2</td><td>Как это работает (иллюстрация потока)</td></tr>
+          <tr><td>Шаг 3</td><td>Разрешение на уведомления Telegram</td></tr>
+          <tr><td>CTA</td><td>"Начать" → Экран 1</td></tr>
+          <tr><td>Пропуск</td><td>Кнопка "Пропустить" в правом верхнем углу</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 1: Main menu -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_001 · Главное меню</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-greeting">
+              <div class="app-greeting-wave">👋</div>
+              <div class="app-greeting-name">Привет, Иван!</div>
+              <div class="app-greeting-sub">Что хочешь сделать?</div>
+            </div>
+            <div style="padding: 16px; padding-top: 12px;">
+              <div class="app-btn btn-blue">
+                <div class="app-btn-icon">📅</div>
+                <div class="app-btn-text">
+                  <div class="app-btn-title">Выбрать встречу</div>
+                  <div class="app-btn-sub">Забронировать слот у специалиста</div>
+                </div>
+                <div class="app-btn-arrow">›</div>
+              </div>
+              <div class="app-btn btn-green">
+                <div class="app-btn-icon">📋</div>
+                <div class="app-btn-text">
+                  <div class="app-btn-title">Мои встречи</div>
+                  <div class="app-btn-sub">Предстоящие и прошедшие</div>
+                </div>
+                <div class="app-btn-arrow">›</div>
+              </div>
+              <div class="app-btn btn-purple">
+                <div class="app-btn-icon">⚙️</div>
+                <div class="app-btn-text">
+                  <div class="app-btn-title">Настройки</div>
+                  <div class="app-btn-sub">Язык, уведомления, профиль</div>
+                </div>
+                <div class="app-btn-arrow">›</div>
+              </div>
+              <div class="app-web-link" style="text-align: left; padding: 12px 0;">🌐 Открыть полную веб-версию</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--ds-text-muted); text-transform: uppercase; letter-spacing: 0.08em;">Спецификация</div>
+        <table class="spec-table">
+          <tr><td>Приветствие</td><td>tg_first_name из InitData · bold 20px</td></tr>
+          <tr><td>Кнопка 1</td><td>Синяя → SCREEN_002 / прямо SCREEN_003</td></tr>
+          <tr><td>Кнопка 2</td><td>Зелёная → SCREEN_006</td></tr>
+          <tr><td>Кнопка 3</td><td>Фиолетовая → SCREEN_008</td></tr>
+          <tr><td>Ссылка</td><td>WebApp.openLink('https://app.com')</td></tr>
+          <tr><td>Если специалист</td><td>"Управлять расписанием" вместо "Выбрать"</td></tr>
+          <tr><td>Loading state</td><td>Skeleton кнопки (opacity 0.4), greeting пустой</td></tr>
+          <tr><td>Error state</td><td>⚠️ + кнопка перезагрузки</td></tr>
+        </table>
+        <div style="margin-top: 16px; padding: 12px; background: var(--ds-accent-soft); border-radius: 10px; font-size: 13px; color: var(--ds-accent);">
+          <strong>Differentiator:</strong> Каждая кнопка имеет подсказку-описание. Цветовое кодирование по функции (синий=выбор, зелёный=просмотр, фиолетовый=настройки).
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_002 · Поиск расписания</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Выбрать встречу</div>
+            </div>
+            <div style="padding: 14px 16px 0;">
+              <div class="app-search">
+                <div class="app-search-icon">🔍</div>
+                <div class="app-search-placeholder">Найти специалиста...</div>
+              </div>
+              <div style="font-size: 12px; color: var(--app-text-2); margin-bottom: 10px; font-weight: 500;">Последние расписания</div>
+              <div class="app-type-card">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <div class="app-avatar" style="width: 32px; height: 32px; font-size: 12px;">ИП</div>
+                  <div>
+                    <div class="app-type-title" style="font-size: 13px;">Консультация психолога</div>
+                    <div class="app-type-sub">Иван Петров</div>
+                  </div>
+                </div>
+                <div class="app-type-meta">
+                  <div class="app-type-chip">⏱ 50 мин</div>
+                  <div class="app-type-chip">⭐ 4.8 (12)</div>
+                </div>
+              </div>
+              <div class="app-type-card">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <div class="app-avatar" style="width: 32px; height: 32px; font-size: 12px; background: linear-gradient(135deg, #22C55E, #16A34A);">МС</div>
+                  <div>
+                    <div class="app-type-title" style="font-size: 13px;">Персональная тренировка</div>
+                    <div class="app-type-sub">Мария Сидорова</div>
+                  </div>
+                </div>
+                <div class="app-type-meta">
+                  <div class="app-type-chip">⏱ 60 мин</div>
+                  <div class="app-type-chip">⭐ 4.9 (8)</div>
+                </div>
+              </div>
+              <div style="text-align: center; padding: 12px; font-size: 12px; color: var(--app-text-2);">📍 Нет нужного? Попросите специалиста поделиться ссылкой</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Поиск</td><td>Debounce 300ms · GET /api/schedules/search?q={q}</td></tr>
+          <tr><td>Карточка</td><td>Аватар + имя + тип + длительность + рейтинг*</td></tr>
+          <tr><td>Рейтинг</td><td>*MVP: статичный плейсхолдер (4.8)</td></tr>
+          <tr><td>Loading</td><td>3-4 skeleton карточки</td></tr>
+          <tr><td>Empty</td><td>Иллюстрация + подсказка попросить ссылку</td></tr>
+          <tr><td>Вариант A</td><td>URL с schedule_id → пропустить этот экран</td></tr>
+          <tr><td>Вариант B</td><td>Без schedule_id → показать этот экран</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 3 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_003 · Календарь и слоты</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Консультация</div>
+              <div class="app-header-sub">Иван Петров · 45 мин</div>
+            </div>
+            <div style="padding: 14px 16px 80px;">
+              <div class="app-specialist-card">
+                <div class="app-avatar">ИП</div>
+                <div>
+                  <div class="app-specialist-name">Иван Петров</div>
+                  <div class="app-specialist-meta">45 мин · Психолог</div>
+                </div>
+              </div>
+              <div class="app-calendar-header">
+                <div class="app-cal-month">Март 2026</div>
+                <div class="app-cal-nav"><div class="app-cal-nav-btn">←</div><div class="app-cal-nav-btn">→</div></div>
+              </div>
+              <div class="app-cal-grid">
+                <div class="app-cal-dow">Пн</div><div class="app-cal-dow">Вт</div><div class="app-cal-dow">Ср</div><div class="app-cal-dow">Чт</div><div class="app-cal-dow">Пт</div><div class="app-cal-dow">Сб</div><div class="app-cal-dow">Вс</div>
+                <div class="app-cal-day empty"></div><div class="app-cal-day empty"></div><div class="app-cal-day empty"></div><div class="app-cal-day empty"></div><div class="app-cal-day empty"></div><div class="app-cal-day disabled">1</div><div class="app-cal-day disabled">2</div>
+                <div class="app-cal-day available">3</div><div class="app-cal-day available">4</div><div class="app-cal-day today available">5</div><div class="app-cal-day available">6</div><div class="app-cal-day available">7</div><div class="app-cal-day disabled">8</div><div class="app-cal-day disabled">9</div>
+                <div class="app-cal-day available">10</div><div class="app-cal-day selected">11</div><div class="app-cal-day available">12</div><div class="app-cal-day available">13</div><div class="app-cal-day available">14</div><div class="app-cal-day disabled">15</div><div class="app-cal-day disabled">16</div>
+              </div>
+              <div style="font-size: 12px; color: var(--app-text-2); font-weight: 500; margin-bottom: 10px;">Вторник, 11 марта — свободные слоты:</div>
+              <div class="app-slots-grid">
+                <div class="app-slot">10:00</div>
+                <div class="app-slot selected">10:55</div>
+                <div class="app-slot">11:50</div>
+                <div class="app-slot">14:00</div>
+                <div class="app-slot">14:55</div>
+                <div class="app-slot">15:50</div>
+              </div>
+            </div>
+            <button class="app-bottom-btn">Продолжить →</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Доступные дни</td><td>Зелёный фон rgba(34,197,94,0.15) · #86EFAC</td></tr>
+          <tr><td>Недоступные</td><td>Серый · opacity 0.3</td></tr>
+          <tr><td>Выбранный</td><td>Синий фон #3B82F6 · белый текст</td></tr>
+          <tr><td>Сегодня</td><td>Синяя рамка · выделение</td></tr>
+          <tr><td>Слот (дефолт)</td><td>Surface border #141B2D</td></tr>
+          <tr><td>Слот (выбран)</td><td>Синий #3B82F6 · белый текст</td></tr>
+          <tr><td>Загрузка слотов</td><td>Спиннер при смене дня</td></tr>
+          <tr><td>Кнопка внизу</td><td>Fixed · disabled если слот не выбран</td></tr>
+          <tr><td>API (месяц)</td><td>GET /api/schedules/{id}/slots?month=2026-03</td></tr>
+          <tr><td>API (день)</td><td>GET /api/schedules/{id}/slots?date=2026-03-11</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 4 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_004 · Форма бронирования</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Подтверждение</div>
+            </div>
+            <div style="padding: 14px 16px 90px;">
+              <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 12px; margin-bottom: 16px;">
+                <div style="font-size: 13px; font-weight: 600; color: #86EFAC; margin-bottom: 3px;">📅 Вт, 11 марта 2026</div>
+                <div style="font-size: 12px; color: var(--app-text-2);">⏰ 10:55 — 11:45 (45 мин)</div>
+              </div>
+              <div>
+                <label class="app-form-label">Как вас представить? *</label>
+                <input class="app-form-input" type="text" placeholder="Иван Иванов" value="Иван (из Telegram)" readonly>
+              </div>
+              <div>
+                <label class="app-form-label">Email (опционально)</label>
+                <input class="app-form-input" type="email" placeholder="ivan@mail.ru">
+              </div>
+              <div>
+                <label class="app-form-label" style="margin-bottom: 8px;">Место встречи</label>
+                <div class="app-radio-row">
+                  <div class="app-radio-dot checked"></div>
+                  <div class="app-radio-label">Zoom</div>
+                </div>
+                <div class="app-radio-row">
+                  <div class="app-radio-dot"></div>
+                  <div class="app-radio-label">Google Meet</div>
+                </div>
+                <div class="app-radio-row">
+                  <div class="app-radio-dot"></div>
+                  <div class="app-radio-label">Jitsi Meet</div>
+                </div>
+              </div>
+            </div>
+            <button class="app-bottom-btn green">📝 Забронировать</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Слот (read-only)</td><td>Зелёная карточка · нередактируема</td></tr>
+          <tr><td>Имя</td><td>Предзаполнено из InitData · редактируемо</td></tr>
+          <tr><td>Email</td><td>Необязательно · email validation при blur</td></tr>
+          <tr><td>Место встречи</td><td>Видно только если location_mode=user_choice</td></tr>
+          <tr><td>Валидация</td><td>Имя: min 2 симв., max 50. Email: regex или пусто</td></tr>
+          <tr><td>Кнопка</td><td>Зелёная · disabled если форма невалидна</td></tr>
+          <tr><td>Loading при submit</td><td>Spinner + "Отправляем..." в кнопке</td></tr>
+          <tr><td>API</td><td>POST /api/bookings</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 5 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_005 · Успех</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-success-icon">✅</div>
+            <div class="app-success-title">Встреча забронирована!</div>
+            <div class="app-success-sub">Ссылка придёт в Telegram уведомление</div>
+            <div style="padding: 0 16px;">
+              <div class="app-detail-card">
+                <div class="app-detail-row"><div class="app-detail-row-icon">📅</div><div class="app-detail-row-val">Вт, 11 марта 2026</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">⏰</div><div class="app-detail-row-val">10:55 — 11:45</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">👨‍⚕️</div><div class="app-detail-row-val">Иван Петров</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">🎥</div><div class="app-detail-row-val">Zoom <span class="app-detail-row-link">Копировать ссылку</span></div></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; padding: 0 16px;">
+              <button class="app-bottom-btn" style="position: static; flex: 1; font-size: 13px; padding: 12px; margin: 0;">📞 В Telegram</button>
+              <button class="app-bottom-btn" style="position: static; flex: 1; font-size: 13px; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-border); color: var(--app-text); margin: 0;">← Главная</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_005b · Ожидание подтверждения</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div style="text-align: center; padding: 24px 16px 8px;">
+              <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(245,158,11,0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 32px;">⏳</div>
+              <div class="app-success-title">Заявка отправлена!</div>
+              <div class="app-success-sub">Специалист подтвердит встречу.<br>Мы пришлём уведомление</div>
+            </div>
+            <div class="app-status-badge badge-pending">⏳ Ожидает подтверждения</div>
+            <div style="padding: 0 16px;">
+              <div class="app-detail-card">
+                <div class="app-detail-row"><div class="app-detail-row-icon">📅</div><div class="app-detail-row-val">Вт, 11 марта 2026</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">⏰</div><div class="app-detail-row-val">10:55 — 11:45</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">👨‍⚕️</div><div class="app-detail-row-val">Иван Петров</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Вариант A</td><td>requires_approval=false → ✅ зелёный экран</td></tr>
+          <tr><td>Вариант B</td><td>requires_approval=true → ⏳ оранжевый экран</td></tr>
+          <tr><td>Копировать</td><td>navigator.clipboard → "✅ Скопировано" 1 сек</td></tr>
+          <tr><td>В Telegram</td><td>WebApp.close() → чат с ботом</td></tr>
+          <tr><td>Автозакрытие</td><td>Опционально: через 5 сек показать кнопку</td></tr>
+          <tr><td>Backend</td><td>Уведомление боту → пользователю и специалисту</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 6 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_006 · Мои встречи</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Мои встречи</div>
+            </div>
+            <div class="app-tabs">
+              <button class="app-tab active">Предстоящие</button>
+              <button class="app-tab inactive">История</button>
+              <button class="app-tab inactive">Все</button>
+            </div>
+            <div style="padding: 0 16px 16px;">
+              <div class="app-meeting-card confirmed">
+                <div class="app-meeting-card-title">Консультация</div>
+                <div class="app-meeting-card-sub">👨‍⚕️ Иван Петров</div>
+                <div style="font-size: 12px; color: var(--app-text-2);">📅 Пт, 14 марта · 10:00–10:45</div>
+                <div style="font-size: 12px; color: var(--app-text-2);">🎥 Zoom</div>
+                <div class="app-meeting-card-row">
+                  <div class="app-tag tag-confirmed">✅ Подтверждена</div>
+                </div>
+                <div class="app-card-actions">
+                  <div class="app-mini-btn">Подробнее</div>
+                  <div class="app-mini-btn danger">Отменить</div>
+                </div>
+              </div>
+              <div class="app-meeting-card pending">
+                <div class="app-meeting-card-title">Тренировка</div>
+                <div class="app-meeting-card-sub">👩‍🏫 Мария Сидорова</div>
+                <div style="font-size: 12px; color: var(--app-text-2);">📅 Чт, 20 марта · 16:00</div>
+                <div class="app-meeting-card-row">
+                  <div class="app-tag tag-pending">⏳ Ожидает</div>
+                </div>
+                <div class="app-card-actions">
+                  <div class="app-mini-btn">Подробнее</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Табы</td><td>Предстоящие (default) · История · Все</td></tr>
+          <tr><td>Предстоящие</td><td>status=confirmed И scheduled_at > now</td></tr>
+          <tr><td>Цвет границы</td><td>Confirmed: зелёный · Pending: оранжевый · Completed: серый · Cancelled: красный</td></tr>
+          <tr><td>Отменить</td><td>Видна только для предстоящих встреч</td></tr>
+          <tr><td>API</td><td>GET /api/users/me/meetings?status=...&limit=50</td></tr>
+          <tr><td>Empty state</td><td>📭 + CTA "Забронировать встречу"</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 7 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_007 · Детали встречи</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Детали встречи</div>
+            </div>
+            <div style="padding: 12px 16px 90px; overflow-y: auto; max-height: 480px;">
+              <div style="font-size: 17px; font-weight: 700; color: var(--app-text); margin-bottom: 4px;">✅ Консультация</div>
+              <div class="app-status-badge badge-confirmed" style="margin: 0 0 12px;">✅ Подтверждена</div>
+              <div class="app-detail-card" style="margin-bottom: 10px;">
+                <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Специалист</div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">👨‍⚕️</div><div class="app-detail-row-val">Иван Петров</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">📧</div><div class="app-detail-row-val" style="color: var(--app-accent-2);">ivan@mail.ru</div></div>
+              </div>
+              <div class="app-detail-card" style="margin-bottom: 10px;">
+                <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Время и место</div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">📅</div><div class="app-detail-row-val">Пт, 14 марта 2026</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">⏰</div><div class="app-detail-row-val">10:00 — 10:45 (45 мин)</div></div>
+                <div class="app-detail-row"><div class="app-detail-row-icon">🎥</div><div class="app-detail-row-val">Zoom <span class="app-detail-row-link">→ открыть</span></div></div>
+              </div>
+              <div class="app-detail-card" style="margin-bottom: 10px;">
+                <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">История</div>
+                <div class="app-timeline">
+                  <div class="app-timeline-item"><div class="app-timeline-dot completed"></div><div><div class="app-timeline-text">Встреча создана</div><div class="app-timeline-date">10 марта, 14:32</div></div></div>
+                  <div class="app-timeline-item"><div class="app-timeline-dot completed"></div><div><div class="app-timeline-text">Подтверждена специалистом</div><div class="app-timeline-date">11 марта, 09:15</div></div></div>
+                </div>
+              </div>
+              <div class="app-card-actions" style="margin-top: 8px;">
+                <div class="app-mini-btn" style="background: var(--app-accent); border-color: var(--app-accent); color: white; flex: 2;">📋 Скопировать ссылку</div>
+                <div class="app-mini-btn danger">❌ Отменить</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Секций</td><td>4: Специалист · Время/место · Мои данные · История</td></tr>
+          <tr><td>Timeline</td><td>Вертикальный список событий с датами</td></tr>
+          <tr><td>Отменить</td><td>Видна только если status=confirmed И scheduled_at > now</td></tr>
+          <tr><td>Modal отмены</td><td>Подтверждение → PATCH /api/meetings/{id}</td></tr>
+          <tr><td>После отмены</td><td>→ SCREEN_006 · уведомление специалисту</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCREEN 8 -->
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 48px;">
+      <div class="phone-col">
+        <div class="phone-label">SCREEN_008 · Настройки</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Настройки</div>
+            </div>
+            <div style="padding: 14px 16px 16px;">
+              <div class="app-settings-section">
+                <div class="app-profile-row">
+                  <div class="app-avatar">ИИ</div>
+                  <div>
+                    <div style="font-size: 14px; font-weight: 600; color: var(--app-text);">Иван Иванов</div>
+                    <div style="font-size: 12px; color: var(--app-text-2);">@ivanoff</div>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 6px;">Язык и время</div>
+              <div class="app-settings-section">
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">🌐</div>
+                  <div class="app-settings-label">Язык</div>
+                  <div class="app-settings-value">Русский ›</div>
+                </div>
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">🕐</div>
+                  <div class="app-settings-label">Часовой пояс</div>
+                  <div class="app-settings-value">Europe/Moscow ›</div>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 6px;">Уведомления</div>
+              <div class="app-settings-section">
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">🔔</div>
+                  <div class="app-settings-label">Telegram-уведомления</div>
+                  <div class="app-toggle"></div>
+                </div>
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">⏰</div>
+                  <div class="app-settings-label">За 24 часа</div>
+                  <div class="app-toggle"></div>
+                </div>
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">⏱</div>
+                  <div class="app-settings-label">За 1 час</div>
+                  <div class="app-toggle off"></div>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: var(--app-text-2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 6px;">О приложении</div>
+              <div class="app-settings-section">
+                <div class="app-settings-row">
+                  <div class="app-settings-icon">ℹ️</div>
+                  <div class="app-settings-label">Версия</div>
+                  <div class="app-settings-value">1.0.0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-width: 280px;">
+        <table class="spec-table">
+          <tr><td>Профиль</td><td>Read-only · данные из Telegram · не редактировать в mini-app</td></tr>
+          <tr><td>Язык</td><td>Русский / English · сохранять в localStorage + backend</td></tr>
+          <tr><td>Таймзона</td><td>IANA list · searchable select · авто по IP</td></tr>
+          <tr><td>Уведомления</td><td>Toggle → сохранять на backend в реальном времени</td></tr>
+          <tr><td>Default notif</td><td>Все включены при первом запуске</td></tr>
+          <tr><td>Ссылки</td><td>Условия / Политика → WebApp.openLink</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: DESIGN SYSTEM -->
+  <!-- ======================================= -->
+  <div id="section-system" class="section">
+    <div class="section-label">04 — Design System</div>
+    <div class="section-title">Дизайн-система</div>
+    <div class="section-desc">Полный набор токенов, компонентов и типографики для консистентного UI.</div>
+
+    <!-- Colors -->
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 24px;">Цветовая палитра</div>
+    <div class="ds-grid-2" style="margin-bottom: 40px;">
+      <div class="ds-card">
+        <div class="ds-card-label">Фоны (App Background)</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div><div class="color-swatch" style="background: #0C1220;"></div><div class="color-name">App Background</div><div class="color-hex">#0C1220</div></div>
+          <div><div class="color-swatch" style="background: #141B2D;"></div><div class="color-name">Surface 1</div><div class="color-hex">#141B2D</div></div>
+          <div><div class="color-swatch" style="background: #1C2640;"></div><div class="color-name">Surface 2</div><div class="color-hex">#1C2640</div></div>
+          <div><div class="color-swatch" style="background: rgba(255,255,255,0.08); border: 1px solid #ccc;"></div><div class="color-name">Border</div><div class="color-hex">rgba(255,255,255,0.08)</div></div>
+        </div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Акцентные цвета</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div><div class="color-swatch" style="background: #3B82F6;"></div><div class="color-name">Primary Blue</div><div class="color-hex">#3B82F6</div></div>
+          <div><div class="color-swatch" style="background: #60A5FA;"></div><div class="color-name">Blue Light</div><div class="color-hex">#60A5FA</div></div>
+          <div><div class="color-swatch" style="background: #22C55E;"></div><div class="color-name">Success</div><div class="color-hex">#22C55E</div></div>
+          <div><div class="color-swatch" style="background: #F59E0B;"></div><div class="color-name">Warning</div><div class="color-hex">#F59E0B</div></div>
+          <div><div class="color-swatch" style="background: #EF4444;"></div><div class="color-name">Error</div><div class="color-hex">#EF4444</div></div>
+          <div><div class="color-swatch" style="background: #10D9B4;"></div><div class="color-name">Mint Accent</div><div class="color-hex">#10D9B4</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 24px;">Типографика</div>
+    <div class="ds-card" style="margin-bottom: 40px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px;">
+        <div>
+          <div class="ds-card-label">Display Font — Syne</div>
+          <div style="font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; line-height: 1.1; margin-bottom: 16px;">Schedule<br>Booking App</div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">H1 · Syne 800 · 22px</div>
+            <div style="font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;">Встреча забронирована!</div>
+          </div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">H2 · Syne 700 · 18px</div>
+            <div style="font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;">Выберите дату</div>
+          </div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">Label · Syne 600 · 11px uppercase</div>
+            <div style="font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ds-text-muted);">Предстоящие встречи</div>
+          </div>
+        </div>
+        <div>
+          <div class="ds-card-label">Body Font — DM Sans</div>
+          <div style="font-size: 15px; line-height: 1.7; margin-bottom: 16px;">DM Sans используется для всего контента интерфейса — кнопок, подписей, форм и основного текста.</div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">Body · DM Sans 400 · 14px</div>
+            <div style="font-size: 14px; color: var(--ds-text-secondary);">Консультация психолога · 45 мин</div>
+          </div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">Caption · DM Sans 400 · 12px</div>
+            <div style="font-size: 12px; color: var(--ds-text-muted);">📅 Пт, 14 марта · 10:00–10:45</div>
+          </div>
+          <div class="type-specimen">
+            <div class="type-specimen-meta">Button · DM Sans 600 · 15px</div>
+            <div style="font-size: 15px; font-weight: 600;">Продолжить →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Components -->
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 24px;">Компонентная библиотека</div>
+    <div class="ds-grid-2" style="margin-bottom: 40px;">
+      <div class="ds-card">
+        <div class="ds-card-label">Кнопки</div>
+        <div class="comp-demo">
+          <div style="margin-bottom: 8px; padding: 14px 20px; border-radius: 14px; background: #3B82F6; color: white; text-align: center; font-size: 15px; font-weight: 600;">Продолжить →</div>
+          <div style="margin-bottom: 8px; padding: 14px 20px; border-radius: 14px; background: #16A34A; color: white; text-align: center; font-size: 15px; font-weight: 600;">📝 Забронировать</div>
+          <div style="margin-bottom: 8px; padding: 14px 20px; border-radius: 14px; background: #141B2D; border: 1px solid rgba(255,255,255,0.1); color: #F0F2F8; text-align: center; font-size: 15px; font-weight: 600;">← На главную</div>
+          <div style="padding: 14px 20px; border-radius: 14px; background: rgba(59,130,246,0.2); color: rgba(255,255,255,0.4); text-align: center; font-size: 15px; font-weight: 600;">Disabled state</div>
+        </div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Бейджи статусов</div>
+        <div class="comp-demo">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: rgba(34,197,94,0.15); color: #86EFAC; font-size: 13px; font-weight: 500; width: fit-content;">✅ Подтверждена</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: rgba(245,158,11,0.15); color: #FCD34D; font-size: 13px; font-weight: 500; width: fit-content;">⏳ Ожидает подтверждения</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: rgba(239,68,68,0.12); color: #FCA5A5; font-size: 13px; font-weight: 500; width: fit-content;">❌ Отменена</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: rgba(255,255,255,0.08); color: #8B92A5; font-size: 13px; font-weight: 500; width: fit-content;">✓ Завершена</span>
+          </div>
+        </div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Инпуты форм</div>
+        <div class="comp-demo">
+          <div style="font-size: 12px; color: #8B92A5; margin-bottom: 6px; font-weight: 500;">Как вас представить? *</div>
+          <div style="background: #141B2D; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #F0F2F8; margin-bottom: 10px;">Иван Иванов</div>
+          <div style="font-size: 12px; color: #8B92A5; margin-bottom: 6px; font-weight: 500;">Email (опционально)</div>
+          <div style="background: #141B2D; border: 2px solid #3B82F6; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: rgba(255,255,255,0.3); margin-bottom: 10px;">ivan@mail.ru</div>
+          <div style="background: #141B2D; border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px;">
+            <div style="font-size: 13px; color: #F0F2F8;">ab</div>
+          </div>
+          <div style="font-size: 11px; color: #FCA5A5;">❌ Минимум 2 символа</div>
+        </div>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Карточки встреч</div>
+        <div class="comp-demo">
+          <div style="border-radius: 12px; padding: 12px; border-left: 3px solid #22C55E; background: #141B2D; margin-bottom: 10px;">
+            <div style="font-size: 14px; font-weight: 600; color: #F0F2F8; margin-bottom: 2px;">Консультация</div>
+            <div style="font-size: 12px; color: #8B92A5;">👨‍⚕️ Иван Петров</div>
+            <div style="font-size: 12px; color: #8B92A5; margin-top: 3px;">📅 14 марта · 10:00</div>
+          </div>
+          <div style="border-radius: 12px; padding: 12px; border-left: 3px solid #F59E0B; background: #141B2D;">
+            <div style="font-size: 14px; font-weight: 600; color: #F0F2F8; margin-bottom: 2px;">Тренировка</div>
+            <div style="font-size: 12px; color: #8B92A5;">👩‍🏫 Мария Сидорова</div>
+            <div style="font-size: 12px; color: #FCD34D; margin-top: 3px;">⏳ Ожидает подтверждения</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacing -->
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 24px;">Сетка и отступы</div>
+    <div class="ds-card" style="margin-bottom: 40px;">
+      <table class="spec-table">
+        <thead><tr><th>Токен</th><th>Значение</th><th>Использование</th></tr></thead>
+        <tbody>
+          <tr><td>spacing-xs</td><td>4px</td><td>Между иконкой и текстом внутри кнопки</td></tr>
+          <tr><td>spacing-sm</td><td>8px</td><td>Gap между слотами, gap между табами</td></tr>
+          <tr><td>spacing-md</td><td>12px</td><td>Padding карточек, gap между карточками</td></tr>
+          <tr><td>spacing-lg</td><td>16px</td><td>Горизонтальные поля экрана</td></tr>
+          <tr><td>spacing-xl</td><td>24px</td><td>Между секциями внутри экрана</td></tr>
+          <tr><td>radius-sm</td><td>8px</td><td>Слоты времени, теги</td></tr>
+          <tr><td>radius-md</td><td>12px</td><td>Карточки встреч, инпуты</td></tr>
+          <tr><td>radius-lg</td><td>14px</td><td>Главные CTA кнопки</td></tr>
+          <tr><td>screen-pad</td><td>16px</td><td>Горизонтальный паддинг всех экранов</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: INTERACTIONS -->
+  <!-- ======================================= -->
+  <div id="section-interactions" class="section">
+    <div class="section-label">05 — Interaction Patterns</div>
+    <div class="section-title">Принципы взаимодействия</div>
+    <div class="section-desc">UX-правила и паттерны поведения, которые делают приложение быстрым и понятным.</div>
+
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">8 основных принципов</div>
+    <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 16px; padding: 8px 24px 8px; margin-bottom: 40px;">
+      <ul class="rule-list">
+        <li><div class="rule-num">01</div><div><strong>Одно действие на экран.</strong> Каждый экран ведёт к одному чёткому решению. Экран 3 — выбор даты и слота. Экран 4 — подтверждение данных. Не смешивать.</div></li>
+        <li><div class="rule-num">02</div><div><strong>Автозаполнение везде, где возможно.</strong> Имя и контакт из Telegram InitData. Таймзона по IP. Первая опция платформы выбрана по умолчанию. Пользователь только проверяет, не вводит.</div></li>
+        <li><div class="rule-num">03</div><div><strong>Видимый статус системы.</strong> Spinner при каждой загрузке. Кнопка "Забронировать" меняет текст на "Отправляем..." при submit. Слот выделяется синим сразу при выборе — без задержки.</div></li>
+        <li><div class="rule-num">04</div><div><strong>Thumb-friendly зоны.</strong> Все интерактивные элементы минимум 44px высотой. Слоты 44px. Кнопки 56px. Ничего в верхних 40px экрана (вне досягаемости большого пальца).</div></li>
+        <li><div class="rule-num">05</div><div><strong>Деструктивные действия требуют подтверждения.</strong> Отмена встречи → modal с текстом последствий. Нет случайных отмен. Modal закрывается только кнопкой "Продолжить" или "Отмена".</div></li>
+        <li><div class="rule-num">06</div><div><strong>Disabled кнопки объясняют себя.</strong> "Продолжить" disabled и полупрозрачна, пока слот не выбран. "Забронировать" disabled, пока форма невалидна. Tooltip не нужен — состояние экрана объясняет блокировку.</div></li>
+        <li><div class="rule-num">07</div><div><strong>Real-time валидация при blur.</strong> Ошибка под полем появляется только после того, как пользователь кликнул вне поля. Не при вводе — это раздражает. Только при blur или submit.</div></li>
+        <li><div class="rule-num">08</div><div><strong>Haptic feedback через Telegram SDK.</strong> tg.HapticFeedback.impactOccurred('medium') при выборе слота. tg.HapticFeedback.notificationOccurred('success') при успешном бронировании. Тактильная обратная связь без визуального шума.</div></li>
+      </ul>
+    </div>
+
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">Специфика Telegram Mini App</div>
+    <table class="spec-table" style="margin-bottom: 40px;">
+      <thead><tr><th>Telegram API</th><th>Использование</th><th>Экран</th></tr></thead>
+      <tbody>
+        <tr><td>tg.ready()</td><td>При инициализации приложения</td><td>init</td></tr>
+        <tr><td>tg.expand()</td><td>Раскрытие на полный экран</td><td>init</td></tr>
+        <tr><td>tg.enableClosingConfirmation()</td><td>Предупреждение при случайном закрытии во время бронирования</td><td>SCREEN_004</td></tr>
+        <tr><td>tg.MainButton</td><td>Нативная кнопка Telegram внизу (замена HTML-кнопки "Забронировать")</td><td>SCREEN_004</td></tr>
+        <tr><td>tg.BackButton</td><td>Нативная кнопка "Назад" Telegram</td><td>Все экраны кроме SCREEN_001</td></tr>
+        <tr><td>tg.HapticFeedback</td><td>medium при выборе слота, success при бронировании</td><td>SCREEN_003, 005</td></tr>
+        <tr><td>tg.openLink()</td><td>Внешние ссылки (веб-версия, политика)</td><td>SCREEN_001, 008</td></tr>
+        <tr><td>tg.close()</td><td>После успешного бронирования (через 3 сек)</td><td>SCREEN_005</td></tr>
+        <tr><td>tg.initDataUnsafe.user</td><td>Имя, username, id для автозаполнения</td><td>SCREEN_004</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: ERRORS -->
+  <!-- ======================================= -->
+  <div id="section-errors" class="section">
+    <div class="section-label">06 — Errors & Edge Cases</div>
+    <div class="section-title">Ошибки и граничные состояния</div>
+    <div class="section-desc">Полный реестр всех ошибочных состояний, пустых экранов и граничных случаев с UX-решением для каждого.</div>
+
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">HTTP ошибки</div>
+    <div style="margin-bottom: 40px;">
+      <div class="error-row"><div class="error-code">409</div><div><div class="error-title">Слот уже забронирован</div><div class="error-desc">Кто-то занял слот между выбором и отправкой формы. Показать: "❌ Этот слот уже занят!" + кнопка "← Выбрать другой слот" → возврат на SCREEN_003.</div></div></div>
+      <div class="error-row"><div class="error-code">422</div><div><div class="error-title">Ошибка валидации данных</div><div class="error-desc">Показать inline ошибки под каждым полем. Красная граница инпута. "❌ Минимум 2 символа" / "❌ Некорректный email". Без алерта — всё inline.</div></div></div>
+      <div class="error-row"><div class="error-code">404</div><div><div class="error-title">Расписание не найдено</div><div class="error-desc">schedule_id не существует или деактивирован. Полноэкранное сообщение: "😔 Расписание не найдено. Возможно, специалист его удалил." + кнопка "← Вернуться".</div></div></div>
+      <div class="error-row"><div class="error-code">401</div><div><div class="error-title">Сессия истекла</div><div class="error-desc">Telegram InitData протухла. "❌ Сессия истекла. Пожалуйста, откройте приложение заново через Telegram." + кнопка "🔄 Перезагрузить".</div></div></div>
+      <div class="error-row"><div class="error-code">500</div><div><div class="error-title">Ошибка сервера</div><div class="error-desc">"⚠️ Что-то пошло не так. Попробуйте ещё раз через пару минут." + [🔄 Повторить] [← Назад]. Логировать в консоль для отладки.</div></div></div>
+    </div>
+
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">Сетевые и граничные случаи</div>
+    <table class="spec-table" style="margin-bottom: 40px;">
+      <thead><tr><th>Кейс</th><th>UX-решение</th></tr></thead>
+      <tbody>
+        <tr><td>Нет интернета</td><td>Toast снизу "Нет подключения" + кешированные данные из localStorage (только просмотр)</td></tr>
+        <tr><td>Медленный 3G</td><td>Skeleton screens при загрузке. Кнопки disabled пока данные не загружены. Таймаут 10 сек → ошибка с кнопкой повтора</td></tr>
+        <tr><td>Нет слотов на день</td><td>"😔 На этот день нет свободного времени" · Серая плитка-подсказка · Пользователь выбирает другой день</td></tr>
+        <tr><td>Нет слотов на месяц</td><td>Все дни серые + баннер "Нет свободного времени в этом месяце. Попробуйте следующий →"</td></tr>
+        <tr><td>Пустая история встреч</td><td>"📭 Встреч пока нет" + CTA кнопка "Записаться на встречу"</td></tr>
+        <tr><td>Нет расписаний в поиске</td><td>"🔍 Ничего не найдено по запросу" + подсказка попросить специалиста о ссылке</td></tr>
+        <tr><td>Специалист отменил встречу</td><td>Push-уведомление в Telegram. В приложении статус ❌ + "Встреча отменена специалистом" в деталях</td></tr>
+        <tr><td>Загрузка на очень медленном соединении</td><td>Полноэкранный loading spinner до 5 сек → затем partial load с тем что загрузилось</td></tr>
+        <tr><td>Ссылка без schedule_id</td><td>Экран ошибки "Неверная ссылка. Попросите специалиста прислать актуальную ссылку."</td></tr>
+        <tr><td>Таймзона не определена</td><td>Использовать UTC → в настройках предложить выбрать при первом открытии</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Error screens mockups -->
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">Макеты экранов ошибок</div>
+    <div class="phone-grid">
+      <div class="phone-col">
+        <div class="phone-label">Network Error</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-error" style="padding-top: 60px;">
+              <div class="app-error-icon">📶</div>
+              <div class="app-error-title">Нет подключения</div>
+              <div class="app-error-desc">Проверьте интернет-соединение и попробуйте снова</div>
+              <div class="app-error-btn">🔄 Повторить</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-col">
+        <div class="phone-label">Slot Taken (409)</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-error" style="padding-top: 60px;">
+              <div class="app-error-icon">⚡</div>
+              <div class="app-error-title">Слот уже занят!</div>
+              <div class="app-error-desc">Кто-то успел записаться на это время. Выберите другой слот</div>
+              <div class="app-error-btn" style="background: #3B82F6; border: none; color: white;">← Выбрать другой слот</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-col">
+        <div class="phone-label">Empty State</div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status"><span>9:41</span><div class="status-right"><div class="status-dot"></div><div class="status-dot"></div><div class="status-dot"></div></div></div>
+            <div class="app-header">
+              <div class="app-header-back">← Назад</div>
+              <div class="app-header-title">Мои встречи</div>
+            </div>
+            <div class="app-error" style="padding-top: 40px;">
+              <div class="app-error-icon">📭</div>
+              <div class="app-error-title">Встреч пока нет</div>
+              <div class="app-error-desc">Здесь появятся ваши предстоящие и прошедшие встречи</div>
+              <div class="app-error-btn" style="background: #3B82F6; border: none; color: white;">Найти специалиста</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: ANIMATION -->
+  <!-- ======================================= -->
+  <div id="section-animation" class="section">
+    <div class="section-label">07 — Animation & Motion</div>
+    <div class="section-title">Анимации и движение</div>
+    <div class="section-desc">Принципы motion design для Telegram Mini App. Минимальны, но заметны. Функциональны, не декоративны.</div>
+
+    <div class="ds-grid-2" style="margin-bottom: 40px;">
+      <div class="anim-card">
+        <div class="anim-card-icon">⚡</div>
+        <div class="anim-card-title">Микро-взаимодействия</div>
+        <div class="anim-card-desc">Тап на слот → немедленное выделение (синий фон). Тап на день → плавная смена цвета. Ощущение отзывчивости без задержки.</div>
+        <div class="anim-card-spec">transition: background 150ms ease, transform 100ms ease;<br>active: scale(0.96)</div>
+      </div>
+      <div class="anim-card">
+        <div class="anim-card-icon">🔄</div>
+        <div class="anim-card-title">Переходы между экранами</div>
+        <div class="anim-card-desc">Slide-in справа при переходе вперёд. Slide-out влево при "Назад". Нет прыжков, нет мигания — плавное скольжение.</div>
+        <div class="anim-card-spec">transform: translateX(100%) → translateX(0);<br>duration: 250ms · ease-out</div>
+      </div>
+      <div class="anim-card">
+        <div class="anim-card-icon">✨</div>
+        <div class="anim-card-title">Success анимация</div>
+        <div class="anim-card-desc">Иконка ✅ появляется с scale(0.5) → scale(1.1) → scale(1). После этого — stagger reveal деталей встречи сверху вниз.</div>
+        <div class="anim-card-spec">keyframes: scale(0.5) → scale(1.1) → scale(1);<br>duration: 400ms · spring easing<br>stagger delay cards: 80ms</div>
+      </div>
+      <div class="anim-card">
+        <div class="anim-card-icon">💀</div>
+        <div class="anim-card-title">Skeleton Loading</div>
+        <div class="anim-card-desc">Серые плейсхолдеры кнопок и карточек. Shimmer-анимация (opacity 0.5 → 1 → 0.5). Появляются мгновенно, исчезают fade-out при загрузке данных.</div>
+        <div class="anim-card-spec">@keyframes shimmer { 0%,100%{opacity:0.4} 50%{opacity:0.8} }<br>animation: shimmer 1.5s ease-in-out infinite</div>
+      </div>
+      <div class="anim-card">
+        <div class="anim-card-icon">📅</div>
+        <div class="anim-card-title">Появление слотов</div>
+        <div class="anim-card-desc">При выборе дня — слоты появляются с stagger анимацией. Каждый следующий слот появляется с задержкой 30ms. Создаёт ощущение "загрузки данных".</div>
+        <div class="anim-card-spec">animation: fadeInUp 200ms ease-out;<br>animation-delay: calc(var(--i) * 30ms);<br>@keyframes fadeInUp { from { opacity:0; transform: translateY(8px) } }</div>
+      </div>
+      <div class="anim-card">
+        <div class="anim-card-icon">🎯</div>
+        <div class="anim-card-title">Haptic Feedback</div>
+        <div class="anim-card-desc">Tactile response через Telegram SDK. При выборе слота — medium impact. При успешном бронировании — success notification. Не добавлять визуальный шум поверх.</div>
+        <div class="anim-card-spec">tg.HapticFeedback.impactOccurred('medium') // слот<br>tg.HapticFeedback.notificationOccurred('success') // бронь<br>tg.HapticFeedback.notificationOccurred('error') // ошибка</div>
+      </div>
+    </div>
+
+    <div style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Запрещённые анимации</div>
+    <div style="background: var(--ds-surface); border: 1px solid var(--ds-border); border-radius: 16px; padding: 20px 24px; margin-bottom: 40px;">
+      <table class="spec-table">
+        <thead><tr><th>Запрещено</th><th>Причина</th><th>Альтернатива</th></tr></thead>
+        <tbody>
+          <tr><td>Parallax эффекты</td><td>Телефон и так в руках — дополнительное движение вызывает тошноту</td><td>Статичные элементы, только opacity transitions</td></tr>
+          <tr><td>duration > 400ms</td><td>Ощущение лагов. Пользователь думает, что нажал не туда</td><td>Все transitions ≤ 300ms</td></tr>
+          <tr><td>Бесконечные декоративные анимации</td><td>Перегружают процессор Telegram WebView, садят батарею</td><td>Анимации только при user actions</td></tr>
+          <tr><td>Bounce-анимации</td><td>Выглядят несерьёзно для профессионального инструмента</td><td>ease-out · ease-in-out · cubic-bezier для упругости только в success state</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ======================================= -->
+  <!-- SECTION: CHECKLIST -->
+  <!-- ======================================= -->
+  <div id="section-checklist" class="section">
+    <div class="section-label">08 — Final UX Checklist</div>
+    <div class="section-title">Финальный чеклист</div>
+    <div class="section-desc">Самопроверка перед запуском. Все пункты должны быть выполнены до MVP.</div>
+
+    <div class="ds-grid-2">
+      <div class="ds-card">
+        <div class="ds-card-label">Пользовательские флоу</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Все пользовательские сценарии описаны (A-D)</span></li>
+          <li><div class="check-icon">✓</div><span>Happy path клиент: 3 экрана до подтверждения</span></li>
+          <li><div class="check-icon">✓</div><span>Прямой URL с schedule_id пропускает Экран 2</span></li>
+          <li><div class="check-icon">✓</div><span>Сценарий отмены встречи с подтверждением</span></li>
+          <li><div class="check-icon">✓</div><span>Роль специалиста — другое главное меню</span></li>
+        </ul>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Все экраны</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Онбординг (3 шага, до SCREEN_001)</span></li>
+          <li><div class="check-icon">✓</div><span>Главное меню SCREEN_001</span></li>
+          <li><div class="check-icon">✓</div><span>Выбор расписания SCREEN_002</span></li>
+          <li><div class="check-icon">✓</div><span>Календарь и слоты SCREEN_003</span></li>
+          <li><div class="check-icon">✓</div><span>Форма бронирования SCREEN_004</span></li>
+          <li><div class="check-icon">✓</div><span>Успех / ожидание SCREEN_005 (2 варианта)</span></li>
+          <li><div class="check-icon">✓</div><span>История встреч SCREEN_006</span></li>
+          <li><div class="check-icon">✓</div><span>Детали встречи SCREEN_007</span></li>
+          <li><div class="check-icon">✓</div><span>Настройки SCREEN_008</span></li>
+        </ul>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Edge Cases</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Нет слотов на день/месяц</span></li>
+          <li><div class="check-icon">✓</div><span>Слот занят при отправке (409)</span></li>
+          <li><div class="check-icon">✓</div><span>Нет интернета / медленный 3G</span></li>
+          <li><div class="check-icon">✓</div><span>Сессия истекла (401)</span></li>
+          <li><div class="check-icon">✓</div><span>Расписание не найдено (404)</span></li>
+          <li><div class="check-icon">✓</div><span>Ошибка сервера (500)</span></li>
+          <li><div class="check-icon">✓</div><span>Пустая история встреч</span></li>
+          <li><div class="check-icon">✓</div><span>URL без schedule_id</span></li>
+        </ul>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Mobile UX</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Все элементы ≥44px touch target</span></li>
+          <li><div class="check-icon">✓</div><span>Горизонтальный scroll без ломания layout</span></li>
+          <li><div class="check-icon">✓</div><span>Keyboard не перекрывает активный инпут</span></li>
+          <li><div class="check-icon">✓</div><span>Haptic feedback на ключевых действиях</span></li>
+          <li><div class="check-icon">✓</div><span>BackButton Telegram для навигации "назад"</span></li>
+          <li><div class="check-icon">✓</div><span>MainButton Telegram для primary CTA</span></li>
+          <li><div class="check-icon">✓</div><span>Загрузка <2 сек на 3G</span></li>
+        </ul>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Дизайн-система</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Единая цветовая палитра с CSS переменными</span></li>
+          <li><div class="check-icon">✓</div><span>2 шрифта: Syne (заголовки) + DM Sans (текст)</span></li>
+          <li><div class="check-icon">✓</div><span>Компоненты переиспользуемые (кнопки, карточки)</span></li>
+          <li><div class="check-icon">✓</div><span>Статусы с цветовым кодированием</span></li>
+          <li><div class="check-icon">✓</div><span>Skeleton loading для всех async операций</span></li>
+          <li><div class="check-icon">✓</div><span>Анимации ≤300ms, без бесконечных циклов</span></li>
+        </ul>
+      </div>
+      <div class="ds-card">
+        <div class="ds-card-label">Автозаполнение и UX Intelligence</div>
+        <ul class="checklist">
+          <li><div class="check-icon">✓</div><span>Имя из tg.initDataUnsafe.user.first_name</span></li>
+          <li><div class="check-icon">✓</div><span>Контакт из tg.initDataUnsafe.user.username</span></li>
+          <li><div class="check-icon">✓</div><span>Таймзона по IP при первом запуске</span></li>
+          <li><div class="check-icon">✓</div><span>Первая платформа выбрана по умолчанию (Zoom)</span></li>
+          <li><div class="check-icon">✓</div><span>Email из localStorage если вводили ранее</span></li>
+          <li><div class="check-icon">✓</div><span>Locale из tg.initDataUnsafe.user.language_code</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end page-wrap -->
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.toc-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('section-' + id);
+  if (el) el.classList.add('visible');
+  event.target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>До встречи — UI Kit v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET ─── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+/* ─── TOKENS ─── */
+:root {
+  /* Backgrounds */
+  --bg-base:    #0A0E0D;
+  --bg-surface: #131917;
+  --bg-elevated:#1A2220;
+  --bg-overlay: #212E2B;
+  --bg-glass:   rgba(255,255,255,0.04);
+
+  /* Accent — mint teal */
+  --accent:      #00E5A8;
+  --accent-dim:  rgba(0,229,168,0.15);
+  --accent-soft: rgba(0,229,168,0.08);
+
+  /* Text */
+  --text-primary:   #EDF2F0;
+  --text-secondary: #7F9490;
+  --text-tertiary:  #4A5E5A;
+  --text-on-accent: #0A2E24;
+
+  /* Semantic */
+  --green:      #2DD4A0;
+  --green-soft: rgba(45,212,160,0.12);
+  --amber:      #F5A623;
+  --amber-soft: rgba(245,166,35,0.12);
+  --red:        #F0614A;
+  --red-soft:   rgba(240,97,74,0.12);
+  --blue:       #5B8EFF;
+  --blue-soft:  rgba(91,142,255,0.12);
+
+  /* Borders */
+  --border:      rgba(255,255,255,0.07);
+  --border-med:  rgba(255,255,255,0.12);
+
+  /* Radius */
+  --r-xs:  6px;
+  --r-sm:  10px;
+  --r-md:  14px;
+  --r-lg:  18px;
+  --r-xl:  24px;
+  --r-full:999px;
+
+  /* Spacing */
+  --sp-xs: 4px; --sp-sm: 8px; --sp-md: 12px;
+  --sp-lg: 16px; --sp-xl: 20px; --sp-2xl: 24px;
+  --sp-3xl: 32px; --sp-4xl: 48px;
+
+  /* Font */
+  --font: 'Manrope', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Shadows */
+  --shadow-card: 0 2px 24px rgba(0,0,0,0.4);
+  --shadow-btn:  0 4px 20px rgba(0,229,168,0.25);
+}
+
+/* ─── PAGE SHELL ─── */
+body {
+  font-family: var(--font);
+  background: #070B0A;
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+.page-wrap { max-width: 1280px; margin: 0 auto; padding: 0 32px 80px; }
+
+/* ─── MASTHEAD ─── */
+.masthead {
+  padding: 48px 0 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 56px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.masthead-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.masthead h1 {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+.masthead-meta {
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 2;
+}
+.masthead-meta strong { color: var(--text-primary); font-weight: 600; display: block; }
+
+/* ─── SECTION HEADERS ─── */
+.sec-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.sec-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -.02em;
+  margin-bottom: 6px;
+}
+.sec-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 28px; }
+.section { margin-bottom: 64px; }
+
+/* ─── GRID HELPERS ─── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.flex { display: flex; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.wrap { flex-wrap: wrap; }
+.col { flex-direction: column; }
+.center { align-items: center; }
+.between { justify-content: space-between; }
+
+/* ─── SHOWCASE CARD ─── */
+.showcase {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 24px;
+}
+.showcase-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+/* ─── COLOR SWATCHES ─── */
+.swatch { border-radius: var(--r-md); height: 52px; margin-bottom: 8px; }
+.swatch-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.swatch-val { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ─── TYPOGRAPHY SPECIMENS ─── */
+.type-row { padding: 16px 0; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 20px; }
+.type-row:last-child { border-bottom: none; }
+.type-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); width: 120px; flex-shrink: 0; line-height: 1.6; }
+
+/* ─── COMPONENTS ─── */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn svg { flex-shrink: 0; }
+.btn:active { transform: scale(.96); }
+
+/* Primary */
+.btn-primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-radius: var(--r-full);
+  padding: 0 24px;
+  height: 52px;
+  font-size: 15px;
+  box-shadow: var(--shadow-btn);
+}
+.btn-primary:hover { background: #1AEDB5; box-shadow: 0 6px 28px rgba(0,229,168,.35); }
+
+/* Secondary */
+.btn-secondary {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  border-radius: var(--r-full);
+  padding: 0 24px;
+  height: 52px;
+  font-size: 15px;
+  border: 1px solid var(--border-med);
+}
+.btn-secondary:hover { background: var(--bg-glass); border-color: rgba(255,255,255,.2); }
+
+/* Ghost */
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border-radius: var(--r-full);
+  padding: 0 20px;
+  height: 44px;
+  font-size: 14px;
+  border: 1.5px solid var(--accent);
+}
+.btn-ghost:hover { background: var(--accent-soft); }
+
+/* Danger */
+.btn-danger {
+  background: var(--red-soft);
+  color: var(--red);
+  border-radius: var(--r-full);
+  padding: 0 24px;
+  height: 52px;
+  font-size: 15px;
+  border: 1px solid rgba(240,97,74,.2);
+}
+.btn-danger:hover { background: rgba(240,97,74,.2); }
+
+/* Small */
+.btn-sm { height: 36px; padding: 0 16px; font-size: 13px; border-radius: var(--r-full); }
+
+/* Action pill (Calma-style) */
+.btn-action {
+  background: var(--text-primary);
+  color: #0A0E0D;
+  border-radius: var(--r-full);
+  padding: 0 20px 0 16px;
+  height: 48px;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 8px;
+}
+.btn-action:hover { background: #fff; }
+.btn-action-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+/* FAB */
+.btn-fab {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: all .15s;
+}
+.btn-fab:hover { transform: scale(1.06); }
+
+/* Disabled */
+.btn:disabled, .btn[disabled] { opacity: .35; pointer-events: none; }
+
+/* ─── BADGE / CHIP ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge-green  { background: var(--green-soft);  color: var(--green); }
+.badge-amber  { background: var(--amber-soft);  color: var(--amber); }
+.badge-red    { background: var(--red-soft);    color: var(--red); }
+.badge-blue   { background: var(--blue-soft);   color: var(--blue); }
+.badge-muted  { background: var(--bg-overlay);  color: var(--text-secondary); }
+
+/* Chips (day selector, duration) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  height: 36px;
+  border-radius: var(--r-full);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all .12s;
+  user-select: none;
+}
+.chip:hover { border-color: var(--border-med); color: var(--text-primary); }
+.chip.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(0,229,168,.3); }
+.chip-day { width: 40px; height: 40px; padding: 0; border-radius: var(--r-sm); font-size: 12px; }
+
+/* ─── INPUTS ─── */
+.input-wrap { display: flex; flex-direction: column; gap: 6px; }
+.input-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
+.input {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0 14px;
+  height: 48px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border .15s;
+}
+.input::placeholder { color: var(--text-tertiary); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.input-error { border-color: var(--red); }
+.input-error:focus { box-shadow: 0 0 0 3px var(--red-soft); }
+.input-hint { font-size: 11px; color: var(--text-tertiary); }
+.input-hint.err { color: var(--red); }
+textarea.input { height: auto; padding: 12px 14px; resize: none; line-height: 1.6; }
+
+/* ─── TOGGLE ─── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-info { flex: 1; }
+.toggle-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.toggle-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.toggle {
+  width: 50px; height: 28px;
+  border-radius: var(--r-full);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-med);
+  position: relative;
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--accent); border-color: transparent; }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px; left: 2px;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.toggle.on::after { transform: translateX(22px); }
+
+/* ─── CARDS ─── */
+
+/* Meeting card */
+.meeting-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all .15s;
+  margin-bottom: 8px;
+}
+.meeting-card:hover { background: var(--bg-elevated); border-color: var(--border-med); transform: translateY(-1px); }
+.meeting-card:active { transform: scale(.99); }
+.meeting-avatar {
+  width: 46px; height: 46px;
+  border-radius: var(--r-md);
+  background: var(--bg-overlay);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.meeting-info { flex: 1; min-width: 0; }
+.meeting-name { font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meeting-meta { font-size: 12px; color: var(--text-secondary); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+.meeting-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-tertiary); }
+
+/* Schedule link card */
+.link-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 18px;
+  cursor: pointer;
+  transition: all .15s;
+  margin-bottom: 10px;
+}
+.link-card:hover { background: var(--bg-elevated); border-color: var(--border-med); }
+.link-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.link-card-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.link-card-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.link-meta-pill {
+  padding: 3px 9px;
+  background: var(--bg-overlay);
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.link-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.link-url { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+.link-actions { display: flex; gap: 8px; }
+.link-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all .12s;
+}
+.link-btn-share { background: var(--accent-dim); color: var(--accent); }
+.link-btn-share:hover { background: rgba(0,229,168,.25); }
+.link-btn-copy  { background: var(--bg-overlay); color: var(--text-secondary); }
+.link-btn-copy:hover { color: var(--text-primary); }
+
+/* Stat card */
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+}
+.stat-val { font-size: 28px; font-weight: 800; color: var(--text-primary); letter-spacing: -.02em; line-height: 1; }
+.stat-val.accent { color: var(--accent); }
+.stat-lbl { font-size: 12px; color: var(--text-secondary); margin-top: 5px; font-weight: 500; }
+
+/* ─── TIME SLOT GRID ─── */
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.slot {
+  height: 52px;
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .12s;
+  border: 1.5px solid transparent;
+  user-select: none;
+}
+.slot-free { background: var(--green-soft); color: var(--green); border-color: rgba(45,212,160,.15); }
+.slot-free:hover { background: rgba(45,212,160,.2); border-color: rgba(45,212,160,.3); transform: scale(1.02); }
+.slot-free:active { transform: scale(.97); }
+.slot-taken { background: var(--bg-elevated); color: var(--text-tertiary); cursor: not-allowed; }
+.slot-selected { background: var(--accent); color: var(--text-on-accent); border-color: transparent; box-shadow: 0 3px 16px rgba(0,229,168,.3); }
+
+/* ─── NAVIGATION BAR ─── */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 16px 6px;
+  height: 72px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  gap: 0;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: all .12s;
+}
+.nav-item:hover { background: var(--bg-glass); }
+.nav-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 22px; height: 22px; stroke: var(--text-tertiary); transition: stroke .12s; }
+.nav-label { font-size: 10px; font-weight: 600; color: var(--text-tertiary); transition: color .12s; }
+.nav-item.active .nav-icon svg { stroke: var(--accent); }
+.nav-item.active .nav-label { color: var(--accent); }
+.nav-indicator { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); margin-top: -2px; opacity: 0; transition: opacity .12s; }
+.nav-item.active .nav-indicator { opacity: 1; }
+.nav-action-wrap { margin-left: 8px; }
+.nav-action-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--text-primary);
+  color: #0A0E0D;
+  border-radius: var(--r-full);
+  padding: 0 16px 0 12px;
+  height: 44px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.nav-action-pill:hover { background: #fff; transform: scale(1.02); }
+.nav-action-pill svg { width: 16px; height: 16px; }
+
+/* ─── INNER HEADER ─── */
+.inner-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.inner-title { font-size: 17px; font-weight: 700; color: var(--text-primary); flex: 1; }
+.back-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--bg-elevated);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: var(--r-full);
+  font-family: var(--font);
+  transition: all .12s;
+}
+.back-btn:hover { color: var(--text-primary); background: var(--bg-overlay); }
+.back-btn svg { width: 16px; height: 16px; }
+
+/* ─── SETTINGS ROW ─── */
+.settings-group {
+  background: var(--bg-surface);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row:hover { background: var(--bg-elevated); }
+.settings-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.settings-icon svg { width: 18px; height: 18px; }
+.si-mint { background: var(--accent-dim); }
+.si-mint svg { stroke: var(--accent); }
+.si-amber { background: var(--amber-soft); }
+.si-amber svg { stroke: var(--amber); }
+.si-red { background: var(--red-soft); }
+.si-red svg { stroke: var(--red); }
+.si-blue { background: var(--blue-soft); }
+.si-blue svg { stroke: var(--blue); }
+.si-muted { background: var(--bg-overlay); }
+.si-muted svg { stroke: var(--text-secondary); }
+.settings-content { flex: 1; }
+.settings-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.settings-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.settings-row-end { display: flex; align-items: center; gap: 6px; }
+.settings-val { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+.chevron-icon { width: 16px; height: 16px; }
+.chevron-icon svg { width: 16px; height: 16px; stroke: var(--text-tertiary); }
+
+/* ─── BOTTOM SHEET ─── */
+.bottom-sheet-demo {
+  background: var(--bg-surface);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0 0 20px;
+}
+.sheet-handle { width: 36px; height: 4px; border-radius: var(--r-full); background: var(--bg-overlay); margin: 12px auto 16px; }
+.sheet-title { font-size: 16px; font-weight: 700; color: var(--text-primary); padding: 0 20px; margin-bottom: 4px; }
+.sheet-subtitle { font-size: 13px; color: var(--text-secondary); padding: 0 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-icon {
+  width: 64px; height: 64px;
+  border-radius: var(--r-xl);
+  background: var(--bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+}
+.empty-icon svg { width: 28px; height: 28px; stroke: var(--text-tertiary); }
+.empty-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.empty-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 240px; margin-bottom: 20px; }
+
+/* ─── PHONE FRAME ─── */
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.phone-label-top { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); }
+.phone {
+  width: 320px;
+  background: var(--bg-base);
+  border-radius: 44px;
+  overflow: hidden;
+  border: 8px solid #1C2421;
+  box-shadow: 0 32px 80px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.06);
+  position: relative;
+}
+.phone-inner { height: 620px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+.phone-status {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.status-right { display: flex; align-items: center; gap: 5px; }
+.status-icon { width: 14px; height: 14px; }
+.status-icon svg { width: 14px; height: 14px; fill: var(--text-primary); }
+.phone-screen { flex: 1; overflow-y: auto; scrollbar-width: none; }
+.phone-screen::-webkit-scrollbar { display: none; }
+.phone-nav { flex-shrink: 0; }
+
+/* ─── WIZARD PROGRESS ─── */
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 16px 0;
+}
+.wp-step {
+  height: 3px;
+  border-radius: var(--r-full);
+  flex: 1;
+  background: var(--bg-overlay);
+  transition: background .3s;
+}
+.wp-step.done { background: var(--accent); }
+.wp-step.active { background: var(--accent); opacity: .5; }
+
+/* ─── HOME SCREEN ─── */
+.home-header {
+  padding: 20px 16px 0;
+}
+.home-greeting { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -.02em; }
+.home-greeting span { color: var(--accent); }
+.home-date { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+.home-avatar {
+  width: 40px; height: 40px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--accent) 0%, #00A87A 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-on-accent);
+}
+.next-meeting-card {
+  margin: 16px 16px 0;
+  background: linear-gradient(135deg, #0D2920 0%, #0A1E17 100%);
+  border-radius: var(--r-xl);
+  padding: 16px;
+  border: 1px solid rgba(0,229,168,.15);
+}
+.nmc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: 10px; }
+.nmc-name { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+.nmc-type { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+.nmc-time-block { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.nmc-time { font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -.02em; }
+.nmc-date { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.nmc-join-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-radius: var(--r-full);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.nmc-join-btn svg { width: 14px; height: 14px; }
+.home-section { padding: 16px 16px 0; }
+.home-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-tertiary); margin-bottom: 10px; }
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-mini { background: var(--bg-surface); border-radius: var(--r-lg); padding: 14px; border: 1px solid var(--border); }
+.stat-mini .val { font-size: 26px; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.stat-mini .val.a { color: var(--accent); }
+.stat-mini .lbl { font-size: 11px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+
+/* ─── CALENDAR ─── */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 0; }
+.cal-month { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.cal-nav-btn { 
+  width: 32px; height: 32px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+.cal-grid { padding: 12px 16px; }
+.cal-dh { font-size: 10px; font-weight: 700; text-align: center; color: var(--text-tertiary); padding: 4px 0; text-transform: uppercase; letter-spacing: .06em; }
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .12s;
+}
+.cal-day:active { transform: scale(.9); }
+.cal-dn { font-size: 13px; font-weight: 700; }
+.cal-ds { font-size: 8px; font-weight: 700; margin-top: 1px; }
+.day-free { background: rgba(45,212,160,.15); }
+.day-free .cal-dn { color: var(--green); }
+.day-free .cal-ds { color: var(--green); opacity: .7; }
+.day-busy { background: var(--red-soft); }
+.day-busy .cal-dn { color: var(--red); }
+.day-busy .cal-ds { color: var(--red); opacity: .7; }
+.day-partial { background: var(--amber-soft); }
+.day-partial .cal-dn { color: var(--amber); }
+.day-partial .cal-ds { color: var(--amber); opacity: .7; }
+.day-past { background: transparent; }
+.day-past .cal-dn { color: var(--text-tertiary); }
+.day-today { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-empty { aspect-ratio: 1; }
+
+/* ─── DIVIDERS ─── */
+.divider { height: 1px; background: var(--border); margin: 32px 0; }
+.divider-sm { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* ─── SECTION GROUP LABEL ─── */
+.group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 0 16px;
+  margin-bottom: 8px;
+  margin-top: 20px;
+}
+
+/* ─── NOTIFICATION ITEM ─── */
+.notif-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.notif-item:hover { background: var(--bg-elevated); }
+.notif-item:last-child { border-bottom: none; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.notif-dot-green { background: var(--green); }
+.notif-dot-amber { background: var(--amber); }
+.notif-dot-muted { background: var(--text-tertiary); }
+.notif-content { flex: 1; }
+.notif-text { font-size: 13px; color: var(--text-primary); font-weight: 500; line-height: 1.5; }
+.notif-time { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+.notif-action {
+  align-self: center;
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  border-radius: var(--r-xl);
+  display: flex;
+  align-items: flex-end;
+}
+.modal-card {
+  background: var(--bg-surface);
+  border-radius: var(--r-xl) var(--r-xl) var(--r-md) var(--r-md);
+  padding: 24px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+.modal-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; }
+.modal-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 8px; }
+.modal-actions .btn { flex: 1; }
+
+/* ─── PROFILE BLOCK ─── */
+.profile-block { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 20px; }
+.profile-avatar-big {
+  width: 72px; height: 72px;
+  border-radius: var(--r-xl);
+  background: linear-gradient(135deg, var(--accent), #00A87A);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-on-accent);
+  margin-bottom: 12px;
+}
+.profile-name { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+.profile-username { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+/* ─── ICON GRID ─── */
+.icon-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+.icon-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 64px;
+}
+.icon-box {
+  width: 48px; height: 48px;
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-box svg { width: 22px; height: 22px; stroke: var(--text-secondary); }
+.icon-name { font-size: 9px; text-align: center; color: var(--text-tertiary); font-weight: 600; letter-spacing: .03em; }
+
+/* ─── PAGE SECTIONS STICKY NAV ─── */
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  background: rgba(7,11,10,.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+  padding: 0 32px;
+}
+.sticky-nav-inner {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 10px 0;
+}
+.sticky-nav-inner::-webkit-scrollbar { display: none; }
+.snav-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  transition: all .12s;
+}
+.snav-btn:hover { color: var(--text-primary); background: var(--bg-glass); }
+.snav-btn.active { background: var(--accent-dim); color: var(--accent); }
+
+/* ─── MINI APP SCREENS PREVIEW ─── */
+.screens-row { display: flex; gap: 24px; overflow-x: auto; padding-bottom: 16px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.screen-preview { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+.screen-preview-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-align: center; }
+
+@media (max-width: 900px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .masthead { flex-direction: column; gap: 12px; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- STICKY NAV -->
+<nav class="sticky-nav">
+  <div class="sticky-nav-inner">
+    <button class="snav-btn active" onclick="scrollTo('colors')">Цвета</button>
+    <button class="snav-btn" onclick="scrollTo('type')">Типографика</button>
+    <button class="snav-btn" onclick="scrollTo('icons')">Иконки</button>
+    <button class="snav-btn" onclick="scrollTo('buttons')">Кнопки</button>
+    <button class="snav-btn" onclick="scrollTo('inputs')">Поля ввода</button>
+    <button class="snav-btn" onclick="scrollTo('cards')">Карточки</button>
+    <button class="snav-btn" onclick="scrollTo('nav')">Навигация</button>
+    <button class="snav-btn" onclick="scrollTo('calendar')">Календарь</button>
+    <button class="snav-btn" onclick="scrollTo('states')">Состояния</button>
+    <button class="snav-btn" onclick="scrollTo('screens')">Экраны</button>
+  </div>
+</nav>
+
+<div class="page-wrap">
+
+<!-- MASTHEAD -->
+<div class="masthead">
+  <div>
+    <div class="masthead-eyebrow">до встречи · telegram mini app</div>
+    <h1>UI Kit<br>v 1.0</h1>
+  </div>
+  <div class="masthead-meta">
+    <strong>Шрифт</strong>Manrope
+    <strong>Тема</strong>Dark · Mint accent
+    <strong>Платформа</strong>Telegram Mini App
+    <strong>Версия</strong>MVP · Апрель 2026
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     COLORS
+══════════════════════════════════════ -->
+<section class="section" id="colors">
+  <div class="sec-label">01</div>
+  <div class="sec-title">Цветовая система</div>
+  <div class="sec-desc">6 смысловых групп. Accent — главная идентичность. Semantic — статусы. Всё остальное — нейтральный фундамент.</div>
+
+  <div class="showcase" style="margin-bottom:12px">
+    <div class="showcase-label">Backgrounds · 5 уровней глубины</div>
+    <div class="grid-4" style="grid-template-columns:repeat(5,1fr)">
+      <div>
+        <div class="swatch" style="background:#0A0E0D;border:1px solid var(--border)"></div>
+        <div class="swatch-name">Base</div>
+        <div class="swatch-val">#0A0E0D</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#131917"></div>
+        <div class="swatch-name">Surface</div>
+        <div class="swatch-val">#131917</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#1A2220"></div>
+        <div class="swatch-name">Elevated</div>
+        <div class="swatch-val">#1A2220</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#212E2B"></div>
+        <div class="swatch-name">Overlay</div>
+        <div class="swatch-val">#212E2B</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:rgba(255,255,255,0.04);border:1px solid var(--border)"></div>
+        <div class="swatch-name">Glass</div>
+        <div class="swatch-val">rgba(255,255,255, .04)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:12px">
+    <div class="showcase">
+      <div class="showcase-label">Accent — главный цвет</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div>
+          <div class="swatch" style="background:#00E5A8"></div>
+          <div class="swatch-name">Accent</div>
+          <div class="swatch-val">#00E5A8</div>
+        </div>
+        <div>
+          <div class="swatch" style="background:rgba(0,229,168,0.15)"></div>
+          <div class="swatch-name">Accent Dim</div>
+          <div class="swatch-val">rgba(..) .15</div>
+        </div>
+        <div>
+          <div class="swatch" style="background:rgba(0,229,168,0.08)"></div>
+          <div class="swatch-name">Accent Soft</div>
+          <div class="swatch-val">rgba(..) .08</div>
+        </div>
+      </div>
+    </div>
+    <div class="showcase">
+      <div class="showcase-label">Text · 3 уровня</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:#EDF2F0;flex-shrink:0"></div>
+          <div><div class="swatch-name" style="color:#EDF2F0">Primary</div><div class="swatch-val">#EDF2F0</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:#7F9490;flex-shrink:0"></div>
+          <div><div class="swatch-name" style="color:#7F9490">Secondary</div><div class="swatch-val">#7F9490</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:32px;height:32px;border-radius:8px;background:#4A5E5A;flex-shrink:0"></div>
+          <div><div class="swatch-name" style="color:#4A5E5A">Tertiary</div><div class="swatch-val">#4A5E5A</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="showcase">
+    <div class="showcase-label">Semantic — статусы и смыслы</div>
+    <div class="grid-4">
+      <div>
+        <div class="swatch" style="background:#2DD4A0"></div>
+        <div class="swatch-name">Green · Подтверждена</div>
+        <div class="swatch-val">#2DD4A0</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#F5A623"></div>
+        <div class="swatch-name">Amber · Ожидает</div>
+        <div class="swatch-val">#F5A623</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#F0614A"></div>
+        <div class="swatch-name">Red · Отменена / ошибка</div>
+        <div class="swatch-val">#F0614A</div>
+      </div>
+      <div>
+        <div class="swatch" style="background:#5B8EFF"></div>
+        <div class="swatch-name">Blue · Инфо</div>
+        <div class="swatch-val">#5B8EFF</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     TYPOGRAPHY
+══════════════════════════════════════ -->
+<section class="section" id="type">
+  <div class="sec-label">02</div>
+  <div class="sec-title">Типографика</div>
+  <div class="sec-desc">Manrope — современный геометрический гротеск с кириллицей. Отлично работает на малых размерах и в заголовках.</div>
+
+  <div class="showcase">
+    <div class="type-row">
+      <div class="type-meta">Display<br>32px · 800<br>lh 1.05</div>
+      <div style="font-size:32px;font-weight:800;letter-spacing:-.02em;color:var(--text-primary)">До встречи</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">H1<br>24px · 800<br>lh 1.1</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--text-primary)">Встречи на сегодня</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">H2<br>20px · 700<br>lh 1.2</div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.015em;color:var(--text-primary)">Консультация по маркетингу</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">H3<br>17px · 700<br>lh 1.3</div>
+      <div style="font-size:17px;font-weight:700;color:var(--text-primary)">Анна Смирнова</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Body<br>14px · 500<br>lh 1.6</div>
+      <div style="font-size:14px;font-weight:500;color:var(--text-primary);line-height:1.6">Выберите удобное время для встречи. Слоты обновляются в реальном времени.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Caption<br>12px · 600<br>lh 1.4</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary)">Консультация · Сегодня 15:00 · 60 мин</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Label<br>10px · 700<br>UPPERCASE</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-tertiary)">Ближайшая встреча</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta">Mono<br>12px · 400<br>JetBrains</div>
+      <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)">dovstrechi.ru/ivan/konsult</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     ICONS
+══════════════════════════════════════ -->
+<section class="section" id="icons">
+  <div class="sec-label">03</div>
+  <div class="sec-title">Иконки</div>
+  <div class="sec-desc">Lucide-style · stroke 1.5px · 22×22px. Только SVG — никаких эмодзи в навигации и компонентах.</div>
+
+  <div class="showcase">
+    <div class="showcase-label">Навигация</div>
+    <div class="icon-grid" style="margin-bottom:20px">
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+        <div class="icon-name">Главная</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="icon-name">Встречи</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <div class="icon-name">Ссылки</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div class="icon-name">Профиль</div>
+      </div>
+    </div>
+    <div class="showcase-label">Действия и UI</div>
+    <div class="icon-grid">
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        <div class="icon-name">Добавить</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+        <div class="icon-name">Назад</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        <div class="icon-name">Вперёд</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+        <div class="icon-name">Поделиться</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></div>
+        <div class="icon-name">Копировать</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="icon-name">Ок / Принять</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+        <div class="icon-name">Закрыть</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+        <div class="icon-name">Меню</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div>
+        <div class="icon-name">Jitsi / Видео</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17z"/></svg></div>
+        <div class="icon-name">Контакт</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+        <div class="icon-name">Статистика</div>
+      </div>
+      <div class="icon-item">
+        <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="icon-name">Настройки</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     BUTTONS
+══════════════════════════════════════ -->
+<section class="section" id="buttons">
+  <div class="sec-label">04</div>
+  <div class="sec-title">Кнопки</div>
+  <div class="sec-desc">7 вариантов. Primary — главное CTA, всегда одно на экран. Action Pill — Calma-стиль для постоянного действия (как «Добавить» в навбаре).</div>
+
+  <div class="showcase">
+    <div class="showcase-label">Все варианты · полный размер</div>
+    <div class="flex col gap-12" style="max-width:320px">
+      <button class="btn btn-primary" style="width:100%">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Забронировать
+      </button>
+      <button class="btn btn-secondary" style="width:100%">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Поделиться ссылкой
+      </button>
+      <button class="btn btn-ghost" style="width:100%">Изменить настройки</button>
+      <button class="btn btn-danger" style="width:100%">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Удалить тип встречи
+      </button>
+      <button class="btn btn-primary" disabled style="width:100%">Продолжить (disabled)</button>
+    </div>
+
+    <div class="divider-sm"></div>
+    <div class="showcase-label">Малый размер и специальные</div>
+    <div class="flex wrap gap-8">
+      <button class="btn btn-primary btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая ссылка
+      </button>
+      <button class="btn btn-secondary btn-sm">Подтвердить</button>
+      <button class="btn btn-ghost btn-sm">Отклонить</button>
+      <button class="btn btn-action">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Записаться
+      </button>
+      <button class="btn-fab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     INPUTS & TOGGLES
+══════════════════════════════════════ -->
+<section class="section" id="inputs">
+  <div class="sec-label">05</div>
+  <div class="sec-title">Поля ввода и тогглы</div>
+
+  <div class="grid-2">
+    <div class="showcase">
+      <div class="showcase-label">Состояния полей</div>
+      <div class="flex col gap-16">
+        <div class="input-wrap">
+          <div class="input-label">Название встречи</div>
+          <input class="input" placeholder="Например: Консультация" value="">
+          <div class="input-hint">Будет видно клиентам в ссылке</div>
+        </div>
+        <div class="input-wrap">
+          <div class="input-label">Описание</div>
+          <textarea class="input" rows="3" placeholder="Расскажите, о чём встреча…"></textarea>
+        </div>
+        <div class="input-wrap">
+          <div class="input-label">Начало рабочего дня</div>
+          <input class="input" value="09:00" type="time">
+        </div>
+        <div class="input-wrap">
+          <div class="input-label" style="color:var(--red)">Имя (обязательно)</div>
+          <input class="input input-error" value="">
+          <div class="input-hint err">Заполните это поле</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex col gap-12">
+      <!-- Chips -->
+      <div class="showcase">
+        <div class="showcase-label">Длительность · чипы</div>
+        <div class="flex wrap gap-8">
+          <div class="chip">15 мин</div>
+          <div class="chip">30 мин</div>
+          <div class="chip active">60 мин</div>
+          <div class="chip">90 мин</div>
+          <div class="chip">2 ч</div>
+        </div>
+      </div>
+      <!-- Day chips -->
+      <div class="showcase">
+        <div class="showcase-label">Дни недели</div>
+        <div class="flex gap-8">
+          <div class="chip chip-day active">Пн</div>
+          <div class="chip chip-day active">Вт</div>
+          <div class="chip chip-day active">Ср</div>
+          <div class="chip chip-day active">Чт</div>
+          <div class="chip chip-day active">Пт</div>
+          <div class="chip chip-day">Сб</div>
+          <div class="chip chip-day">Вс</div>
+        </div>
+      </div>
+      <!-- Toggles -->
+      <div class="showcase" style="flex:1">
+        <div class="showcase-label">Тогглы</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Принимать записи</div>
+            <div class="toggle-desc">Открыт для новых клиентов</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Требовать подтверждение</div>
+            <div class="toggle-desc">Встреча не подтвердится автоматически</div>
+          </div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Уведомление о записи</div>
+            <div class="toggle-desc">Сразу при бронировании</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     CARDS & BADGES
+══════════════════════════════════════ -->
+<section class="section" id="cards">
+  <div class="sec-label">06</div>
+  <div class="sec-title">Карточки и бейджи</div>
+
+  <div class="grid-2" style="margin-bottom:12px">
+    <div class="showcase">
+      <div class="showcase-label">Бейджи статусов</div>
+      <div class="flex wrap gap-8" style="margin-bottom:20px">
+        <span class="badge badge-green"><span class="badge-dot"></span>Подтверждена</span>
+        <span class="badge badge-amber"><span class="badge-dot"></span>Ожидает</span>
+        <span class="badge badge-red"><span class="badge-dot"></span>Отменена</span>
+        <span class="badge badge-muted"><span class="badge-dot"></span>Завершена</span>
+        <span class="badge badge-blue"><span class="badge-dot"></span>Активна</span>
+      </div>
+      <div class="showcase-label">Карточки встреч</div>
+      <div class="meeting-card">
+        <div class="meeting-avatar">АС</div>
+        <div class="meeting-info">
+          <div class="meeting-name">Анна Смирнова</div>
+          <div class="meeting-meta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Сегодня, 15:00
+            <div class="meeting-meta-dot"></div>
+            Консультация
+            <div class="meeting-meta-dot"></div>
+            60 мин
+          </div>
+        </div>
+        <span class="badge badge-green"><span class="badge-dot"></span>Подтв.</span>
+      </div>
+      <div class="meeting-card">
+        <div class="meeting-avatar">МП</div>
+        <div class="meeting-info">
+          <div class="meeting-name">Михаил Петров</div>
+          <div class="meeting-meta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Завтра, 11:00
+            <div class="meeting-meta-dot"></div>
+            Демо продукта
+          </div>
+        </div>
+        <span class="badge badge-amber"><span class="badge-dot"></span>Ждёт</span>
+      </div>
+    </div>
+
+    <div class="showcase">
+      <div class="showcase-label">Карточка ссылки (типа встречи)</div>
+      <div class="link-card">
+        <div class="link-card-header">
+          <div>
+            <div class="link-card-name">Консультация по маркетингу</div>
+            <div class="link-card-meta">
+              <span class="link-meta-pill">60 мин</span>
+              <span class="link-meta-pill">Пн–Пт</span>
+              <span class="link-meta-pill">10:00–18:00</span>
+              <span class="link-meta-pill">Jitsi</span>
+            </div>
+          </div>
+          <span class="badge badge-green"><span class="badge-dot"></span>Вкл</span>
+        </div>
+        <div class="link-card-footer">
+          <div class="link-url">dovstrechi.ru/ivan/konsult</div>
+          <div class="link-actions">
+            <button class="link-btn link-btn-share">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Поделиться
+            </button>
+            <button class="link-btn link-btn-copy">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Копировать
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="link-card" style="opacity:.6">
+        <div class="link-card-header">
+          <div>
+            <div class="link-card-name">Стратегическая сессия</div>
+            <div class="link-card-meta">
+              <span class="link-meta-pill">90 мин</span>
+              <span class="link-meta-pill">Вт–Чт</span>
+            </div>
+          </div>
+          <span class="badge badge-amber"><span class="badge-dot"></span>Пауза</span>
+        </div>
+        <div class="link-card-footer">
+          <div class="link-url">dovstrechi.ru/ivan/strategy</div>
+          <div class="link-actions">
+            <button class="link-btn link-btn-copy">Возобновить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="showcase">
+    <div class="showcase-label">Статистика (grid 2×2)</div>
+    <div class="grid-4" style="max-width:480px">
+      <div class="stat-card"><div class="stat-val accent">12</div><div class="stat-lbl">Встреч всего</div></div>
+      <div class="stat-card"><div class="stat-val">4</div><div class="stat-lbl">Ожидают</div></div>
+      <div class="stat-card"><div class="stat-val">8</div><div class="stat-lbl">Предстоящих</div></div>
+      <div class="stat-card"><div class="stat-val">3</div><div class="stat-lbl">Типа встреч</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     NAVIGATION BAR
+══════════════════════════════════════ -->
+<section class="section" id="nav">
+  <div class="sec-label">07</div>
+  <div class="sec-title">Навигация</div>
+  <div class="sec-desc">4 основных таба + Action Pill справа. Активный таб — mint accent + точка-индикатор. Иконки 22px stroke, без заливки.</div>
+
+  <div class="showcase">
+    <div class="showcase-label">Tab Bar · активна «Главная»</div>
+    <div style="max-width:390px">
+      <div class="nav-bar">
+        <div class="nav-item active">
+          <div class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div class="nav-label">Главная</div>
+          <div class="nav-indicator"></div>
+        </div>
+        <div class="nav-item" onclick="this.parentElement.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));this.classList.add('active')">
+          <div class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="nav-label">Встречи</div>
+          <div class="nav-indicator"></div>
+        </div>
+        <div class="nav-item" onclick="this.parentElement.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));this.classList.add('active')">
+          <div class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <div class="nav-label">Ссылки</div>
+          <div class="nav-indicator"></div>
+        </div>
+        <div class="nav-item" onclick="this.parentElement.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));this.classList.add('active')">
+          <div class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="nav-label">Я</div>
+          <div class="nav-indicator"></div>
+        </div>
+        <div class="nav-action-wrap">
+          <button class="nav-action-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Создать
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     CALENDAR & SLOTS
+══════════════════════════════════════ -->
+<section class="section" id="calendar">
+  <div class="sec-label">08</div>
+  <div class="sec-title">Календарь и слоты</div>
+
+  <div class="grid-2">
+    <div class="showcase">
+      <div class="showcase-label">Месячный вид</div>
+      <div style="background:var(--bg-base);border-radius:var(--r-lg);overflow:hidden">
+        <div class="cal-nav">
+          <div class="cal-month">Апрель 2026</div>
+          <div class="flex gap-8">
+            <div class="cal-nav-btn">‹</div>
+            <div class="cal-nav-btn">›</div>
+          </div>
+        </div>
+        <div class="cal-grid" id="cal-grid">
+          <!-- rendered by JS -->
+        </div>
+        <div style="display:flex;gap:12px;padding:0 16px 16px;justify-content:center">
+          <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-tertiary)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(45,212,160,.2)"></div>Свободно</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-tertiary)"><div style="width:8px;height:8px;border-radius:2px;background:var(--amber-soft)"></div>Частично</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-tertiary)"><div style="width:8px;height:8px;border-radius:2px;background:var(--red-soft)"></div>Занято</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="showcase">
+      <div class="showcase-label">Слоты времени (3 колонки)</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px">Слоты на 9 апреля</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Свободно: 5 из 8 · 62% доступно</div>
+      <div class="slots-grid">
+        <div class="slot slot-taken">09:00</div>
+        <div class="slot slot-taken">10:00</div>
+        <div class="slot slot-taken">11:00</div>
+        <div class="slot slot-free" onclick="selectSlot(this)">12:00</div>
+        <div class="slot slot-free" onclick="selectSlot(this)">13:00</div>
+        <div class="slot slot-free" onclick="selectSlot(this)">14:00</div>
+        <div class="slot slot-free" onclick="selectSlot(this)">15:00</div>
+        <div class="slot slot-free" onclick="selectSlot(this)">16:00</div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-tertiary)">— занято &nbsp;&nbsp; — свободно &nbsp;&nbsp; — выбранный</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     STATES & PATTERNS
+══════════════════════════════════════ -->
+<section class="section" id="states">
+  <div class="sec-label">09</div>
+  <div class="sec-title">Состояния и паттерны</div>
+
+  <div class="grid-3" style="margin-bottom:12px">
+    <!-- Empty state -->
+    <div class="showcase">
+      <div class="showcase-label">Пустое состояние · Встречи</div>
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="empty-title">Пока нет встреч</div>
+        <div class="empty-desc">Создай ссылку и поделись — люди запишутся сами</div>
+        <button class="btn btn-primary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Создать ссылку
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom sheet -->
+    <div class="showcase">
+      <div class="showcase-label">Bottom Sheet · Успех бронирования</div>
+      <div class="bottom-sheet-demo">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title" style="color:var(--green)">✓ Встреча забронирована</div>
+        <div class="sheet-subtitle">7 апреля · 15:00 – 16:00 · Jitsi Meet</div>
+        <div style="padding:0 20px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div class="meeting-avatar">ИЦ</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Иван Цех</div>
+              <div style="font-size:12px;color:var(--text-secondary)">@iwantproger</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>
+            Открыть Jitsi
+          </button>
+          <button class="btn btn-secondary" style="width:100%;font-size:14px">Готово</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal confirm -->
+    <div class="showcase">
+      <div class="showcase-label">Modal · Подтверждение отмены</div>
+      <div style="background:var(--bg-base);border-radius:var(--r-lg);padding:16px;height:200px;display:flex;align-items:flex-end;background:linear-gradient(180deg,var(--bg-base) 0%,rgba(10,14,13,.9) 100%)">
+        <div class="modal-card">
+          <div class="modal-title">Отменить встречу?</div>
+          <div class="modal-desc">Анна Смирнова получит уведомление об отмене. Слот освободится.</div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" style="font-size:14px">Отмена</button>
+            <button class="btn btn-danger" style="font-size:14px">Отменить встречу</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings rows -->
+  <div class="showcase">
+    <div class="showcase-label">Настройки · сгруппированные строки</div>
+    <div class="grid-2">
+      <div>
+        <div class="group-label" style="margin-top:0">Уведомления</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="settings-icon si-mint">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Новая запись</div><div class="settings-subtitle">Сразу при бронировании</div></div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon si-amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Напоминание</div><div class="settings-subtitle">За 1 час до встречи</div></div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon si-red">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Отмена встречи</div><div class="settings-subtitle">Если клиент отменил</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="group-label" style="margin-top:0">Профиль и ссылки</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="settings-icon si-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Мой профиль</div><div class="settings-subtitle">Иван Цех · @iwantproger</div></div>
+            <div class="chevron-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon si-mint">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Моя страница</div></div>
+            <div class="settings-row-end">
+              <div class="settings-val" style="font-family:var(--font-mono);font-size:11px">dovstrechi.ru/ivan</div>
+              <div class="chevron-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon si-muted">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="settings-content"><div class="settings-title">Часовой пояс</div></div>
+            <div class="settings-row-end">
+              <div class="settings-val">Europe/Moscow</div>
+              <div class="chevron-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     PHONE SCREENS PREVIEW
+══════════════════════════════════════ -->
+<section class="section" id="screens">
+  <div class="sec-label">10</div>
+  <div class="sec-title">Экраны в телефоне</div>
+  <div class="sec-desc">Живые мок-апы ключевых экранов приложения в рамке. Размер 320×620.</div>
+
+  <div class="screens-row">
+
+    <!-- HOME SCREEN -->
+    <div class="screen-preview">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="phone-status">
+            <span>9:41</span>
+            <div class="status-right">
+              <svg class="status-icon" viewBox="0 0 24 24"><path d="M1.5 8.5a13 13 0 0 1 21 0M5 12a10 10 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+              <svg class="status-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11V13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+            </div>
+          </div>
+          <div class="phone-screen">
+            <div class="home-header">
+              <div class="flex between center">
+                <div>
+                  <div class="home-greeting">Привет, <span>Иван</span> 👋</div>
+                  <div class="home-date">среда, 2 апреля</div>
+                </div>
+                <div class="home-avatar">И</div>
+              </div>
+            </div>
+            <div class="next-meeting-card">
+              <div class="nmc-label">Ближайшая встреча</div>
+              <div class="nmc-name">Анна Смирнова</div>
+              <div class="nmc-type">Консультация по маркетингу</div>
+              <div class="nmc-time-block">
+                <div><div class="nmc-time">15:00</div><div class="nmc-date">Сегодня · 60 мин</div></div>
+                <button class="nmc-join-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>
+                  Войти
+                </button>
+              </div>
+            </div>
+            <div class="home-section">
+              <div class="home-section-title">Эта неделя</div>
+              <div class="stats-row">
+                <div class="stat-mini"><div class="val a">8</div><div class="lbl">Встреч</div></div>
+                <div class="stat-mini"><div class="val">4</div><div class="lbl">Ожидают</div></div>
+              </div>
+            </div>
+            <div class="home-section" style="margin-top:8px">
+              <div class="home-section-title">Следующие</div>
+              <div class="meeting-card">
+                <div class="meeting-avatar" style="font-size:12px">МП</div>
+                <div class="meeting-info">
+                  <div class="meeting-name">Михаил Петров</div>
+                  <div class="meeting-meta">Завтра · 11:00</div>
+                </div>
+                <span class="badge badge-amber"><span class="badge-dot"></span>Ждёт</span>
+              </div>
+              <div class="meeting-card">
+                <div class="meeting-avatar" style="font-size:12px">ЕК</div>
+                <div class="meeting-info">
+                  <div class="meeting-name">Елена Козлова</div>
+                  <div class="meeting-meta">1 апр · 14:00</div>
+                </div>
+                <span class="badge badge-amber"><span class="badge-dot"></span>Ждёт</span>
+              </div>
+            </div>
+          </div>
+          <div class="phone-nav">
+            <div class="nav-bar" style="height:60px;padding-bottom:2px">
+              <div class="nav-item active">
+                <div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+                <div class="nav-label">Главная</div>
+              </div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="nav-label">Встречи</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="nav-label">Ссылки</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="nav-label">Я</div></div>
+              <div class="nav-action-wrap"><button class="nav-action-pill" style="font-size:11px;height:36px;padding:0 12px 0 10px;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Создать</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-preview-label">Главная</div>
+    </div>
+
+    <!-- MEETINGS SCREEN -->
+    <div class="screen-preview">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="phone-status">
+            <span>9:41</span>
+            <div class="status-right"><svg class="status-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11V13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg></div>
+          </div>
+          <div class="phone-screen">
+            <div style="padding:20px 16px 0">
+              <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;color:var(--text-primary)">Встречи</div>
+              <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">Все записи к вам</div>
+            </div>
+            <div style="display:flex;gap:6px;padding:12px 16px;overflow-x:auto;scrollbar-width:none">
+              <div class="chip active" style="font-size:11px;height:30px;padding:0 12px">Все (12)</div>
+              <div class="chip" style="font-size:11px;height:30px;padding:0 12px;flex-shrink:0">Ожидают <span style="background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:1px 5px;font-size:10px;margin-left:3px">4</span></div>
+              <div class="chip" style="font-size:11px;height:30px;padding:0 12px;flex-shrink:0">Предстоящие</div>
+              <div class="chip" style="font-size:11px;height:30px;padding:0 12px;flex-shrink:0">Прошлые</div>
+            </div>
+            <div style="padding:0 12px">
+              <div class="meeting-card" style="margin-bottom:6px">
+                <div class="meeting-avatar" style="font-size:12px">АС</div>
+                <div class="meeting-info">
+                  <div class="meeting-name" style="font-size:13px">Анна Смирнова</div>
+                  <div class="meeting-meta" style="font-size:11px">Сегодня · 15:00 · 60 мин</div>
+                </div>
+                <span class="badge badge-green" style="font-size:10px"><span class="badge-dot"></span>✓</span>
+              </div>
+              <div class="meeting-card" style="margin-bottom:6px">
+                <div class="meeting-avatar" style="font-size:12px">МП</div>
+                <div class="meeting-info">
+                  <div class="meeting-name" style="font-size:13px">Михаил Петров</div>
+                  <div class="meeting-meta" style="font-size:11px">Завтра · 11:00 · 45 мин</div>
+                </div>
+                <span class="badge badge-amber" style="font-size:10px"><span class="badge-dot"></span>⏳</span>
+              </div>
+              <div class="meeting-card" style="margin-bottom:6px">
+                <div class="meeting-avatar" style="font-size:12px">ЕК</div>
+                <div class="meeting-info">
+                  <div class="meeting-name" style="font-size:13px">Елена Козлова</div>
+                  <div class="meeting-meta" style="font-size:11px">1 апр · 14:00 · 90 мин</div>
+                </div>
+                <span class="badge badge-amber" style="font-size:10px"><span class="badge-dot"></span>⏳</span>
+              </div>
+              <div class="meeting-card" style="margin-bottom:6px;opacity:.6">
+                <div class="meeting-avatar" style="font-size:12px">СВ</div>
+                <div class="meeting-info">
+                  <div class="meeting-name" style="font-size:13px">Сергей Волков</div>
+                  <div class="meeting-meta" style="font-size:11px">28 мар · 13:00</div>
+                </div>
+                <span class="badge badge-muted" style="font-size:10px">Завер.</span>
+              </div>
+            </div>
+          </div>
+          <div class="phone-nav">
+            <div class="nav-bar" style="height:60px;padding-bottom:2px">
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="nav-label">Главная</div></div>
+              <div class="nav-item active"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="nav-label">Встречи</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="nav-label">Ссылки</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="nav-label">Я</div></div>
+              <div class="nav-action-wrap"><button class="nav-action-pill" style="font-size:11px;height:36px;padding:0 12px 0 10px;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Создать</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-preview-label">Встречи</div>
+    </div>
+
+    <!-- WIZARD SCREEN -->
+    <div class="screen-preview">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="phone-status">
+            <span>9:41</span>
+            <div class="status-right"><svg class="status-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11V13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg></div>
+          </div>
+          <div class="phone-screen">
+            <div class="inner-header" style="position:relative">
+              <button class="back-btn" style="font-size:11px;height:30px;padding:0 10px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><polyline points="15 18 9 12 15 6"/></svg>
+                Назад
+              </button>
+              <div class="inner-title" style="font-size:15px">Новая ссылка</div>
+            </div>
+            <div class="wizard-progress">
+              <div class="wp-step done"></div>
+              <div class="wp-step active"></div>
+              <div class="wp-step"></div>
+            </div>
+            <div style="padding:20px 16px 0">
+              <div style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">Шаг 2 из 3</div>
+              <div style="font-size:20px;font-weight:800;color:var(--text-primary);letter-spacing:-.02em;margin-bottom:20px">Расписание</div>
+              <div style="margin-bottom:16px">
+                <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:8px">Рабочие дни</div>
+                <div style="display:flex;gap:6px">
+                  <div class="chip chip-day active" style="font-size:11px">Пн</div>
+                  <div class="chip chip-day active" style="font-size:11px">Вт</div>
+                  <div class="chip chip-day active" style="font-size:11px">Ср</div>
+                  <div class="chip chip-day active" style="font-size:11px">Чт</div>
+                  <div class="chip chip-day active" style="font-size:11px">Пт</div>
+                  <div class="chip chip-day" style="font-size:11px">Сб</div>
+                  <div class="chip chip-day" style="font-size:11px">Вс</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+                <div class="input-wrap">
+                  <div class="input-label">Начало</div>
+                  <input class="input" style="height:44px;font-size:13px" value="10:00">
+                </div>
+                <div class="input-wrap">
+                  <div class="input-label">Конец</div>
+                  <input class="input" style="height:44px;font-size:13px" value="18:00">
+                </div>
+              </div>
+              <div style="background:var(--bg-elevated);border-radius:var(--r-lg);padding:14px;border:1px solid var(--border)">
+                <div class="toggle-row" style="padding:0">
+                  <div class="toggle-info">
+                    <div class="toggle-title" style="font-size:13px">Требовать подтверждение</div>
+                    <div class="toggle-desc" style="font-size:11px">Встреча не подтвердится сама</div>
+                  </div>
+                  <div class="toggle" onclick="this.classList.toggle('on')" style="width:42px;height:24px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:12px 16px 16px;flex-shrink:0;background:var(--bg-base)">
+            <button class="btn btn-primary" style="width:100%;font-size:14px;height:48px">Далее →</button>
+          </div>
+        </div>
+      </div>
+      <div class="screen-preview-label">Создать ссылку · Шаг 2</div>
+    </div>
+
+    <!-- PROFILE SCREEN -->
+    <div class="screen-preview">
+      <div class="phone">
+        <div class="phone-inner">
+          <div class="phone-status">
+            <span>9:41</span>
+            <div class="status-right"><svg class="status-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11V13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg></div>
+          </div>
+          <div class="phone-screen">
+            <div class="profile-block">
+              <div class="profile-avatar-big">И</div>
+              <div class="profile-name">Иван Цех</div>
+              <div class="profile-username">@iwantproger</div>
+            </div>
+            <div class="group-label" style="margin-top:4px">Расписание</div>
+            <div style="padding:0 12px">
+              <div class="settings-group">
+                <div class="settings-row">
+                  <div class="settings-icon si-mint"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                  <div class="settings-content"><div class="settings-title" style="font-size:13px">Принимать записи</div></div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')" style="width:42px;height:24px"></div>
+                </div>
+              </div>
+            </div>
+            <div class="group-label">Уведомления</div>
+            <div style="padding:0 12px">
+              <div class="settings-group">
+                <div class="settings-row">
+                  <div class="settings-icon si-mint" style="width:30px;height:30px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+                  <div class="settings-content"><div class="settings-title" style="font-size:13px">Новая запись</div></div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')" style="width:42px;height:24px"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-icon si-amber" style="width:30px;height:30px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                  <div class="settings-content"><div class="settings-title" style="font-size:13px">Напоминание за 1 ч</div></div>
+                  <div class="toggle on" onclick="this.classList.toggle('on')" style="width:42px;height:24px"></div>
+                </div>
+              </div>
+            </div>
+            <div class="group-label">Аккаунт</div>
+            <div style="padding:0 12px">
+              <div class="settings-group">
+                <div class="settings-row">
+                  <div class="settings-icon si-muted" style="width:30px;height:30px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                  <div class="settings-content"><div class="settings-title" style="font-size:13px">Europe/Moscow</div></div>
+                  <div class="chevron-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-icon si-muted" style="width:30px;height:30px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
+                  <div class="settings-content"><div class="settings-title" style="font-size:13px">Поддержка</div></div>
+                  <div class="chevron-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="phone-nav">
+            <div class="nav-bar" style="height:60px;padding-bottom:2px">
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="nav-label">Главная</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="nav-label">Встречи</div></div>
+              <div class="nav-item"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="nav-label">Ссылки</div></div>
+              <div class="nav-item active"><div class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div class="nav-label">Я</div></div>
+              <div class="nav-action-wrap"><button class="nav-action-pill" style="font-size:11px;height:36px;padding:0 12px 0 10px;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Создать</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-preview-label">Профиль</div>
+    </div>
+
+  </div>
+</section>
+
+</div><!-- end page-wrap -->
+
+<script>
+// CALENDAR RENDER
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAYS_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const MOCK = {
+  '2026-04-02':{t:6,b:2},'2026-04-03':{t:8,b:8},'2026-04-07':{t:6,b:0},
+  '2026-04-08':{t:8,b:8},'2026-04-09':{t:6,b:1},'2026-04-10':{t:8,b:4},
+  '2026-04-14':{t:6,b:6},'2026-04-15':{t:8,b:3},'2026-04-16':{t:6,b:0},
+  '2026-04-17':{t:8,b:7},'2026-04-21':{t:6,b:0},'2026-04-22':{t:8,b:2},
+  '2026-04-28':{t:6,b:0},'2026-04-29':{t:8,b:5},
+};
+
+function renderCal() {
+  const g = document.getElementById('cal-grid');
+  if (!g) return;
+  g.style.display = 'grid';
+  g.style.gridTemplateColumns = 'repeat(7,1fr)';
+  g.style.gap = '3px';
+  g.innerHTML = '';
+  DAYS_SHORT.forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'cal-dh'; h.textContent = d; g.appendChild(h);
+  });
+  const first = new Date(2026, 3, 1);
+  let dow = first.getDay() - 1; if (dow < 0) dow = 6;
+  for (let i = 0; i < dow; i++) { const e = document.createElement('div'); e.className = 'cal-empty'; g.appendChild(e); }
+  const today = new Date();
+  for (let d = 1; d <= 30; d++) {
+    const dt = new Date(2026, 3, d);
+    const ds = `2026-04-${String(d).padStart(2,'0')}`;
+    const isPast = dt < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const isWe = dt.getDay() === 0 || dt.getDay() === 6;
+    const el = document.createElement('div'); el.className = 'cal-day';
+    const dn = document.createElement('div'); dn.className = 'cal-dn'; dn.textContent = d;
+    const ds2 = document.createElement('div'); ds2.className = 'cal-ds';
+    const info = MOCK[ds];
+    if (isPast || isWe) { el.classList.add('day-past'); }
+    else if (info) {
+      const free = info.t - info.b;
+      if (free === 0) { el.classList.add('day-busy'); ds2.textContent = '×'+info.t; }
+      else if (free === info.t) { el.classList.add('day-free'); ds2.textContent = '+'+free; }
+      else { el.classList.add('day-partial'); ds2.textContent = free+'/'+info.t; }
+    } else { el.classList.add('day-free'); ds2.textContent = '+6'; }
+    el.appendChild(dn); el.appendChild(ds2); g.appendChild(el);
+  }
+}
+renderCal();
+
+// SLOT SELECT
+function selectSlot(el) {
+  document.querySelectorAll('.slot-free, .slot-selected').forEach(s => {
+    s.classList.remove('slot-selected');
+    if (!s.classList.contains('slot-taken')) s.classList.add('slot-free');
+  });
+  el.classList.remove('slot-free');
+  el.classList.add('slot-selected');
+}
+
+// STICKY NAV
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.snav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// Intersection observer for sticky nav
+const sections = ['colors','type','icons','buttons','inputs','cards','nav','calendar','states','screens'];
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const idx = sections.indexOf(e.target.id);
+      document.querySelectorAll('.snav-btn').forEach((b,i) => b.classList.toggle('active', i === idx));
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(id => { const el = document.getElementById(id); if(el) observer.observe(el); });
+</script>
+</body>
+</html>

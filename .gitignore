@@ -1,13 +1,59 @@
-
+# ===== Python =====
 .env
-
+.env.*
+!.env.example
 __pycache__/
-
 *.pyc
-
+*.pyo
+*.pyd
 .venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
+# ===== База данных =====
 *.sql.bak
+*.dump
+*.db
+*.sqlite3
+pgdata/
 
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== Nginx / SSL =====
+certbot/
+ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# ===== Логи =====
+*.log
+logs/
+
+# ===== OS =====
 .DS_Store
+Thumbs.db
+desktop.ini
 
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== Frontend =====
+node_modules/
+.cache/
+
+# ===== Разное =====
+*.bak
+*.tmp
+*.orig

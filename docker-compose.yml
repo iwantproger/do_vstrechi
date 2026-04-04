@@ -69,7 +69,7 @@ services:
   # ─────────────────────────────────────────────
   # Nginx — reverse proxy + статика frontend
   # ─────────────────────────────────────────────
-  nginx:
+ nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
@@ -87,6 +87,20 @@ services:
       - backend
     networks:
       - internal
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: dovstrechi_certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    profiles:
+      - ssl
+
+  volumes:
+  postgres_data:
+  certbot_www:
+  certbot_certs:
 
   # ─────────────────────────────────────────────
   # Certbot — SSL Let's Encrypt (запускать вручную)
