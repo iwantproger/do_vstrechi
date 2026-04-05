@@ -59,10 +59,13 @@
   --blue:#7aaaff;
   --blue-soft:rgba(91,142,255,.13);
 
-  /* ── Safe area ── */
+  /* ── Safe area (CSS env fallbacks) ── */
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
-  --tg-header-height:56px;
+
+  /* ── Telegram insets — overridden from JS via Telegram.WebApp API ── */
+  --tg-header:84px;  /* header + Dynamic Island fallback */
+  --tg-bottom:34px;  /* home indicator fallback */
 }
 html,body{height:100%;background:#05100E;overflow:hidden}
 body{font-family:var(--font);color:var(--t1)}
@@ -80,8 +83,8 @@ body{font-family:var(--font);color:var(--t1)}
   transform:translateX(100%);
   transition:transform .28s cubic-bezier(.4,0,.2,1);
   will-change:transform;
-  padding-top:calc(var(--tg-header-height) + var(--safe-top) + 8px);
-  padding-bottom:calc(82px + var(--safe-bottom));
+  padding-top:calc(var(--tg-header) + 8px);
+  padding-bottom:calc(76px + var(--tg-bottom) + 8px);
   visibility:hidden;
   pointer-events:none;
 }
@@ -90,7 +93,7 @@ body{font-family:var(--font);color:var(--t1)}
 .screen.prev{transform:translateX(-30%);visibility:hidden;pointer-events:none}
 .screen.leaving{transform:translateX(100%);visibility:hidden;pointer-events:none}
 .screen.no-pad{padding-bottom:0}
-.screen.has-inner-header{padding-top:calc(var(--tg-header-height) + var(--safe-top))}
+.screen.has-inner-header{padding-top:0}
 .screen.has-page-head{padding-top:0}
 
 /* ═══════════════════════════════════════════════════
@@ -99,7 +102,7 @@ body{font-family:var(--font);color:var(--t1)}
 .navbar-outer{
   flex-shrink:0;
   display:flex;align-items:center;flex-wrap:nowrap;gap:8px;
-  padding:8px 14px calc(14px + var(--safe-bottom));
+  padding:8px 14px calc(var(--tg-bottom) + 8px);
   position:absolute;bottom:0;left:0;right:0;z-index:40;
   background:transparent;
 }
@@ -128,8 +131,7 @@ body{font-family:var(--font);color:var(--t1)}
 .nav-item.on .nav-ic{background:rgba(0,229,168,.13)}
 .nav-item.on svg{stroke:var(--a)}
 .nav-item:active .nav-ic{background:rgba(0,229,168,.09)}
-.nav-dot{width:4px;height:4px;border-radius:50%;background:var(--a);opacity:0;transition:opacity .15s}
-.nav-item.on .nav-dot{opacity:1}
+
 .nav-ai-pill{
   width:56px;height:56px;flex-shrink:0;flex-grow:0;align-self:center;
   display:flex;align-items:center;justify-content:center;
@@ -197,6 +199,10 @@ body{font-family:var(--font);color:var(--t1)}
 .mst-noans svg{stroke:#7AAAFF}.mst-noans .mst-label{color:#7AAAFF}
 .mst-cancelled svg{stroke:#F06449;stroke-width:2.5}.mst-cancelled .mst-label{color:#F06449}
 .mst-done svg{stroke:var(--t3)}.mst-done .mst-label{color:var(--t3)}
+.mst-ongoing{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.mst-ongoing-dot{width:7px;height:7px;border-radius:50%;background:#2DD4A0;flex-shrink:0;animation:pulse-dot 1.5s infinite}
+.mst-ongoing-lbl{font-size:11px;font-weight:700;color:#2DD4A0;line-height:14px}
+@keyframes pulse-dot{0%{box-shadow:0 0 0 0 rgba(45,212,160,.5)}70%{box-shadow:0 0 0 6px rgba(45,212,160,0)}100%{box-shadow:0 0 0 0 rgba(45,212,160,0)}}
 
 /* ── Meet card ── */
 .meet-card{
@@ -368,14 +374,14 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .tab-count{background:var(--ams);color:var(--amber);padding:1px 5px;border-radius:var(--rf);font-size:10px}
 
 /* ── Page head ── */
-.page-head{padding:calc(20px + var(--tg-header-height) + var(--safe-top)) 20px 0;flex-shrink:0}
+.page-head{padding:calc(var(--tg-header) + 20px) 20px 0;flex-shrink:0}
 .page-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
 .page-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
 
 /* ── Inner header ── */
 .inner-header{
   display:flex;align-items:center;gap:10px;
-  padding:14px 16px;
+  padding:calc(var(--tg-header) + 14px) 16px 14px;
   background:var(--s1);
   border-bottom:1px solid var(--b1);
   flex-shrink:0;position:sticky;top:0;z-index:30;
@@ -629,7 +635,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   #app{border-radius:0}
 }
 /* Скрыть Telegram MainButton — используем собственные кнопки */
-.tgme_main_button,[data-testid="main-button"]{display:none!important}
+.tgme_main_button_wrap,.tgme_main_button,[data-testid="main-button"],[class*="main-button"],[class*="MainButton"]{display:none!important;height:0!important;overflow:hidden!important}
 </style>
 </head>
 <body>
@@ -1108,22 +1114,18 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="nav-pill">
     <div class="nav-item on" id="nav-home" onclick="navTab('s-home','nav-home')">
       <div class="nav-ic"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
-      <div class="nav-dot"></div>
     </div>
     <div class="nav-item" id="nav-meetings" onclick="navTab('s-meetings','nav-meetings')">
       <div class="nav-ic">
         <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
         <div class="notif-badge" id="meet-badge" style="display:none">0</div>
       </div>
-      <div class="nav-dot"></div>
     </div>
     <div class="nav-item" id="nav-links" onclick="navTab('s-schedules','nav-links')">
       <div class="nav-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
-      <div class="nav-dot"></div>
     </div>
     <div class="nav-item" id="nav-profile" onclick="navTab('s-profile','nav-profile')">
       <div class="nav-ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-      <div class="nav-dot"></div>
     </div>
   </div>
   <div class="nav-ai-pill" id="nav-create" onclick="startCreate()">
@@ -1248,7 +1250,20 @@ const state = {
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); if (tg.MainButton) tg.MainButton.hide(); }
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.enableClosingConfirmation();
+    try { tg.MainButton.hide(); tg.MainButton.offClick(); } catch(e) {}
+
+    /* Точные insets от Telegram WebApp API (Bot API 7.x+) */
+    const tgSafe    = tg.safeAreaInsets;          /* { top, bottom, left, right } */
+    const tgContent = tg.contentSafeAreaInsets;   /* { top, bottom, left, right } */
+    const tgHeaderH = (tgContent?.top ?? 0) + (tgSafe?.top ?? 0);
+    document.documentElement.style.setProperty('--tg-header', (tgHeaderH < 10 ? 84 : tgHeaderH) + 'px');
+    const tgBottomH = (tgContent?.bottom ?? 0) + (tgSafe?.bottom ?? 0);
+    document.documentElement.style.setProperty('--tg-bottom', (tgBottomH < 5 ? 34 : tgBottomH) + 'px');
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const scheduleId = urlParams.get('schedule_id');
@@ -1538,6 +1553,13 @@ function openLink(url) {
   if (tg) tg.openLink(url); else window.open(url, '_blank');
 }
 
+function openTelegramChat(username) {
+  if (!username) { showToast('Нет контакта для связи', 'error'); return; }
+  var clean = String(username).replace(/^@/, '');
+  if (tg?.openTelegramLink) tg.openTelegramLink('https://t.me/' + clean);
+  else window.open('https://t.me/' + clean, '_blank');
+}
+
 function closeMiniApp() {
   if (tg) tg.close();
 }
@@ -1568,7 +1590,21 @@ function updateSlider(inp, valId) {
 /* ═══════════════════════════════════════════
    MEETING STATUS BADGES
 ═══════════════════════════════════════════ */
+function getMeetingStatus(b) {
+  if (b.status === 'cancelled') return 'cancelled';
+  const now = new Date();
+  const start = new Date(b.scheduled_time);
+  const dur = b.schedule_duration || b.duration || 60;
+  const end = new Date(start.getTime() + dur * 60000);
+  if (now >= start && now < end) return 'ongoing';
+  if (now >= end) return b.status === 'confirmed' ? 'completed' : 'noans';
+  return b.status;
+}
+
 function meetingStatusHtml(status) {
+  if (status === 'ongoing') {
+    return '<div class="mst-ongoing"><span class="mst-ongoing-dot"></span><span class="mst-ongoing-lbl">Идёт</span></div>';
+  }
   const map = {
     confirmed: { cls: 'mst-confirmed', icon: '<polyline points="20 6 9 17 4 12"/>', text: 'Всё в силе' },
     pending:   { cls: 'mst-pending',   icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', text: 'Ожидает' },
@@ -1622,6 +1658,12 @@ function applyIeo() {
 async function loadHome() {
   if (!state.user) return;
 
+  /* auto-refresh every 60s to flip ongoing → completed */
+  if (window._homeRefreshTimer) clearInterval(window._homeRefreshTimer);
+  window._homeRefreshTimer = setInterval(function() {
+    if (state.currentScreen === 's-home') loadHome();
+  }, 60000);
+
   var { data, error } = await apiFetch('GET', '/api/bookings?role=organizer');
   if (error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
   if (data) state.bookings = data;
@@ -1646,12 +1688,15 @@ async function loadHome() {
     }
   }
 
-  /* hero card — nearest upcoming meeting */
+  /* hero card — nearest meeting that hasn't ended yet */
+  const nearest = todayMeetings.find(b => {
+    const end = new Date(b.scheduled_time);
+    end.setMinutes(end.getMinutes() + (b.schedule_duration || 60));
+    return end > now;
+  });
+  state.nextBooking = nearest || null;
   const heroEl = document.getElementById('home-hero');
-  if (heroEl) {
-    const nearest = todayMeetings.find(b => new Date(b.scheduled_time) >= now);
-    heroEl.innerHTML = nearest ? renderHeroCard(nearest, now) : '';
-  }
+  if (heroEl) heroEl.innerHTML = nearest ? renderHeroCard(nearest, now) : '';
 
   /* meetings list */
   const label = document.getElementById('home-section-label');
@@ -1675,10 +1720,13 @@ function renderHeroCard(m, now) {
   const name = escHtml(m.guest_name);
   const title = escHtml(m.schedule_title || '');
   const withinHour = (dt - now) > 0 && (dt - now) < 3600000;
+  const heroStatus = getMeetingStatus(m);
 
-  if (m.status === 'confirmed') {
-    return '<div style="margin:32px 16px 0;background:#182020;border-radius:20px;padding:18px;border:1px solid rgba(0,229,168,.18)">'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:8px">Ближайшая встреча</div>'
+  if (heroStatus === 'confirmed' || heroStatus === 'ongoing') {
+    const heroLabel = heroStatus === 'ongoing' ? 'ВСТРЕЧА ИДЁТ' : 'БЛИЖАЙШАЯ ВСТРЕЧА';
+    const heroBorder = heroStatus === 'ongoing' ? 'rgba(45,212,160,.4)' : 'rgba(0,229,168,.18)';
+    return '<div onclick="if(!event.target.closest(\'button\')){openMeetDetail(\'' + m.id + '\')}" style="margin:32px 16px 0;background:#182020;border-radius:20px;padding:18px;border:1px solid ' + heroBorder + ';cursor:pointer">'
+      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:8px">' + heroLabel + '</div>'
       + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
       + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
       + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">'
@@ -1695,7 +1743,7 @@ function renderHeroCard(m, now) {
 
   /* pending — amber card, label depends on urgency */
   const heroLabel = withinHour ? 'До встречи меньше часа' : 'Ожидает подтверждения';
-  return '<div style="margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3)">'
+  return '<div onclick="if(!event.target.closest(\'button\')){openMeetDetail(\'' + m.id + '\')}" style="margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3);cursor:pointer">'
     + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin-bottom:8px">' + heroLabel + '</div>'
     + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
     + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
@@ -1805,9 +1853,7 @@ function renderMeetingsList() {
   /* compute display status */
   const meetings = (state.bookings || []).map(function(b) {
     const dt = new Date(b.scheduled_time);
-    let ds = b.status;
-    if (ds === 'pending' && dt < now) ds = 'noans';
-    if (ds === 'confirmed' && dt < now) ds = 'completed';
+    const ds = getMeetingStatus(b);
     return Object.assign({}, b, { _dt: dt, _ds: ds });
   });
 
@@ -1824,9 +1870,9 @@ function renderMeetingsList() {
   /* filter */
   var filtered = meetings.filter(function(m) {
     if (_meetFilter === 'confirm') return m._ds === 'pending';
-    if (_meetFilter === 'all')     return m._ds === 'pending' || m._ds === 'confirmed';
+    if (_meetFilter === 'all')     return m._ds === 'pending' || m._ds === 'confirmed' || m._ds === 'ongoing';
     if (_meetFilter === 'noans')   return m._ds === 'noans';
-    if (_meetFilter === 'ok')      return m._ds === 'confirmed';
+    if (_meetFilter === 'ok')      return m._ds === 'confirmed' || m._ds === 'ongoing';
     if (_meetFilter === 'archive') return m._ds === 'completed' || m._ds === 'cancelled';
     return true;
   });
@@ -1882,11 +1928,7 @@ function openMeetDetail(id) {
   const m = (state.bookings || []).find(function(b) { return b.id === id; });
   if (!m) return;
 
-  var now = new Date();
-  var dt = new Date(m.scheduled_time);
-  var dStatus = m.status;
-  if (m.status === 'pending' && dt < now) dStatus = 'noans';
-  else if (m.status === 'confirmed' && dt < now) dStatus = 'completed';
+  var dStatus = getMeetingStatus(m);
 
   state.detailMeetingId = id;
 
@@ -1942,7 +1984,7 @@ function renderMeetDetailHtml(m, dStatus) {
   var contactHtml = contact
     ? '<div class="dr-val" style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
         + '<span>' + contact + ' · Telegram</span>'
-        + '<button data-user="' + escHtml(contactUsername) + '" onclick="openLink(\'https://t.me/\'+this.dataset.user)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">'
+        + '<button data-user="' + escHtml(contactUsername) + '" onclick="openTelegramChat(this.dataset.user)" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(91,142,255,.18);color:#7aaaff;border:1px solid rgba(91,142,255,.28);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">'
           + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
           + 'Написать'
         + '</button>'
@@ -1994,7 +2036,7 @@ function renderMeetDetailHtml(m, dStatus) {
 
   /* action buttons */
   var id = m.id;
-  if (dStatus === 'confirmed') {
+  if (dStatus === 'confirmed' || dStatus === 'ongoing') {
     var linkAttr = link ? ' data-link="' + escHtml(link) + '"' : '';
     html += '<div style="padding:0 16px;display:flex;gap:8px">'
       + '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px"' + linkAttr + ' onclick="if(this.dataset.link)openLink(this.dataset.link)">Подключиться</button>'
@@ -2006,7 +2048,7 @@ function renderMeetDetailHtml(m, dStatus) {
       + '<button class="btn btn-danger" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отклонить</button>'
     + '</div>';
   } else if (dStatus === 'noans') {
-    var writeAttr = contactUsername ? ' data-user="' + escHtml(contactUsername) + '" onclick="openLink(\'https://t.me/\'+this.dataset.user)"' : '';
+    var writeAttr = contactUsername ? ' data-user="' + escHtml(contactUsername) + '" onclick="openTelegramChat(this.dataset.user)"' : '';
     html += '<div style="padding:0 16px;display:flex;gap:8px">'
       + '<button class="btn" style="flex:1;height:40px;padding:0;font-size:13px;background:rgba(91,142,255,.15);color:#7AAAFF;border:1px solid rgba(91,142,255,.3)"' + writeAttr + '>Написать</button>'
       + '<button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отменить встречу</button>'
@@ -2018,15 +2060,19 @@ function renderMeetDetailHtml(m, dStatus) {
 }
 
 async function confirmMeeting(id) {
+  var btn = event?.target?.closest('button');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
   var { data, error } = await apiFetch('PATCH', '/api/bookings/' + id + '/confirm');
   if (error) {
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-    showToast('Не удалось подтвердить');
+    showToast('Не удалось подтвердить', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Подтвердить'; }
     return;
   }
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-  showToast('Встреча подтверждена');
+  showToast('Встреча подтверждена ✓', 'success');
 
   /* update local state */
   var idx = state.bookings.findIndex(function(b) { return b.id === id; });
@@ -2035,12 +2081,15 @@ async function confirmMeeting(id) {
     if (data && data.meeting_link) state.bookings[idx].meeting_link = data.meeting_link;
   }
 
-  /* re-render if on detail screen */
-  if (state.currentScreen === 's-meet-detail' || state.currentScreen === 's-meet-noans') {
-    openMeetDetail(id);
+  if (state.currentScreen === 's-home') {
+    await loadHome();
+  } else {
+    /* re-render detail screen */
+    if (state.currentScreen === 's-meet-detail' || state.currentScreen === 's-meet-noans') {
+      openMeetDetail(id);
+    }
+    if (typeof renderMeetingsList === 'function') renderMeetingsList();
   }
-  /* also re-render meetings list in background */
-  if (typeof renderMeetingsList === 'function') renderMeetingsList();
 }
 
 function openCancelSheet(id) {
@@ -2084,11 +2133,15 @@ async function confirmCancelMeeting() {
 
   state.pendingCancelId = null;
 
-  /* go back from detail to meetings */
-  if (state.currentScreen === 's-meet-detail' || state.currentScreen === 's-meet-noans') {
-    goBack();
+  if (state.currentScreen === 's-home') {
+    await loadHome();
+  } else {
+    /* go back from detail to meetings */
+    if (state.currentScreen === 's-meet-detail' || state.currentScreen === 's-meet-noans') {
+      goBack();
+    }
+    if (typeof renderMeetingsList === 'function') renderMeetingsList();
   }
-  if (typeof renderMeetingsList === 'function') renderMeetingsList();
 }
 
 /* ═══════════════════════════════════════════
