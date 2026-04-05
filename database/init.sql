@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     location_mode   TEXT NOT NULL DEFAULT 'fixed',
     platform        TEXT NOT NULL DEFAULT 'jitsi',
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    is_default      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -56,6 +57,10 @@ CREATE TABLE IF NOT EXISTS bookings (
                         CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
     meeting_link        TEXT,
     notes               TEXT,
+    title               TEXT,
+    end_time            TIMESTAMPTZ,
+    is_manual           BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by          BIGINT,
     reminder_24h_sent   BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_1h_sent    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
