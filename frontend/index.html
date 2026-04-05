@@ -1691,7 +1691,13 @@ function getMeetingStatus(b) {
 
 function meetingStatusHtml(status) {
   if (status === 'ongoing') {
-    return '<div class="mst-ongoing"><span class="mst-ongoing-dot"></span><span class="mst-ongoing-lbl">Идёт</span></div>';
+    return '<div style="display:flex;align-items:center;gap:3px;white-space:nowrap">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2DD4A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0">'
+        + '<path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14"/>'
+        + '<rect x="1" y="6" width="14" height="12" rx="2"/>'
+      + '</svg>'
+      + '<span style="font-size:11px;font-weight:700;color:#2DD4A0;line-height:14px">Идёт</span>'
+    + '</div>';
   }
   const map = {
     confirmed: { cls: 'mst-confirmed', icon: '<polyline points="20 6 9 17 4 12"/>', text: 'Всё в силе' },
@@ -1855,7 +1861,7 @@ function renderMeetingCard(m) {
   const timeEnd = fmtTimeOffset(dt, dur);
   const name = escHtml(m.guest_name || (m.is_manual ? 'Личная встреча' : ''));
   const title = escHtml(m.is_manual ? (m.title || m.display_title || '') : (m.schedule_title || ''));
-  const dStatus = m._ds || m.status;
+  const dStatus = m._ds || getMeetingStatus(m);
   const isPending = dStatus === 'pending' && !m.is_manual;
 
   return '<div onclick="openMeetDetail(\'' + m.id + '\')" style="margin:0 16px 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">'
@@ -2502,22 +2508,24 @@ async function toggleSchedulePause() {
   if (!_editScheduleId) return;
   var s = (state.schedules || []).find(function(x) { return x.id === _editScheduleId; });
   if (!s) return;
-  var isActive = s.is_active !== false;
+  var currentlyActive = s.is_active !== false;
+  var newActive = !currentlyActive;
 
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-  if (isActive) {
-    /* deactivate = soft delete */
-    var { error } = await apiFetch('DELETE', '/api/schedules/' + _editScheduleId);
-    if (error) { if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error'); showToast('Не удалось', 'error'); return; }
-    s.is_active = false;
-  } else {
-    /* reactivate — no backend endpoint, stub */
-    showToast('Скоро будет доступно');
+
+  var { data, error } = await apiFetch('PATCH', '/api/schedules/' + _editScheduleId, {
+    is_active: newActive
+  });
+  if (error) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast('Не удалось ' + (newActive ? 'активировать' : 'приостановить'), 'error');
     return;
   }
+
+  s.is_active = newActive;
+  updatePauseBtn(newActive);
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-  showToast(isActive ? 'Расписание на паузе' : 'Расписание активировано');
-  updatePauseBtn(!isActive);
+  showToast(newActive ? 'Расписание активировано' : 'Расписание на паузе', 'success');
 }
 
 function scheduleBack() {
@@ -2790,6 +2798,11 @@ async function loadCalendar(scheduleId) {
   var { data, error } = await apiFetch('GET', '/api/schedules/' + scheduleId);
   if (error || !data) {
     if (landing) landing.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div><div class="empty-title">Расписание не найдено</div><div class="empty-desc">Ссылка недействительна или расписание удалено</div></div>';
+    return;
+  }
+
+  if (data.is_active === false) {
+    if (landing) landing.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:48px">⏸</div><div class="empty-title">Расписание на паузе</div><div class="empty-desc">Организатор временно приостановил запись. Попробуйте позже или свяжитесь напрямую.</div></div>';
     return;
   }
 
