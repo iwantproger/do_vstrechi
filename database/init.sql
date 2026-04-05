@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT,
     first_name    TEXT,
     last_name     TEXT,
+    timezone      TEXT NOT NULL DEFAULT 'UTC',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -55,6 +56,8 @@ CREATE TABLE IF NOT EXISTS bookings (
                         CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
     meeting_link        TEXT,
     notes               TEXT,
+    reminder_24h_sent   BOOLEAN NOT NULL DEFAULT FALSE,
+    reminder_1h_sent    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

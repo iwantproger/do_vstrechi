@@ -14,8 +14,10 @@ from datetime import datetime, timedelta, date, time, timezone
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 from urllib.parse import parse_qs
+from zoneinfo import ZoneInfo, available_timezones
 
 import asyncpg
+import httpx
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -26,12 +28,13 @@ log = logging.getLogger(__name__)
 DATABASE_URL = os.environ["DATABASE_URL"]
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+BOT_INTERNAL_URL = os.environ.get("BOT_INTERNAL_URL", "http://bot:8080")
 
 # ─────────────────────────────────────────────────────────
 # Telegram initData validation (HMAC-SHA256)
 # ─────────────────────────────────────────────────────────
 
-def validate_init_data(init_data: str, bot_token: str) -> dict | None:
+def validate_init_data(init_data: str, bot_token: str, max_age_seconds: int = 86400) -> dict | None:
     """Validate Telegram WebApp initData per https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app"""
     try:
         parsed = dict(parse_qs(init_data, keep_blank_values=True))
@@ -50,6 +53,12 @@ def validate_init_data(init_data: str, bot_token: str) -> dict | None:
         ).hexdigest()
         if not hmac.compare_digest(computed_hash, check_hash):
             return None
+        # Reject expired initData
+        auth_date_str = parsed.get("auth_date")
+        if auth_date_str:
+            now_ts = datetime.now(timezone.utc).timestamp()
+            if now_ts - int(auth_date_str) > max_age_seconds:
+                return None
         user_json = parsed.get("user")
         if not user_json:
             return None
@@ -142,6 +151,7 @@ class UserAuth(BaseModel):
     username: Optional[str] = Field(None, max_length=100)
     first_name: Optional[str] = Field(None, max_length=200)
     last_name: Optional[str] = Field(None, max_length=200)
+    timezone: Optional[str] = "UTC"
 
 class ScheduleCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -181,6 +191,24 @@ def generate_meeting_link(platform: str) -> str:
         return f"https://meet.jit.si/dovstrechi-{room}"
     return f"https://meet.jit.si/dovstrechi-{room}"
 
+
+async def _notify_bot_new_booking(**kwargs: Any) -> None:
+    """Fire-and-forget: tell bot to message the organizer about a new booking."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(
+                f"{BOT_INTERNAL_URL}/internal/notify",
+                json=kwargs,
+                headers={"X-Internal-Key": INTERNAL_API_KEY},
+            )
+            result = resp.json()
+            if result.get("ok"):
+                log.info(f"Bot notified about booking {kwargs.get('booking_id')}")
+            else:
+                log.warning(f"Bot notification failed: {result}")
+    except Exception as e:
+        log.warning(f"Failed to notify bot about new booking: {e}")
+
 # ─────────────────────────────────────────────────────────
 # Health
 # ─────────────────────────────────────────────────────────
@@ -209,18 +237,20 @@ async def auth_user(
     conn: asyncpg.Connection = Depends(db)
 ):
     telegram_id = user["id"]
+    tz = data.timezone if data.timezone and data.timezone in available_timezones() else "UTC"
     row = await conn.fetchrow(
         """
-        INSERT INTO users (telegram_id, username, first_name, last_name)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO users (telegram_id, username, first_name, last_name, timezone)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (telegram_id) DO UPDATE
             SET username   = EXCLUDED.username,
                 first_name = EXCLUDED.first_name,
                 last_name  = EXCLUDED.last_name,
+                timezone   = EXCLUDED.timezone,
                 updated_at = NOW()
         RETURNING *
         """,
-        telegram_id, data.username, data.first_name, data.last_name
+        telegram_id, data.username, data.first_name, data.last_name, tz
     )
     return row_to_dict(row)
 
@@ -325,6 +355,7 @@ async def delete_schedule(
 async def available_slots(
     schedule_id: str,
     date: str = Query(..., description="YYYY-MM-DD"),
+    viewer_tz: str = Query("UTC", description="Viewer IANA timezone"),
     conn: asyncpg.Connection = Depends(db)
 ):
     try:
@@ -333,44 +364,67 @@ async def available_slots(
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат параметров")
 
-    schedule = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1 AND is_active = TRUE", sid)
-    if not schedule:
+    # Schedule + organizer timezone
+    row = await conn.fetchrow(
+        """
+        SELECT s.*, u.timezone AS organizer_timezone
+        FROM schedules s JOIN users u ON u.id = s.user_id
+        WHERE s.id = $1 AND s.is_active = TRUE
+        """,
+        sid
+    )
+    if not row:
         raise HTTPException(status_code=404, detail="Расписание не найдено")
+    schedule = dict(row)
+
+    org_tz = ZoneInfo(schedule.get("organizer_timezone") or "UTC")
+    vtz = ZoneInfo(viewer_tz) if viewer_tz in available_timezones() else ZoneInfo("UTC")
 
     # Проверка рабочего дня (0=Пн)
     day_of_week = target_date.weekday()
     if day_of_week not in schedule["work_days"]:
         return {"available_slots": [], "date": date}
 
-    # Существующие бронирования на эту дату
+    # Генерация слотов в зоне организатора
+    start_h, start_m = map(int, schedule["start_time"].strftime("%H:%M").split(":"))
+    end_h, end_m = map(int, schedule["end_time"].strftime("%H:%M").split(":"))
+
+    slot_start = datetime(target_date.year, target_date.month, target_date.day,
+                          start_h, start_m, tzinfo=org_tz)
+    slot_end = datetime(target_date.year, target_date.month, target_date.day,
+                        end_h, end_m, tzinfo=org_tz)
+
+    # Бронирования в UTC-диапазоне рабочего дня
+    slot_start_utc = slot_start.astimezone(ZoneInfo("UTC"))
+    slot_end_utc = slot_end.astimezone(ZoneInfo("UTC"))
     booked = await conn.fetch(
         """
         SELECT scheduled_time FROM bookings
         WHERE schedule_id = $1
           AND status NOT IN ('cancelled')
-          AND scheduled_time::date = $2
+          AND scheduled_time >= $2
+          AND scheduled_time < $3
         """,
-        sid, target_date
+        sid, slot_start_utc, slot_end_utc
     )
-    booked_times = {r["scheduled_time"].strftime("%H:%M") for r in booked}
+    booked_utc = {r["scheduled_time"].replace(second=0, microsecond=0) for r in booked}
 
-    # Генерация слотов
-    start_h, start_m = map(int, schedule["start_time"].strftime("%H:%M").split(":"))
-    end_h, end_m = map(int, schedule["end_time"].strftime("%H:%M").split(":"))
-
-    slot_start = datetime(target_date.year, target_date.month, target_date.day, start_h, start_m)
-    slot_end = datetime(target_date.year, target_date.month, target_date.day, end_h, end_m)
     step = timedelta(minutes=schedule["duration"] + schedule["buffer_time"])
     slot_duration = timedelta(minutes=schedule["duration"])
+    now_utc = datetime.now(ZoneInfo("UTC"))
 
-    now = datetime.now(timezone.utc)
     slots = []
     current = slot_start
-
     while current + slot_duration <= slot_end:
-        time_str = current.strftime("%H:%M")
-        if current > now and time_str not in booked_times:
-            slots.append({"time": time_str, "datetime": current.isoformat()})
+        current_utc = current.astimezone(ZoneInfo("UTC")).replace(second=0, microsecond=0)
+        if current_utc > now_utc and current_utc not in booked_utc:
+            viewer_dt = current.astimezone(vtz)
+            slots.append({
+                "time": current.strftime("%H:%M"),
+                "datetime": current_utc.isoformat(),
+                "datetime_utc": current_utc.isoformat(),
+                "datetime_local": viewer_dt.strftime("%H:%M"),
+            })
         current += step
 
     return {"available_slots": slots, "date": date}
@@ -380,7 +434,11 @@ async def available_slots(
 # ─────────────────────────────────────────────────────────
 
 @app.post("/api/bookings")
-async def create_booking(data: BookingCreate, conn: asyncpg.Connection = Depends(db)):
+async def create_booking(
+    data: BookingCreate,
+    conn: asyncpg.Connection = Depends(db),
+    auth_user: dict | None = Depends(get_optional_user),
+):
     try:
         sid = uuid.UUID(data.schedule_id)
         scheduled_time = datetime.fromisoformat(data.scheduled_time.replace("Z", "+00:00"))
@@ -407,6 +465,9 @@ async def create_booking(data: BookingCreate, conn: asyncpg.Connection = Depends
 
     meeting_link = generate_meeting_link(schedule["platform"])
 
+    # Prefer guest_telegram_id from validated initData over body field
+    guest_telegram_id = auth_user["id"] if auth_user else data.guest_telegram_id
+
     row = await conn.fetchrow(
         """
         INSERT INTO bookings
@@ -415,13 +476,28 @@ async def create_booking(data: BookingCreate, conn: asyncpg.Connection = Depends
         VALUES ($1,$2,$3,$4,$5,'pending',$6,$7)
         RETURNING *
         """,
-        sid, data.guest_name, data.guest_contact, data.guest_telegram_id,
+        sid, data.guest_name, data.guest_contact, guest_telegram_id,
         scheduled_time, meeting_link, data.notes
     )
 
     result = row_to_dict(row)
 
-    # Уведомить организатора (через HTTP в bot — необязательно, бот сам опрашивает)
+    # Notify organizer via bot
+    organizer = await conn.fetchrow(
+        "SELECT telegram_id FROM users WHERE id = $1", schedule["user_id"]
+    )
+    if organizer and organizer["telegram_id"]:
+        asyncio.create_task(_notify_bot_new_booking(
+            booking_id=str(result["id"]),
+            organizer_telegram_id=organizer["telegram_id"],
+            guest_name=data.guest_name,
+            guest_contact=data.guest_contact,
+            guest_telegram_id=guest_telegram_id,
+            scheduled_time=data.scheduled_time,
+            schedule_title=schedule["title"],
+            meeting_link=meeting_link,
+        ))
+
     log.info(f"New booking created: {result['id']} for schedule {sid}")
     return result
 
@@ -550,6 +626,62 @@ async def cancel_booking(
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя отменить")
     return row_to_dict(row)
+
+
+# ─────────────────────────────────────────────────────────
+# Reminders
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/bookings/pending-reminders")
+async def get_pending_reminders(
+    reminder_type: str = Query(...),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if reminder_type not in ("24h", "1h"):
+        raise HTTPException(400, "reminder_type must be '24h' or '1h'")
+
+    if reminder_type == "24h":
+        flag_col = "reminder_24h_sent"
+        interval = "INTERVAL '24 hours 15 minutes'"
+        min_interval = "INTERVAL '23 hours 45 minutes'"
+    else:
+        flag_col = "reminder_1h_sent"
+        interval = "INTERVAL '1 hour 15 minutes'"
+        min_interval = "INTERVAL '45 minutes'"
+
+    rows = await conn.fetch(f"""
+        SELECT b.id, b.guest_name, b.guest_contact, b.guest_telegram_id,
+               b.scheduled_time, b.meeting_link, b.notes,
+               s.title AS schedule_title, s.duration,
+               u.telegram_id AS organizer_telegram_id,
+               u.first_name AS organizer_name,
+               u.timezone AS organizer_timezone
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'confirmed'
+          AND b.{flag_col} = FALSE
+          AND b.scheduled_time > NOW()
+          AND b.scheduled_time <= NOW() + {interval}
+          AND b.scheduled_time >= NOW() + {min_interval}
+    """)
+    return {"bookings": [dict(r) for r in rows]}
+
+
+@app.patch("/api/bookings/{booking_id}/reminder-sent")
+async def mark_reminder_sent(
+    booking_id: str,
+    reminder_type: str = Query(...),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if reminder_type not in ("24h", "1h"):
+        raise HTTPException(400, "Invalid reminder_type")
+    flag_col = "reminder_24h_sent" if reminder_type == "24h" else "reminder_1h_sent"
+    await conn.execute(
+        f"UPDATE bookings SET {flag_col} = TRUE WHERE id = $1",
+        uuid.UUID(booking_id),
+    )
+    return {"ok": True}
 
 
 # ─────────────────────────────────────────────────────────

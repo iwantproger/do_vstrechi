@@ -4,12 +4,15 @@ aiogram 3.x + FastAPI backend
 """
 
 import os
+import hmac
 import logging
 import asyncio
 from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import aiohttp
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -19,7 +22,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
     KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo,
-    BotCommand, MenuButtonWebApp
+    BotCommand, MenuButtonDefault
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -29,6 +32,8 @@ BOT_TOKEN        = os.environ["BOT_TOKEN"]
 BACKEND_URL      = os.environ.get("BACKEND_API_URL", "http://backend:8000")
 MINI_APP_URL     = os.environ.get("MINI_APP_URL", "https://YOUR_DOMAIN.ru")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+
+_bot: Bot | None = None
 
 # ─────────────────────────────────────────────────────────
 # FSM States
@@ -68,6 +73,19 @@ async def api(method: str, path: str, **kwargs) -> dict | list | None:
 # ─────────────────────────────────────────────────────────
 # Keyboards
 # ─────────────────────────────────────────────────────────
+
+def get_main_keyboard() -> ReplyKeyboardMarkup:
+    """Main reply keyboard (persistent bottom panel)"""
+    keyboard = [
+        [KeyboardButton(text="📅 Создать расписание")],
+        [
+            KeyboardButton(text="📋 Мои расписания"),
+            KeyboardButton(text="👥 Мои встречи")
+        ],
+        [KeyboardButton(text="❓ Помощь")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
 
 def kb_main(mini_app_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -135,11 +153,12 @@ STATUS_EMOJI = {"pending": "⏳", "confirmed": "✅", "cancelled": "❌", "compl
 STATUS_TEXT  = {"pending": "Ожидает", "confirmed": "Подтверждена", "cancelled": "Отменена", "completed": "Завершена"}
 DAYS_RU      = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
-def format_dt(dt_str: str) -> str:
+def format_dt(dt_str: str, tz: str = "UTC") -> str:
     try:
         dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        return dt.strftime("%d.%m.%Y %H:%M")
-    except:
+        local_dt = dt.astimezone(ZoneInfo(tz))
+        return local_dt.strftime("%d.%m.%Y %H:%M")
+    except Exception:
         return dt_str
 
 def format_booking(b: dict, show_role: bool = False) -> str:
@@ -168,23 +187,40 @@ router = Router()
 # ── /start ──────────────────────────────────────────────
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message):
+async def cmd_start(msg: Message, state: FSMContext):
+    await state.clear()
     user = msg.from_user
+    log.info(f"User {user.id} started bot")
+
     await api("post", f"/api/users/auth?telegram_id={user.id}", json={
         "username":    user.username,
         "first_name":  user.first_name,
         "last_name":   user.last_name,
     })
 
-    text = (
+    # Inline-кнопка для открытия Mini App
+    inline_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🌐 Открыть приложение",
+            web_app=WebAppInfo(url=MINI_APP_URL)
+        )
+    ]])
+
+    await msg.answer(
         f"👋 Привет, <b>{user.first_name}</b>!\n\n"
         "Я помогу тебе управлять встречами:\n"
         "• создавать расписания\n"
         "• принимать бронирования\n"
         "• отправлять ссылки клиентам\n\n"
-        "Выбери действие:"
+        "Выбери действие:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=get_main_keyboard()
     )
-    await msg.answer(text, reply_markup=kb_main(MINI_APP_URL), parse_mode=ParseMode.HTML)
+
+    await msg.answer(
+        "👇 Или открой приложение:",
+        reply_markup=inline_kb
+    )
 
 # ── Главное меню ──────────────────────────────────────────
 
@@ -488,8 +524,11 @@ async def cb_confirm_booking(cb: CallbackQuery):
     booking_id = cb.data.split("_", 1)[1]
     result = await api("patch", f"/api/bookings/{booking_id}/confirm?telegram_id={cb.from_user.id}")
     if result:
-        await cb.answer("✅ Встреча подтверждена!", show_alert=True)
-        await cb_my_bookings(cb)
+        await cb.message.edit_text(
+            cb.message.text + "\n\n✅ <b>Подтверждено</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        await cb.answer("Встреча подтверждена!")
     else:
         await cb.answer("Не удалось подтвердить", show_alert=True)
 
@@ -498,8 +537,11 @@ async def cb_cancel_booking(cb: CallbackQuery):
     booking_id = cb.data.split("_", 1)[1]
     result = await api("patch", f"/api/bookings/{booking_id}/cancel?telegram_id={cb.from_user.id}")
     if result:
-        await cb.answer("❌ Встреча отменена", show_alert=True)
-        await cb_my_bookings(cb)
+        await cb.message.edit_text(
+            cb.message.text + "\n\n❌ <b>Отклонено</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        await cb.answer("Встреча отменена")
     else:
         await cb.answer("Не удалось отменить", show_alert=True)
 
@@ -541,37 +583,278 @@ async def cmd_help(msg: Message):
         reply_markup=kb_back_main()
     )
 
+# ── Reply-кнопки (нижняя панель) ────────────────────────
+
+@router.message(F.text == "📅 Создать расписание")
+async def reply_create_schedule(msg: Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(CreateSchedule.title)
+    await msg.answer(
+        "➕ <b>Создание нового расписания</b>\n\n"
+        "Шаг 1/5: Введи название расписания.\n"
+        "Например: <i>Консультация по маркетингу</i>",
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.message(F.text == "📋 Мои расписания")
+async def reply_my_schedules(msg: Message):
+    schedules = await api("get", f"/api/schedules?telegram_id={msg.from_user.id}")
+
+    if not schedules:
+        await msg.answer(
+            "У тебя пока нет расписаний.\n\nСоздай первое!",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="➕ Создать", callback_data="create_schedule")],
+            ])
+        )
+        return
+
+    buttons = []
+    for s in schedules:
+        dur = s["duration"]
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"📅 {s['title']} ({dur} мин)",
+                callback_data=f"schedule_{s['id']}"
+            )
+        ])
+    buttons.append([InlineKeyboardButton(text="➕ Создать новое", callback_data="create_schedule")])
+
+    await msg.answer(
+        f"📋 Твои расписания ({len(schedules)}):",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
+
+
+@router.message(F.text == "👥 Мои встречи")
+async def reply_my_bookings(msg: Message):
+    bookings = await api("get", f"/api/bookings?telegram_id={msg.from_user.id}")
+
+    if not bookings:
+        await msg.answer("У тебя пока нет встреч.")
+        return
+
+    buttons = []
+    for b in bookings[:10]:
+        emoji = STATUS_EMOJI.get(b["status"], "?")
+        dt = format_dt(b["scheduled_time"])
+        role = "📌" if b.get("my_role") == "organizer" else "👤"
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{role}{emoji} {b.get('schedule_title','?')} · {dt}",
+                callback_data=f"booking_{b['id']}"
+            )
+        ])
+
+    await msg.answer(
+        f"📋 <b>Твои встречи ({len(bookings)})</b>\n"
+        f"📌 = организатор, 👤 = гость",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.message(F.text == "❓ Помощь")
+async def reply_help(msg: Message):
+    await cmd_help(msg)
+
 # ─────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────
 
 async def setup_bot_commands(bot: Bot):
-    """Регистрирует команды и кнопку Menu Button (открывает мини-приложение)."""
+    """Регистрирует команды и сбрасывает Menu Button к настройкам BotFather."""
     commands = [
         BotCommand(command="start",  description="Главное меню"),
         BotCommand(command="help",   description="Справка по боту"),
     ]
     await bot.set_my_commands(commands)
 
-    # Кнопка «☰ Меню» рядом с полем ввода открывает мини-приложение напрямую
-    await bot.set_chat_menu_button(
-        menu_button=MenuButtonWebApp(
-            text="📅 Открыть",
-            web_app=WebAppInfo(url=MINI_APP_URL),
+    # Сброс к дефолтной кнопке из BotFather (там настроено «Открыть» с правильным URL)
+    try:
+        await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
+        log.info("Menu button reset to BotFather default")
+    except Exception as e:
+        log.warning(f"Could not reset menu button: {e}")
+    log.info("Bot commands configured")
+
+
+# ─────────────────────────────────────────────────────────
+# Internal notification webhook (aiohttp)
+# ─────────────────────────────────────────────────────────
+
+async def handle_new_booking(request: web.Request) -> web.Response:
+    """Receive booking notification from backend and message the organizer."""
+    key = request.headers.get("X-Internal-Key", "")
+    if not INTERNAL_API_KEY or not hmac.compare_digest(key, INTERNAL_API_KEY):
+        return web.json_response({"error": "unauthorized"}, status=401)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400)
+
+    organizer_tid = payload.get("organizer_telegram_id")
+    if not organizer_tid or not _bot:
+        return web.json_response({"error": "missing data"}, status=400)
+
+    try:
+        dt = format_dt(payload.get("scheduled_time", ""))
+        schedule_title = payload.get("schedule_title", "Встреча")
+        guest_name = payload.get("guest_name", "—")
+        guest_contact = payload.get("guest_contact", "—")
+        meeting_link = payload.get("meeting_link", "")
+
+        # Message to organizer
+        org_text = (
+            "🔔 <b>Новая запись!</b>\n\n"
+            f"👤 {guest_name}\n"
+            f"📅 {dt}\n"
+            f"📋 {schedule_title}\n"
+            f"📞 {guest_contact}"
         )
+        if meeting_link:
+            org_text += f"\n🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
+
+        booking_id = payload.get("booking_id", "")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{booking_id}"),
+                InlineKeyboardButton(text="❌ Отклонить", callback_data=f"cancel_{booking_id}"),
+            ],
+        ])
+
+        await _bot.send_message(
+            chat_id=organizer_tid,
+            text=org_text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb,
+            disable_web_page_preview=True,
+        )
+
+        # Message to guest (if telegram_id available)
+        guest_tid = payload.get("guest_telegram_id")
+        if guest_tid:
+            guest_text = (
+                "✅ <b>Вы записались!</b>\n\n"
+                f"📋 {schedule_title}\n"
+                f"📅 {dt}\n"
+            )
+            if meeting_link:
+                guest_text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>\n"
+            guest_text += "\nОжидайте подтверждения от организатора."
+
+            await _bot.send_message(
+                chat_id=guest_tid,
+                text=guest_text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+
+        return web.json_response({"ok": True})
+
+    except Exception as e:
+        log.error(f"Failed to send notification: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def send_reminder(booking: dict, reminder_type: str):
+    """Send reminder to guest and organizer."""
+    scheduled_dt = booking["scheduled_time"]
+    if isinstance(scheduled_dt, str):
+        scheduled_dt = datetime.fromisoformat(scheduled_dt.replace("Z", "+00:00"))
+
+    org_tz = booking.get("organizer_timezone") or "UTC"
+    time_str = format_dt(booking["scheduled_time"], tz=org_tz)
+
+    prefix = "⏰ Напоминание!" if reminder_type == "1h" else "📅 Завтра встреча!"
+
+    text = (
+        f"{prefix}\n\n"
+        f"📋 {booking['schedule_title']}\n"
+        f"📅 {time_str}\n"
+        f"⏱ {booking.get('duration', 60)} мин\n"
     )
-    log.info("Bot commands and menu button configured")
+    if booking.get("meeting_link"):
+        text += f"🔗 <a href=\"{booking['meeting_link']}\">Подключиться</a>\n"
+
+    # Notify guest
+    guest_tid = booking.get("guest_telegram_id")
+    if guest_tid and _bot:
+        try:
+            await _bot.send_message(
+                guest_tid,
+                text + f"\n👤 Организатор: {booking.get('organizer_name', 'N/A')}",
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+        except Exception as e:
+            log.warning(f"Failed to send reminder to guest {guest_tid}: {e}")
+
+    # Notify organizer
+    org_tid = booking.get("organizer_telegram_id")
+    if org_tid and _bot:
+        try:
+            await _bot.send_message(
+                org_tid,
+                text + f"\n👤 Гость: {booking['guest_name']} ({booking.get('guest_contact', '')})",
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+        except Exception as e:
+            log.warning(f"Failed to send reminder to organizer {org_tid}: {e}")
+
+    # Mark as sent
+    await api("patch", f"/api/bookings/{booking['id']}/reminder-sent?reminder_type={reminder_type}")
+
+
+async def reminder_loop():
+    """Check for pending reminders every 5 minutes and send them."""
+    await asyncio.sleep(10)  # wait for bot startup
+    log.info("Reminder loop started")
+    while True:
+        try:
+            for rtype in ("24h", "1h"):
+                response = await api(
+                    "get",
+                    f"/api/bookings/pending-reminders?reminder_type={rtype}",
+                )
+                if response and response.get("bookings"):
+                    for b in response["bookings"]:
+                        await send_reminder(b, rtype)
+                        await asyncio.sleep(0.5)  # rate limit
+        except Exception as e:
+            log.error(f"Reminder loop error: {e}")
+
+        await asyncio.sleep(300)  # 5 minutes
 
 
 async def main():
-    bot = Bot(token=BOT_TOKEN)
+    global _bot
+    _bot = Bot(token=BOT_TOKEN)
     dp  = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
 
-    await setup_bot_commands(bot)
+    await setup_bot_commands(_bot)
+
+    # Background reminder task
+    asyncio.create_task(reminder_loop())
+
+    # Internal notification server
+    webapp = web.Application()
+    webapp.router.add_post("/internal/notify", handle_new_booking)
+    runner = web.AppRunner(webapp)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    log.info("Internal notification server started on port 8080")
 
     log.info("Bot starting…")
-    await dp.start_polling(bot, skip_updates=True)
+    try:
+        await dp.start_polling(_bot, skip_updates=True)
+    finally:
+        await runner.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())

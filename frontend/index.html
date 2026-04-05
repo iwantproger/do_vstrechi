@@ -1134,6 +1134,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ═══════════════════════════════════════════ */
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
+const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const MONTHS     = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
@@ -1153,6 +1154,8 @@ const state = {
   schedule: null,
   selectedDate: null,
   selectedTime: null,
+  selectedSlotUtc: null,
+  selectedTimeLocal: null,
   monthSlots: {},
   currentMonth: new Date(),
   screenStack: [],
@@ -1318,6 +1321,10 @@ async function apiFetch(method, path, body = null) {
     if (tg?.initData) opts.headers['X-Init-Data'] = tg.initData;
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(BACKEND + path, opts);
+    if (res.status === 401) {
+      showToast('Ошибка авторизации. Перезапустите приложение.', 'error');
+      return { data: null, error: 'auth' };
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { data: null, error: data.detail || 'HTTP ' + res.status };
     return { data, error: null };
@@ -1337,6 +1344,7 @@ async function authUser() {
     first_name: u.first_name,
     last_name: u.last_name || '',
     username: u.username || '',
+    timezone: userTimezone,
   });
   if (data) state.user = data;
 }
@@ -2596,7 +2604,7 @@ async function loadCalendar(scheduleId) {
 
   state.schedule = data;
   state.selectedDate = null;
-  state.selectedTime = null;
+  state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
   state.monthSlots = {};
   state.currentMonth = new Date();
 
@@ -2733,7 +2741,7 @@ async function loadMonthSlots() {
     var batch = datesToFetch.slice(i, i + 8);
     try {
       var promises = batch.map(function(ds) {
-        return apiFetch('GET', '/api/available-slots/' + sched.id + '?date=' + ds)
+        return apiFetch('GET', '/api/available-slots/' + sched.id + '?date=' + ds + '&viewer_tz=' + encodeURIComponent(userTimezone))
           .then(function(res) { return { date: ds, slots: (res.data && res.data.available_slots) || [] }; });
       });
       var results = await Promise.all(promises);
@@ -2745,7 +2753,7 @@ async function loadMonthSlots() {
 
 function selectDay(ds) {
   state.selectedDate = ds;
-  state.selectedTime = null;
+  state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 
   renderCalendar();
@@ -2775,8 +2783,9 @@ function selectDay(ds) {
   var html = '';
   daySlots.forEach(function(slot) {
     var t = slot.time;
+    var display = slot.datetime_local || t;
     var sel = state.selectedTime === t ? ' s-sel' : '';
-    html += '<div class="slot s-free' + sel + '" onclick="selectTime(\'' + t + '\')">' + t + '</div>';
+    html += '<div class="slot s-free' + sel + '" onclick="selectTime(\'' + t + '\')">' + display + '</div>';
   });
   gridEl.innerHTML = html;
   panel.style.display = '';
@@ -2787,17 +2796,22 @@ function selectDay(ds) {
 
 function selectTime(time) {
   state.selectedTime = time;
+  var daySlots = state.monthSlots[state.selectedDate] || [];
+  var slot = daySlots.find(function(s) { return s.time === time; });
+  state.selectedSlotUtc = slot ? (slot.datetime_utc || slot.datetime) : null;
+  state.selectedTimeLocal = slot ? (slot.datetime_local || time) : time;
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   /* re-render slot grid to update selection */
   var gridEl = document.getElementById('csp-grid');
   if (gridEl) {
-    var daySlots = state.monthSlots[state.selectedDate] || [];
+    var daySlots2 = state.monthSlots[state.selectedDate] || [];
     var html = '';
-    daySlots.forEach(function(slot) {
-      var t = slot.time;
+    daySlots2.forEach(function(s) {
+      var t = s.time;
+      var display = s.datetime_local || t;
       var sel = state.selectedTime === t ? ' s-sel' : '';
-      html += '<div class="slot s-free' + sel + '" onclick="selectTime(\'' + t + '\')">' + t + '</div>';
+      html += '<div class="slot s-free' + sel + '" onclick="selectTime(\'' + t + '\')">' + display + '</div>';
     });
     gridEl.innerHTML = html;
   }
@@ -2816,7 +2830,7 @@ function changeMonth(dir) {
   var y = state.currentMonth.getFullYear();
   state.currentMonth = new Date(y, m, 1);
   state.selectedDate = null;
-  state.selectedTime = null;
+  state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
 
   /* hide slot panel */
   var panel = document.getElementById('cal-slot-panel');
@@ -2844,14 +2858,15 @@ function setupForm() {
   var dow = (dt.getDay() + 6) % 7;
 
   /* compute end time */
-  var timeParts = state.selectedTime.split(':');
+  var displayTime = state.selectedTimeLocal || state.selectedTime;
+  var timeParts = displayTime.split(':');
   var startMin = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
   var endMin = startMin + (sched ? sched.duration : 60);
   var endH = String(Math.floor(endMin / 60)).padStart(2, '0');
   var endM = String(endMin % 60).padStart(2, '0');
 
   var dtEl = document.getElementById('confirm-datetime');
-  if (dtEl) dtEl.textContent = dd + ' ' + MONTHS_GEN[mm] + ' · ' + state.selectedTime + ' – ' + endH + ':' + endM;
+  if (dtEl) dtEl.textContent = dd + ' ' + MONTHS_GEN[mm] + ' · ' + displayTime + ' – ' + endH + ':' + endM;
 
   var infoEl = document.getElementById('confirm-info');
   if (infoEl) {
@@ -2910,8 +2925,8 @@ async function submitBooking() {
   }
   if (errEl) errEl.style.display = 'none';
 
-  /* build scheduled_time ISO string */
-  var scheduled_time = state.selectedDate + 'T' + state.selectedTime + ':00';
+  /* build scheduled_time — prefer UTC from slot data */
+  var scheduled_time = state.selectedSlotUtc || (state.selectedDate + 'T' + state.selectedTime + ':00');
 
   var u = tg?.initDataUnsafe?.user;
   var body = {
@@ -2955,14 +2970,15 @@ function renderSuccess(booking) {
   var dt = new Date(parseInt(parts[0]), mm, dd);
   var dow = (dt.getDay() + 6) % 7;
 
-  var timeParts = state.selectedTime.split(':');
+  var displayTime2 = state.selectedTimeLocal || state.selectedTime;
+  var timeParts = displayTime2.split(':');
   var startMin = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
   var endMin = startMin + (sched ? sched.duration : 60);
   var endH = String(Math.floor(endMin / 60)).padStart(2, '0');
   var endM = String(endMin % 60).padStart(2, '0');
 
   var subEl = document.getElementById('book-success-sub');
-  if (subEl) subEl.textContent = dd + ' ' + MONTHS_GEN[mm] + ' · ' + state.selectedTime + ' – ' + endH + ':' + endM;
+  if (subEl) subEl.textContent = dd + ' ' + MONTHS_GEN[mm] + ' · ' + displayTime2 + ' – ' + endH + ':' + endM;
 
   /* detail card */
   var detEl = document.getElementById('book-success-details');
@@ -2971,7 +2987,7 @@ function renderSuccess(booking) {
       + '<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:8px">' + escHtml(sched.title) + '</div>'
       + '<div style="font-size:13px;color:var(--t2);line-height:1.6">'
       + DAYS_FULL[dow] + ', ' + dd + ' ' + MONTHS_GEN[mm] + '<br>'
-      + state.selectedTime + ' – ' + endH + ':' + endM + ' · ' + sliderLabel(sched.duration) + '<br>'
+      + displayTime2 + ' – ' + endH + ':' + endM + ' · ' + sliderLabel(sched.duration) + '<br>'
       + escHtml(PLAT_NAMES[sched.platform] || sched.platform)
       + '</div></div>';
   }

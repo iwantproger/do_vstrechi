@@ -38,6 +38,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       BOT_TOKEN: ${BOT_TOKEN}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      BOT_INTERNAL_URL: http://bot:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +64,8 @@ services:
       BACKEND_API_URL: http://backend:8000
       MINI_APP_URL: ${MINI_APP_URL}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    expose:
+      - "8080"
     depends_on:
       backend:
         condition: service_healthy
