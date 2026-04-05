@@ -1189,6 +1189,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+function setHomeSubtitle(text, isError) {
+  const sub = document.getElementById('home-subtitle');
+  if (!sub) return;
+  var color = isError ? 'var(--red)' : 'var(--t1)';
+  sub.innerHTML = '<span style="font-weight:800;color:' + color + '">' + escHtml(text) + '</span>';
+}
+
 function setupProfile() {
   const u = tg?.initDataUnsafe?.user;
   if (!u) return;
@@ -1338,15 +1345,22 @@ async function apiFetch(method, path, body = null) {
 ═══════════════════════════════════════════ */
 async function authUser() {
   const u = tg?.initDataUnsafe?.user;
-  if (!u) return;
-  const { data } = await apiFetch('POST', '/api/users/auth', {
+  if (!u) {
+    setHomeSubtitle('Откройте приложение через Telegram', true);
+    return;
+  }
+  const { data, error } = await apiFetch('POST', '/api/users/auth', {
     telegram_id: u.id,
     first_name: u.first_name,
     last_name: u.last_name || '',
     username: u.username || '',
     timezone: userTimezone,
   });
-  if (data) state.user = data;
+  if (data) {
+    state.user = data;
+  } else {
+    setHomeSubtitle('Ошибка авторизации' + (error ? ': ' + error : ''), true);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -1541,7 +1555,7 @@ async function loadHome() {
       apiFetch('GET', '/api/bookings?role=organizer'),
     ]);
   } catch (e) {
-    showToast('Ошибка загрузки', 'error');
+    setHomeSubtitle('Не удалось загрузить данные', true);
     return;
   }
 
