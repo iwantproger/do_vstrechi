@@ -1153,7 +1153,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div class="sheet-sub" id="sheet-cancel-sub">Участник получит уведомление об отмене. Слот освободится.</div>
     <div class="sheet-actions">
       <button class="btn btn-secondary" style="flex:1" onclick="closeSheet('sheet-cancel')">Не надо</button>
-      <button class="btn btn-danger" style="flex:1" id="sheet-cancel-action" onclick="confirmCancelMeeting()">Отменить встречу</button>
+      <button class="btn btn-danger" style="flex:1" id="sheet-cancel-action" data-action="cancel-meeting" onclick="confirmCancelMeeting()">Отменить встречу</button>
     </div>
   </div>
 </div>
@@ -2202,29 +2202,37 @@ function openCancelSheet(id) {
 async function confirmCancelMeeting() {
   if (state._deleteMode) { confirmDeleteSchedule(); return; }
   var id = state.pendingCancelId;
-  closeSheet('sheet-cancel');
-  if (!id) return;
+  if (!id) { closeSheet('sheet-cancel'); return; }
+
+  var btn = document.getElementById('sheet-cancel-action');
+  var origText = btn ? btn.textContent : 'Отменить встречу';
+  if (btn) { btn.disabled = true; btn.textContent = 'Отменяем…'; }
+
+  console.log('[cancel] id=', id, 'hasInitData=', !!tg?.initData, 'url=', '/api/bookings/' + id + '/cancel');
 
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-  var { error } = await apiFetch('PATCH', '/api/bookings/' + id + '/cancel');
+  var { data, error } = await apiFetch('PATCH', '/api/bookings/' + id + '/cancel');
+  console.log('[cancel] response data=', data, 'error=', error);
+
   if (error) {
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-    showToast('Не удалось отменить');
+    showToast(typeof error === 'string' ? error : 'Не удалось отменить', 'error');
     return;
   }
+
+  closeSheet('sheet-cancel');
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-  showToast('Встреча отменена');
+  showToast('Встреча отменена', 'success');
 
   /* update local state */
-  var idx = state.bookings.findIndex(function(b) { return b.id === id; });
+  var idx = (state.bookings || []).findIndex(function(b) { return b.id === id; });
   if (idx >= 0) state.bookings[idx].status = 'cancelled';
-
   state.pendingCancelId = null;
 
   if (state.currentScreen === 's-home') {
     await loadHome();
   } else {
-    /* go back from detail to meetings */
     if (state.currentScreen === 's-meet-detail' || state.currentScreen === 's-meet-noans') {
       goBack();
     }
