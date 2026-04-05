@@ -22,7 +22,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
     KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo,
-    BotCommand, MenuButtonDefault
+    BotCommand, MenuButtonWebApp
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -192,19 +192,24 @@ async def cmd_start(msg: Message, state: FSMContext):
     user = msg.from_user
     log.info(f"User {user.id} started bot")
 
+    # Принудительно обновляем Menu Button для этого пользователя
+    try:
+        await msg.bot.set_chat_menu_button(
+            chat_id=msg.chat.id,
+            menu_button=MenuButtonWebApp(
+                text="Открыть",
+                web_app=WebAppInfo(url=MINI_APP_URL)
+            )
+        )
+        log.info(f"Menu button updated for user {user.id}")
+    except Exception as e:
+        log.warning(f"Could not set menu button for user {user.id}: {e}")
+
     await api("post", f"/api/users/auth?telegram_id={user.id}", json={
         "username":    user.username,
         "first_name":  user.first_name,
         "last_name":   user.last_name,
     })
-
-    # Inline-кнопка для открытия Mini App
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="🌐 Открыть приложение",
-            web_app=WebAppInfo(url=MINI_APP_URL)
-        )
-    ]])
 
     await msg.answer(
         f"👋 Привет, <b>{user.first_name}</b>!\n\n"
@@ -216,6 +221,14 @@ async def cmd_start(msg: Message, state: FSMContext):
         parse_mode=ParseMode.HTML,
         reply_markup=get_main_keyboard()
     )
+
+    # Одна inline-кнопка для открытия Mini App
+    inline_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🌐 Открыть приложение",
+            web_app=WebAppInfo(url=MINI_APP_URL)
+        )
+    ]])
 
     await msg.answer(
         "👇 Или открой приложение:",
@@ -664,19 +677,24 @@ async def reply_help(msg: Message):
 # ─────────────────────────────────────────────────────────
 
 async def setup_bot_commands(bot: Bot):
-    """Регистрирует команды и сбрасывает Menu Button к настройкам BotFather."""
+    """Регистрирует команды и устанавливает Menu Button глобально."""
     commands = [
         BotCommand(command="start",  description="Главное меню"),
         BotCommand(command="help",   description="Справка по боту"),
     ]
     await bot.set_my_commands(commands)
 
-    # Сброс к дефолтной кнопке из BotFather (там настроено «Открыть» с правильным URL)
+    # Принудительно устанавливаем правильную Menu Button глобально
     try:
-        await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
-        log.info("Menu button reset to BotFather default")
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="Открыть",
+                web_app=WebAppInfo(url=MINI_APP_URL)
+            )
+        )
+        log.info(f"Global menu button set: 'Открыть' → {MINI_APP_URL}")
     except Exception as e:
-        log.warning(f"Could not reset menu button: {e}")
+        log.warning(f"Could not set global menu button: {e}")
     log.info("Bot commands configured")
 
 
