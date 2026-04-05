@@ -164,7 +164,7 @@ def format_dt(dt_str: str, tz: str = "UTC") -> str:
 def format_booking(b: dict, show_role: bool = False) -> str:
     emoji = STATUS_EMOJI.get(b["status"], "?")
     status = STATUS_TEXT.get(b["status"], b["status"])
-    dt = format_dt(b["scheduled_time"])
+    dt = format_dt(b["scheduled_time"], tz=b.get("organizer_timezone") or "UTC")
     lines = [
         f"{emoji} <b>{b.get('schedule_title', 'Встреча')}</b>",
         f"🕐 {dt}",
@@ -489,7 +489,7 @@ async def cb_my_bookings(cb: CallbackQuery):
     buttons = []
     for b in bookings[:10]:  # лимит 10 в меню
         emoji = STATUS_EMOJI.get(b["status"], "?")
-        dt = format_dt(b["scheduled_time"])
+        dt = format_dt(b["scheduled_time"], tz=b.get("organizer_timezone") or "UTC")
         role = "📌" if b.get("my_role") == "organizer" else "👤"
         buttons.append([
             InlineKeyboardButton(
@@ -651,7 +651,7 @@ async def reply_my_bookings(msg: Message):
     buttons = []
     for b in bookings[:10]:
         emoji = STATUS_EMOJI.get(b["status"], "?")
-        dt = format_dt(b["scheduled_time"])
+        dt = format_dt(b["scheduled_time"], tz=b.get("organizer_timezone") or "UTC")
         role = "📌" if b.get("my_role") == "organizer" else "👤"
         buttons.append([
             InlineKeyboardButton(
@@ -718,7 +718,8 @@ async def handle_new_booking(request: web.Request) -> web.Response:
         return web.json_response({"error": "missing data"}, status=400)
 
     try:
-        dt = format_dt(payload.get("scheduled_time", ""))
+        org_tz = payload.get("organizer_timezone") or "UTC"
+        dt = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
         schedule_title = payload.get("schedule_title", "Встреча")
         guest_name = payload.get("guest_name", "—")
         guest_contact = payload.get("guest_contact", "—")

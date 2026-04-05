@@ -484,12 +484,13 @@ async def create_booking(
 
     # Notify organizer via bot
     organizer = await conn.fetchrow(
-        "SELECT telegram_id FROM users WHERE id = $1", schedule["user_id"]
+        "SELECT telegram_id, timezone FROM users WHERE id = $1", schedule["user_id"]
     )
     if organizer and organizer["telegram_id"]:
         asyncio.create_task(_notify_bot_new_booking(
             booking_id=str(result["id"]),
             organizer_telegram_id=organizer["telegram_id"],
+            organizer_timezone=organizer.get("timezone") or "UTC",
             guest_name=data.guest_name,
             guest_contact=data.guest_contact,
             guest_telegram_id=guest_telegram_id,
@@ -535,6 +536,7 @@ async def list_bookings(
             u.telegram_id  AS organizer_telegram_id,
             u.first_name   AS organizer_first_name,
             u.username     AS organizer_username,
+            u.timezone     AS organizer_timezone,
             CASE
                 WHEN u.telegram_id = $1 THEN 'organizer'
                 ELSE 'guest'
