@@ -704,7 +704,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen has-inner-header" id="s-meet-detail">
   <div class="inner-header">
-    <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Встреча</div>
   </div>
   <div id="meet-detail-content"></div>
@@ -716,7 +715,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen has-inner-header" id="s-meet-noans">
   <div class="inner-header">
-    <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Встреча</div>
   </div>
   <div id="meet-noans-content"></div>
@@ -744,7 +742,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen has-inner-header" id="s-link-detail">
   <div class="inner-header">
-    <button class="back-btn" onclick="scheduleBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title" id="link-detail-title">Расписание</div>
     <button class="inner-action" onclick="showSheet('sheet-link-menu')">•••</button>
   </div>
@@ -958,7 +955,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen no-pad has-inner-header" id="s-new-link">
   <div class="inner-header">
-    <button class="back-btn" onclick="cancelCreate()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Отмена</button>
     <div class="inner-title">Новое расписание</div>
   </div>
   <div style="padding:16px">
@@ -1031,7 +1027,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen has-inner-header" id="s-calendar">
   <div class="inner-header">
-    <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title" id="cal-header-title">Выберите время</div>
   </div>
   <div id="client-landing-content">
@@ -1073,7 +1068,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ════════════════════════════════ -->
 <div class="screen no-pad has-inner-header" id="s-form">
   <div class="inner-header">
-    <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Подтвердить запись</div>
   </div>
   <div style="padding:16px">
@@ -1343,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tg.expand();
     tg.enableClosingConfirmation();
     try { tg.MainButton.hide(); tg.MainButton.offClick(); } catch(e) {}
+    try { tg.BackButton.hide(); } catch(e) {}
 
     /* Точные insets от Telegram WebApp API (Bot API 7.x+) */
     const tgSafe    = tg.safeAreaInsets;          /* { top, bottom, left, right } */
@@ -1367,6 +1362,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await authUser();
     setupProfile();
     await loadHome();
+  }
+
+  /* Browser fallback: inject .back-btn if Telegram BackButton is unavailable */
+  if (!tg?.BackButton) {
+    document.querySelectorAll('.inner-header').forEach(function(header) {
+      if (!header.querySelector('.back-btn')) {
+        var btn = document.createElement('button');
+        btn.className = 'back-btn';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Назад';
+        btn.onclick = back;
+        header.prepend(btn);
+      }
+    });
   }
 });
 
