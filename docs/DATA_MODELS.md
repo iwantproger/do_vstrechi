@@ -50,6 +50,49 @@ erDiagram
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
+
+    admin_sessions {
+        UUID id PK "uuid_generate_v4()"
+        BIGINT telegram_id "NOT NULL"
+        TEXT session_token "UNIQUE NOT NULL"
+        INET ip_address "NOT NULL"
+        TEXT user_agent "NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+        TIMESTAMPTZ expires_at "NOT NULL"
+        BOOLEAN is_active "DEFAULT TRUE"
+    }
+
+    admin_audit_log {
+        BIGSERIAL id PK "auto"
+        TEXT action "CHECK login logout etc"
+        JSONB details "NULL"
+        INET ip_address "NOT NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+    }
+
+    app_events {
+        BIGSERIAL id PK "auto"
+        TEXT event_type "CHECK page_view etc"
+        TEXT anonymous_id "NOT NULL (SHA256 12 chars)"
+        TEXT session_id "NULL"
+        JSONB metadata "NULL"
+        TEXT severity "CHECK info warn error critical"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+    }
+
+    admin_tasks {
+        UUID id PK "uuid_generate_v4()"
+        TEXT title "NOT NULL"
+        TEXT description "NULL (Markdown)"
+        TEXT description_plain "NULL"
+        TEXT status "CHECK backlog in_progress done"
+        INTEGER priority "DEFAULT 0"
+        TEXT source "CHECK manual git_commit ai_generated github_issue"
+        TEXT source_ref "NULL"
+        TEXT_ARRAY tags "DEFAULT {}"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "DEFAULT NOW()"
+    }
 ```
 
 ## Таблицы базы данных
@@ -174,6 +217,91 @@ stateDiagram-v2
 | organizer_telegram_id | users.telegram_id | Telegram ID организатора |
 | organizer_first_name | users.first_name | Имя организатора |
 | organizer_username | users.username | Username организатора |
+
+## Таблицы админ-панели
+
+Определены в `database/migrations/004_admin_tables.sql`. Все таблицы независимы — нет FK на `users`.
+
+### admin_sessions
+
+Сессии администратора. Создаются при входе в админ-панель.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор сессии |
+| telegram_id | BIGINT | NOT NULL | Telegram ID администратора |
+| session_token | TEXT | UNIQUE NOT NULL | Токен сессии |
+| ip_address | INET | NOT NULL | IP-адрес при входе |
+| user_agent | TEXT | NULL | User-Agent браузера |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания сессии |
+| expires_at | TIMESTAMPTZ | NOT NULL | Время истечения сессии |
+| is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Активна ли сессия |
+
+**Индексы:**
+- `idx_admin_sessions_token` ON (session_token) WHERE is_active = TRUE — partial index для быстрого поиска активных сессий
+- `idx_admin_sessions_expires` ON (expires_at)
+
+### admin_audit_log
+
+Лог действий в админ-панели. Append-only, записи не удаляются.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | BIGSERIAL | PK | Автоинкрементный идентификатор |
+| action | TEXT | NOT NULL, CHECK (IN login/logout/view_dashboard/view_logs/view_analytics/task_create/task_update/task_delete/settings_change) | Тип действия |
+| details | JSONB | NULL | Контекст действия (произвольный JSON) |
+| ip_address | INET | NOT NULL | IP-адрес |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время действия |
+
+**Индексы:**
+- `idx_audit_log_created` ON (created_at DESC)
+- `idx_audit_log_action` ON (action)
+
+### app_events
+
+Событийный трекинг. Анонимизированный — вместо telegram_id хранится SHA256-хэш (12 символов).
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | BIGSERIAL | PK | Автоинкрементный идентификатор |
+| event_type | TEXT | NOT NULL, CHECK (IN page_view/booking_created/booking_confirmed/booking_cancelled/slot_selected/schedule_created/schedule_deleted/error/api_call) | Тип события |
+| anonymous_id | TEXT | NOT NULL | SHA256-хэш от telegram_id + salt (12 символов) |
+| session_id | TEXT | NULL | UUID сессии в Mini App |
+| metadata | JSONB | NULL | Произвольный контекст события |
+| severity | TEXT | NOT NULL, DEFAULT 'info', CHECK (IN info/warn/error/critical) | Уровень серьёзности |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время события |
+
+**Индексы:**
+- `idx_app_events_type` ON (event_type)
+- `idx_app_events_severity` ON (severity)
+- `idx_app_events_created` ON (created_at DESC)
+- `idx_app_events_anonymous_id` ON (anonymous_id)
+
+### admin_tasks
+
+Задачи для Kanban-доски в админ-панели.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор задачи |
+| title | TEXT | NOT NULL | Название задачи |
+| description | TEXT | NULL | Техническое описание (Markdown) |
+| description_plain | TEXT | NULL | Описание простым языком |
+| status | TEXT | NOT NULL, DEFAULT 'backlog', CHECK (IN backlog/in_progress/done) | Статус (колонка Kanban) |
+| priority | INTEGER | NOT NULL, DEFAULT 0 | Порядок внутри колонки (0 = сверху) |
+| source | TEXT | NOT NULL, DEFAULT 'manual', CHECK (IN manual/git_commit/ai_generated/github_issue) | Источник задачи |
+| source_ref | TEXT | NULL | Ссылка на коммит/issue |
+| tags | TEXT[] | DEFAULT '{}' | Теги: security, ui, backend, bot, devops, bugfix, feature |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
+
+**Индексы:**
+- `idx_admin_tasks_status` ON (status)
+- `idx_admin_tasks_status_priority` ON (status, priority)
+
+**Триггер:** `set_admin_tasks_updated_at` — переиспользует `trigger_set_updated_at()` для автообновления `updated_at`.
+
+**Миграция:** `database/migrations/004_admin_tables.sql`
 
 ## Pydantic-схемы (Backend)
 

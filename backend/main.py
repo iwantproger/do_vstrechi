@@ -10,6 +10,7 @@ import hashlib
 import json
 import asyncio
 import logging
+import secrets
 from datetime import datetime, timedelta, date, time, timezone
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
@@ -20,6 +21,7 @@ import asyncpg
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -30,7 +32,12 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 BOT_INTERNAL_URL = os.environ.get("BOT_INTERNAL_URL", "http://bot:8080")
 
-# ─────────────────────────────────────────────────────────
+ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+ADMIN_SESSION_TTL_HOURS = int(os.environ.get("ADMIN_SESSION_TTL_HOURS", "2"))
+ADMIN_IP_ALLOWLIST = os.environ.get("ADMIN_IP_ALLOWLIST", "").strip()
+ANONYMIZE_SALT = os.environ.get("ANONYMIZE_SALT", "do-vstrechi-2026")
+
+# ─────────────────────────────���───────────────────────────
 # Telegram initData validation (HMAC-SHA256)
 # ─────────────────────────────────────────────────────────
 
@@ -98,6 +105,107 @@ async def get_optional_user(request: Request) -> dict | None:
 
 
 # ─────────────────────────────────────────────────────────
+# Admin authentication (Telegram Login Widget)
+# ─────────────────────────────────────────────────────────
+
+_login_attempts: dict[str, list[float]] = {}
+
+
+def _check_login_rate_limit(ip: str) -> bool:
+    """Returns True if IP is rate-limited (>3 attempts in 5 min)."""
+    now = datetime.now(timezone.utc).timestamp()
+    attempts = _login_attempts.get(ip, [])
+    attempts = [t for t in attempts if now - t < 300]
+    _login_attempts[ip] = attempts
+    return len(attempts) >= 3
+
+
+def _record_login_attempt(ip: str):
+    now = datetime.now(timezone.utc).timestamp()
+    _login_attempts.setdefault(ip, []).append(now)
+
+
+def verify_telegram_login(auth_data: dict) -> bool:
+    """Verify Telegram Login Widget data (HMAC-SHA256 with SHA256(BOT_TOKEN))."""
+    try:
+        check_hash = auth_data.get("hash", "")
+        if not check_hash:
+            return False
+        data_check_string = "\n".join(
+            f"{k}={auth_data[k]}"
+            for k in sorted(auth_data.keys())
+            if k != "hash"
+        )
+        secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+        computed_hash = hmac.new(
+            secret_key, data_check_string.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(computed_hash, check_hash):
+            return False
+        auth_date = int(auth_data.get("auth_date", 0))
+        now_ts = datetime.now(timezone.utc).timestamp()
+        if now_ts - auth_date > 300:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+async def create_admin_session(telegram_id: int, ip: str, user_agent: str, conn) -> str:
+    """Deactivate existing sessions, create new one, log to audit."""
+    await conn.execute(
+        "UPDATE admin_sessions SET is_active = FALSE WHERE telegram_id = $1",
+        telegram_id,
+    )
+    session_token = secrets.token_urlsafe(64)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=ADMIN_SESSION_TTL_HOURS)
+    await conn.execute(
+        """
+        INSERT INTO admin_sessions (telegram_id, session_token, ip_address, user_agent, expires_at)
+        VALUES ($1, $2, $3::inet, $4, $5)
+        """,
+        telegram_id, session_token, ip, user_agent, expires_at,
+    )
+    await log_admin_action("login", ip, {"user_agent": user_agent}, conn)
+    return session_token
+
+
+async def validate_admin_session(session_token: str, conn) -> dict | None:
+    """Check session is active, not expired, and belongs to the admin."""
+    row = await conn.fetchrow(
+        """
+        SELECT * FROM admin_sessions
+        WHERE session_token = $1 AND is_active = TRUE AND expires_at > NOW()
+        """,
+        session_token,
+    )
+    if not row:
+        return None
+    if row["telegram_id"] != ADMIN_TELEGRAM_ID:
+        return None
+    return dict(row)
+
+
+def anonymize_id(telegram_id: int) -> str:
+    """SHA256(telegram_id:salt), first 12 chars."""
+    return hashlib.sha256(f"{telegram_id}:{ANONYMIZE_SALT}".encode()).hexdigest()[:12]
+
+
+async def log_admin_action(action: str, ip: str, details: dict | None, conn):
+    """Insert into admin_audit_log."""
+    await conn.execute(
+        """
+        INSERT INTO admin_audit_log (action, details, ip_address)
+        VALUES ($1, $2::jsonb, $3::inet)
+        """,
+        action, json.dumps(details) if details else None, ip,
+    )
+
+
+_session_checked: set[str] = set()
+
+
+# ─────────────────────────────────────────────────────────
 # Database pool
 # ─────────────────────────────────────────────────────────
 
@@ -113,6 +221,26 @@ async def db() -> asyncpg.Connection:
     pool = await get_pool()
     async with pool.acquire() as conn:
         yield conn
+
+
+async def get_admin_user(request: Request, conn=Depends(db)):
+    """FastAPI dependency: validate admin session from cookie."""
+    session_token = request.cookies.get("admin_session")
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    session = await validate_admin_session(session_token, conn)
+    if not session:
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    if ADMIN_IP_ALLOWLIST:
+        allowed_ips = [ip.strip() for ip in ADMIN_IP_ALLOWLIST.split(",")]
+        client_ip = request.headers.get("X-Real-IP", request.client.host)
+        if client_ip not in allowed_ips:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    return session
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -172,7 +300,7 @@ app.add_middleware(
         "https://www.dovstrechiapp.ru",
         *([] if not MINI_APP_URL else [MINI_APP_URL]),
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "X-Init-Data"],
 )
@@ -227,6 +355,39 @@ class BookingCreate(BaseModel):
     guest_telegram_id: Optional[int] = None
     scheduled_time: str = Field(..., max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
+
+class TelegramLoginData(BaseModel):
+    id: int = Field(..., ge=1)
+    first_name: str = Field(..., min_length=1, max_length=100)
+    username: Optional[str] = Field(None, max_length=100)
+    auth_date: int = Field(..., ge=0)
+    hash: str = Field(..., min_length=64, max_length=64)
+
+class TaskCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=5000)
+    description_plain: Optional[str] = Field(None, max_length=2000)
+    status: str = Field("backlog", pattern=r"^(backlog|in_progress|done)$")
+    source: str = Field("manual", pattern=r"^(manual|git_commit|ai_generated|github_issue)$")
+    source_ref: Optional[str] = Field(None, max_length=500)
+    tags: List[str] = []
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=5000)
+    description_plain: Optional[str] = Field(None, max_length=2000)
+    status: Optional[str] = Field(None, pattern=r"^(backlog|in_progress|done)$")
+    tags: Optional[List[str]] = None
+
+class TaskReorder(BaseModel):
+    status: str = Field(..., pattern=r"^(backlog|in_progress|done)$")
+    task_ids: List[str]
+
+class AppEvent(BaseModel):
+    event_type: str = Field(..., min_length=1, max_length=50)
+    session_id: Optional[str] = Field(None, max_length=100)
+    metadata: Optional[dict] = None
+    severity: str = Field("info", pattern=r"^(info|warn|error|critical)$")
 
 def row_to_dict(row) -> dict:
     """asyncpg Record → plain dict"""
@@ -962,3 +1123,459 @@ async def get_stats(
         telegram_id
     )
     return row_to_dict(stats)
+
+
+# ─────────────────────────────────────────────────────────
+# Admin auth
+# ─────────────────────────────────────────────────────────
+
+@app.post("/api/admin/auth/login")
+async def admin_login(
+    data: TelegramLoginData,
+    request: Request,
+    conn: asyncpg.Connection = Depends(db),
+):
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+
+    if _check_login_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Too many attempts")
+
+    _record_login_attempt(client_ip)
+
+    auth_dict = data.model_dump()
+    if not verify_telegram_login(auth_dict):
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    if data.id != ADMIN_TELEGRAM_ID:
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    if ADMIN_IP_ALLOWLIST:
+        allowed_ips = [ip.strip() for ip in ADMIN_IP_ALLOWLIST.split(",")]
+        if client_ip not in allowed_ips:
+            raise HTTPException(status_code=401, detail="Authentication failed")
+
+    user_agent = request.headers.get("User-Agent", "")
+    session_token = await create_admin_session(data.id, client_ip, user_agent, conn)
+
+    ttl_seconds = ADMIN_SESSION_TTL_HOURS * 3600
+    response = JSONResponse(content={"status": "ok", "expires_in": ttl_seconds})
+    response.set_cookie(
+        key="admin_session",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=ttl_seconds,
+        path="/api/admin",
+    )
+    log.info(f"Admin login from {client_ip}, session {session_token[:8]}…")
+    return response
+
+
+@app.post("/api/admin/auth/logout")
+async def admin_logout(
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    await conn.execute(
+        "UPDATE admin_sessions SET is_active = FALSE WHERE id = $1",
+        session["id"],
+    )
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("logout", client_ip, None, conn)
+
+    # Remove from session_checked cache
+    token_prefix = session["session_token"][:8]
+    _session_checked.discard(token_prefix)
+
+    response = JSONResponse(content={"status": "ok"})
+    response.delete_cookie(key="admin_session", path="/api/admin")
+    return response
+
+
+@app.get("/api/admin/auth/me")
+async def admin_me(
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    # Log session_check only once per session
+    token_prefix = session["session_token"][:8]
+    if token_prefix not in _session_checked:
+        client_ip = request.headers.get("X-Real-IP", request.client.host)
+        await log_admin_action("session_check", client_ip, {"session": token_prefix}, conn)
+        _session_checked.add(token_prefix)
+
+    return {
+        "telegram_id": session["telegram_id"],
+        "expires_at": session["expires_at"].isoformat(),
+        "ip": str(session["ip_address"]),
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# Admin dashboard
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/dashboard/summary")
+async def admin_dashboard_summary(
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("view_dashboard", client_ip, {"path": "/api/admin/dashboard/summary"}, conn)
+
+    row = await conn.fetchrow("""
+        SELECT
+            (SELECT COUNT(*) FROM users) AS total_users,
+            (SELECT COUNT(DISTINCT s.user_id) FROM schedules s
+             JOIN bookings b ON b.schedule_id = s.id
+             WHERE b.created_at > NOW() - INTERVAL '7 days') AS active_users_7d,
+            (SELECT COUNT(*) FROM bookings) AS total_bookings,
+            (SELECT COUNT(*) FROM bookings WHERE DATE(scheduled_time) = CURRENT_DATE) AS bookings_today,
+            (SELECT COUNT(*) FROM app_events
+             WHERE severity IN ('error', 'critical')
+             AND created_at > NOW() - INTERVAL '24 hours') AS errors_24h,
+            (SELECT COUNT(*) FROM bookings WHERE status = 'pending') AS pending_bookings
+    """)
+    return row_to_dict(row)
+
+
+@app.get("/api/admin/dashboard/bookings-trend")
+async def admin_bookings_trend(
+    request: Request,
+    days: int = Query(30, ge=1, le=90),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    rows = await conn.fetch(
+        """
+        SELECT DATE(scheduled_time) AS date, COUNT(*) AS count
+        FROM bookings
+        WHERE scheduled_time >= NOW() - ($1 || ' days')::interval
+        GROUP BY DATE(scheduled_time)
+        ORDER BY date
+        """,
+        str(days),
+    )
+    return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
+
+
+@app.get("/api/admin/dashboard/platforms")
+async def admin_platforms(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    rows = await conn.fetch(
+        "SELECT platform, COUNT(*) AS count FROM schedules WHERE is_active = TRUE GROUP BY platform"
+    )
+    return rows_to_list(rows)
+
+
+# ─────────────────────────────────────────────────────────
+# Admin logs (app_events)
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/logs")
+async def admin_logs(
+    request: Request,
+    event_type: Optional[str] = None,
+    severity: Optional[str] = None,
+    anonymous_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("view_logs", client_ip, {"path": "/api/admin/logs"}, conn)
+
+    conditions = []
+    params: list[Any] = []
+    idx = 1
+
+    if event_type:
+        conditions.append(f"event_type = ${idx}")
+        params.append(event_type)
+        idx += 1
+    if severity:
+        conditions.append(f"severity = ${idx}")
+        params.append(severity)
+        idx += 1
+    if anonymous_id:
+        conditions.append(f"anonymous_id = ${idx}")
+        params.append(anonymous_id)
+        idx += 1
+    if date_from:
+        conditions.append(f"created_at >= ${idx}::timestamptz")
+        params.append(date_from)
+        idx += 1
+    if date_to:
+        conditions.append(f"created_at <= ${idx}::timestamptz")
+        params.append(date_to)
+        idx += 1
+    if search:
+        conditions.append(f"metadata::text ILIKE ${idx}")
+        params.append(f"%{search}%")
+        idx += 1
+
+    where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    total = await conn.fetchval(
+        f"SELECT COUNT(*) FROM app_events {where_clause}", *params
+    )
+
+    offset = (page - 1) * per_page
+    params.append(per_page)
+    params.append(offset)
+    rows = await conn.fetch(
+        f"""
+        SELECT * FROM app_events {where_clause}
+        ORDER BY created_at DESC
+        LIMIT ${idx} OFFSET ${idx + 1}
+        """,
+        *params,
+    )
+
+    return {"items": rows_to_list(rows), "total": total, "page": page, "per_page": per_page}
+
+
+@app.get("/api/admin/logs/stats")
+async def admin_logs_stats(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    row = await conn.fetchrow("""
+        SELECT
+            COUNT(*) AS total_events,
+            COUNT(*) FILTER (WHERE severity = 'info') AS sev_info,
+            COUNT(*) FILTER (WHERE severity = 'warn') AS sev_warn,
+            COUNT(*) FILTER (WHERE severity = 'error') AS sev_error,
+            COUNT(*) FILTER (WHERE severity = 'critical') AS sev_critical,
+            COUNT(DISTINCT anonymous_id) AS unique_users
+        FROM app_events
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+    """)
+
+    type_rows = await conn.fetch("""
+        SELECT event_type, COUNT(*) AS count
+        FROM app_events
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+        GROUP BY event_type
+    """)
+
+    return {
+        "total_events": row["total_events"],
+        "by_severity": {
+            "info": row["sev_info"],
+            "warn": row["sev_warn"],
+            "error": row["sev_error"],
+            "critical": row["sev_critical"],
+        },
+        "by_type": {r["event_type"]: r["count"] for r in type_rows},
+        "unique_users": row["unique_users"],
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# Admin tasks (Kanban CRUD)
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/tasks")
+async def admin_list_tasks(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    rows = await conn.fetch(
+        "SELECT * FROM admin_tasks ORDER BY status, priority ASC"
+    )
+    result: dict[str, list] = {"backlog": [], "in_progress": [], "done": []}
+    for r in rows:
+        d = row_to_dict(r)
+        result.setdefault(d["status"], []).append(d)
+    return result
+
+
+@app.post("/api/admin/tasks", status_code=201)
+async def admin_create_task(
+    data: TaskCreate,
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    max_priority = await conn.fetchval(
+        "SELECT COALESCE(MAX(priority), -1) FROM admin_tasks WHERE status = $1",
+        data.status,
+    )
+    row = await conn.fetchrow(
+        """
+        INSERT INTO admin_tasks (title, description, description_plain, status, priority, source, source_ref, tags)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+        """,
+        data.title, data.description, data.description_plain,
+        data.status, max_priority + 1,
+        data.source, data.source_ref, data.tags,
+    )
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("task_create", client_ip, {"task_id": str(row["id"]), "title": data.title}, conn)
+    return row_to_dict(row)
+
+
+@app.patch("/api/admin/tasks/reorder")
+async def admin_reorder_tasks(
+    data: TaskReorder,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    for idx, tid in enumerate(data.task_ids):
+        try:
+            task_uuid = uuid.UUID(tid)
+        except ValueError:
+            raise HTTPException(400, f"Invalid UUID: {tid}")
+        await conn.execute(
+            "UPDATE admin_tasks SET priority = $1, status = $2 WHERE id = $3",
+            idx, data.status, task_uuid,
+        )
+    return {"status": "ok"}
+
+
+@app.patch("/api/admin/tasks/{task_id}")
+async def admin_update_task(
+    task_id: str,
+    data: TaskUpdate,
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    try:
+        tid = uuid.UUID(task_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid task ID")
+
+    existing = await conn.fetchrow("SELECT * FROM admin_tasks WHERE id = $1", tid)
+    if not existing:
+        raise HTTPException(404, "Task not found")
+
+    updates = data.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(400, "No fields to update")
+
+    # If status changed, recalculate priority (append to end of new column)
+    if "status" in updates and updates["status"] != existing["status"]:
+        max_priority = await conn.fetchval(
+            "SELECT COALESCE(MAX(priority), -1) FROM admin_tasks WHERE status = $1",
+            updates["status"],
+        )
+        updates["priority"] = max_priority + 1
+
+    set_parts = []
+    values: list[Any] = []
+    for i, (col, val) in enumerate(updates.items(), start=1):
+        set_parts.append(f"{col} = ${i}")
+        values.append(val)
+
+    values.append(tid)
+    n = len(values)
+
+    row = await conn.fetchrow(
+        f"UPDATE admin_tasks SET {', '.join(set_parts)} WHERE id = ${n} RETURNING *",
+        *values,
+    )
+
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action(
+        "task_update", client_ip,
+        {"task_id": task_id, "changes": list(updates.keys())},
+        conn,
+    )
+    return row_to_dict(row)
+
+
+@app.delete("/api/admin/tasks/{task_id}")
+async def admin_delete_task(
+    task_id: str,
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    try:
+        tid = uuid.UUID(task_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid task ID")
+
+    row = await conn.fetchrow("DELETE FROM admin_tasks WHERE id = $1 RETURNING id, title", tid)
+    if not row:
+        raise HTTPException(404, "Task not found")
+
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action(
+        "task_delete", client_ip,
+        {"task_id": task_id, "title": row["title"]},
+        conn,
+    )
+    return {"status": "deleted"}
+
+
+# ─────────────────────────────────────────────────────────
+# Admin audit log
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/audit-log")
+async def admin_audit_log_list(
+    action: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if action:
+        total = await conn.fetchval(
+            "SELECT COUNT(*) FROM admin_audit_log WHERE action = $1", action
+        )
+        rows = await conn.fetch(
+            """
+            SELECT * FROM admin_audit_log WHERE action = $1
+            ORDER BY created_at DESC LIMIT $2 OFFSET $3
+            """,
+            action, per_page, (page - 1) * per_page,
+        )
+    else:
+        total = await conn.fetchval("SELECT COUNT(*) FROM admin_audit_log")
+        rows = await conn.fetch(
+            "SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            per_page, (page - 1) * per_page,
+        )
+
+    return {"items": rows_to_list(rows), "total": total, "page": page, "per_page": per_page}
+
+
+# ─────────────────────────────────────────────────────────
+# Event tracking (public — from Mini App)
+# ─────────────────────────────────────────────────────────
+
+@app.post("/api/events")
+async def track_event(
+    data: AppEvent,
+    request: Request,
+    conn: asyncpg.Connection = Depends(db),
+    auth_user: dict | None = Depends(get_optional_user),
+):
+    telegram_id = auth_user["id"] if auth_user else 0
+    anon_id = anonymize_id(telegram_id)
+
+    await conn.execute(
+        """
+        INSERT INTO app_events (event_type, anonymous_id, session_id, metadata, severity)
+        VALUES ($1, $2, $3, $4::jsonb, $5)
+        """,
+        data.event_type, anon_id, data.session_id,
+        json.dumps(data.metadata) if data.metadata else None,
+        data.severity,
+    )
+    return {"status": "ok"}

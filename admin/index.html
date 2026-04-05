@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin - До встречи</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════════ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ═══════════════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --primary: #0D9488;
+  --primary-dark: #0F766E;
+  --primary-light: #14B8A6;
+  --bg: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --text: #1E293B;
+  --text-muted: #64748B;
+  --border: #E2E8F0;
+  --sidebar-bg: #0F172A;
+  --sidebar-text: #CBD5E1;
+  --sidebar-active: #0D9488;
+  --sidebar-hover: #1E293B;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --success: #10B981;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --sidebar-w: 240px;
+  --header-h: 56px;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════
+   LOGIN SCREEN
+═══════════════════════════════════════════════════ */
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+}
+
+.login-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 48px 40px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 400px;
+  width: 90%;
+}
+
+.login-logo {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+.login-widget {
+  display: flex;
+  justify-content: center;
+  min-height: 46px;
+}
+
+.login-error {
+  margin-top: 16px;
+  padding: 10px 16px;
+  background: #FEF2F2;
+  color: var(--danger);
+  border-radius: var(--radius);
+  font-size: 13px;
+  display: none;
+}
+
+.login-error.visible { display: block; }
+
+.login-loading {
+  margin-top: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  display: none;
+}
+
+.login-loading.visible { display: block; }
+
+.widget-fallback {
+  color: var(--text-muted);
+  font-size: 13px;
+  display: none;
+}
+
+.widget-fallback.visible { display: block; }
+
+/* ═══════════════════════════════════════════════════
+   APP LAYOUT
+═══════════════════════════════════════════════════ */
+.app { display: none; min-height: 100vh; }
+.app.visible { display: flex; }
+.login-screen.hidden { display: none; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  transition: transform 0.25s ease;
+}
+
+.sidebar-logo {
+  padding: 20px 20px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFF;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.sidebar-logo span { color: var(--primary-light); }
+
+.sidebar-nav {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--sidebar-text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  text-decoration: none;
+  user-select: none;
+}
+
+.nav-item:hover {
+  background: var(--sidebar-hover);
+  color: #FFF;
+}
+
+.nav-item.active {
+  background: rgba(13,148,136,0.15);
+  color: var(--primary-light);
+}
+
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-footer {
+  padding: 12px 8px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.nav-item.logout { color: #F87171; }
+.nav-item.logout:hover { background: rgba(239,68,68,0.1); color: #EF4444; }
+
+/* Main content */
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+}
+
+.main-header {
+  height: var(--header-h);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.main-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.header-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.main-content {
+  padding: 24px;
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+.placeholder-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted);
+  box-shadow: var(--shadow);
+}
+
+.placeholder-card .icon { font-size: 48px; margin-bottom: 12px; }
+.placeholder-card h3 { color: var(--text); margin-bottom: 8px; }
+
+/* Mobile hamburger */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+  border: none;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.hamburger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #FFF;
+  border-radius: 1px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 90;
+}
+
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay.open { display: block; }
+  .main { margin-left: 0; }
+  .main-header { padding-left: 56px; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TRANSITIONS
+═══════════════════════════════════════════════════ */
+.fade-in {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">До встречи</div>
+    <div class="login-subtitle">Админ-панель</div>
+    <div class="login-widget" id="loginWidget">
+      <div class="widget-fallback" id="widgetFallback">
+        Telegram Login Widget не загружен. Проверьте подключение.
+      </div>
+    </div>
+    <div class="login-loading" id="loginLoading">Авторизация...</div>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP SHELL ═══════════════ -->
+<button class="hamburger" id="hamburger">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">До <span>встречи</span></div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <span class="icon">&#x1F4CA;</span> Дашборд
+      </a>
+      <a class="nav-item" data-page="logs" onclick="navigateTo('logs')">
+        <span class="icon">&#x1F4CB;</span> Логи
+      </a>
+      <a class="nav-item" data-page="tasks" onclick="navigateTo('tasks')">
+        <span class="icon">&#x2705;</span> Задачи
+      </a>
+      <a class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+        <span class="icon">&#x2699;&#xFE0F;</span> Настройки
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="nav-item logout" onclick="logout()">
+        <span class="icon">&#x1F6AA;</span> Выйти
+      </a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="main-header">
+      <h1 id="pageTitle">Дашборд</h1>
+      <span class="header-meta" id="headerMeta"></span>
+    </header>
+
+    <div class="main-content">
+      <!-- Dashboard -->
+      <div class="page active" id="page-dashboard">
+        <div class="placeholder-card fade-in">
+          <div class="icon">&#x1F4CA;</div>
+          <h3>Дашборд</h3>
+          <p>Метрики и графики будут здесь</p>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div class="page" id="page-logs">
+        <div class="placeholder-card fade-in">
+          <div class="icon">&#x1F4CB;</div>
+          <h3>Логи</h3>
+          <p>Событийный трекинг будет здесь</p>
+        </div>
+      </div>
+
+      <!-- Tasks -->
+      <div class="page" id="page-tasks">
+        <div class="placeholder-card fade-in">
+          <div class="icon">&#x2705;</div>
+          <h3>Задачи</h3>
+          <p>Kanban-доска будет здесь</p>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="page" id="page-settings">
+        <div class="placeholder-card fade-in">
+          <div class="icon">&#x2699;&#xFE0F;</div>
+          <h3>Настройки</h3>
+          <p>Конфигурация будет здесь</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+let sessionData = null;
+let widgetLoaded = false;
+
+const PAGE_TITLES = {
+  dashboard: 'Дашборд',
+  logs: 'Логи',
+  tasks: 'Задачи',
+  settings: 'Настройки',
+};
+
+/* ═══════════════════════════════════════════════════
+   API HELPERS
+═══════════════════════════════════════════════════ */
+async function api(method, path, body) {
+  const opts = {
+    method,
+    credentials: 'same-origin',
+    headers: {},
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw { status: res.status, detail: err.detail || res.statusText };
+  }
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════ */
+async function checkSession() {
+  try {
+    sessionData = await api('GET', '/api/admin/auth/me');
+    showApp();
+  } catch {
+    showLogin();
+  }
+}
+
+function onTelegramAuth(user) {
+  const errorEl = document.getElementById('loginError');
+  const loadingEl = document.getElementById('loginLoading');
+  errorEl.classList.remove('visible');
+  loadingEl.classList.add('visible');
+
+  api('POST', '/api/admin/auth/login', user)
+    .then(data => {
+      loadingEl.classList.remove('visible');
+      sessionData = { telegram_id: user.id };
+      showApp();
+      return api('GET', '/api/admin/auth/me');
+    })
+    .then(me => { sessionData = me; updateHeaderMeta(); })
+    .catch(err => {
+      loadingEl.classList.remove('visible');
+      if (err.status === 429) {
+        errorEl.textContent = 'Слишком много попыток. Подождите.';
+      } else {
+        errorEl.textContent = 'Доступ запрещён';
+      }
+      errorEl.classList.add('visible');
+    });
+}
+
+// Expose globally for Telegram widget callback
+window.onTelegramAuth = onTelegramAuth;
+
+async function logout() {
+  try { await api('POST', '/api/admin/auth/logout'); } catch {}
+  sessionData = null;
+  showLogin();
+}
+
+/* ═══════════════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════════════ */
+function showLogin() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('hamburger').style.display = 'none';
+  window.location.hash = '';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  updateHeaderMeta();
+
+  // Restore page from hash
+  const hash = window.location.hash.replace('#', '') || 'dashboard';
+  navigateTo(hash);
+}
+
+function updateHeaderMeta() {
+  const el = document.getElementById('headerMeta');
+  if (sessionData && sessionData.expires_at) {
+    const exp = new Date(sessionData.expires_at);
+    el.textContent = 'Сессия до ' + exp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════ */
+function navigateTo(page) {
+  if (!PAGE_TITLES[page]) page = 'dashboard';
+  window.location.hash = page;
+
+  // Update sidebar
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+
+  // Update pages
+  document.querySelectorAll('.page').forEach(el => {
+    el.classList.remove('active');
+  });
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) {
+    pageEl.classList.add('active');
+    // Re-trigger fade animation
+    const card = pageEl.querySelector('.fade-in');
+    if (card) {
+      card.style.animation = 'none';
+      card.offsetHeight; // force reflow
+      card.style.animation = '';
+    }
+  }
+
+  // Update header
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
+
+  // Close mobile sidebar
+  closeSidebar();
+}
+
+// Hash change listener
+window.addEventListener('hashchange', () => {
+  if (!document.getElementById('app').classList.contains('visible')) return;
+  const page = window.location.hash.replace('#', '') || 'dashboard';
+  navigateTo(page);
+});
+
+/* ═══════════════════════════════════════════════════
+   MOBILE SIDEBAR
+═══════════════════════════════════════════════════ */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const btn = document.getElementById('hamburger');
+  const isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  btn.classList.toggle('open', isOpen);
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+}
+
+document.getElementById('hamburger').addEventListener('click', toggleSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+/* ═══════════════════════════════════════════════════
+   TELEGRAM WIDGET LOADER
+═══════════════════════════════════════════════════ */
+function loadTelegramWidget() {
+  const container = document.getElementById('loginWidget');
+  const script = document.createElement('script');
+  script.src = 'https://telegram.org/js/telegram-widget.js?22';
+  script.async = true;
+  script.setAttribute('data-telegram-login', 'do_vstrechi_bot');
+  script.setAttribute('data-size', 'large');
+  script.setAttribute('data-radius', '8');
+  script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+  script.setAttribute('data-request-access', 'write');
+
+  script.onload = () => { widgetLoaded = true; };
+  script.onerror = () => {
+    document.getElementById('widgetFallback').classList.add('visible');
+  };
+
+  container.insertBefore(script, container.firstChild);
+
+  // Fallback timeout — if widget iframe doesn't appear in 5s
+  setTimeout(() => {
+    if (!widgetLoaded && !container.querySelector('iframe')) {
+      document.getElementById('widgetFallback').classList.add('visible');
+    }
+  }, 5000);
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════ */
+checkSession();
+loadTelegramWidget();
+</script>
+</body>
+</html>

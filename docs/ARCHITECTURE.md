@@ -236,7 +236,7 @@ erDiagram
 | postgres | postgres:16-alpine | — (internal) | postgres_data, init.sql, migrations/ |
 | backend | python:3.12-slim (custom, non-root) | 8000 (internal) | — |
 | bot | python:3.12-slim (custom, non-root) | 8080 (internal) | — |
-| nginx | nginx:1.25-alpine (custom) | 80, 443 | nginx.conf, frontend/, certbot certs |
+| nginx | nginx:1.25-alpine (custom) | 80, 443 | nginx.conf, frontend/, admin/, certbot certs |
 | certbot | certbot/certbot:latest | — (профиль ssl) | certbot_www, certbot_certs |
 
 **nginx routing:**
@@ -244,6 +244,10 @@ erDiagram
 | Путь | Upstream | Rate limit | Описание |
 |------|---------|------------|----------|
 | `/` | filesystem | — | Статика из `/usr/share/nginx/html` (frontend) |
+| `/admin/` | filesystem | — | Админ-панель SPA, `X-Robots-Tag: noindex` |
+| `/api/admin/auth/` | `http://backend:8000` | 3 req/min, burst=2 | Auth-эндпоинты с жёстким лимитом |
+| `/api/admin/` | `http://backend:8000` | 5 req/s, burst=10 | Все admin API-эндпоинты |
+| `/api/events` | `http://backend:8000` | 10 req/s, burst=20 | Event tracking из Mini App |
 | `/api/*` | `http://backend:8000` | 10 req/s, burst=20 | Проксирование API-запросов |
 | `/api/bookings` | `http://backend:8000` | 5 req/min, burst=3 | Отдельный лимит на бронирование |
 | `/health` | `http://backend:8000/health` | — | Healthcheck |
@@ -269,6 +273,76 @@ Permissions-Policy (camera, microphone, geolocation disabled). `server_tokens of
 | `POSTGRES_DB` | postgres | Имя БД (default: `dovstrechi`) |
 | `POSTGRES_USER` | postgres | Пользователь (default: `dovstrechi`) |
 | `POSTGRES_PASSWORD` | postgres | Пароль PostgreSQL |
+| `ADMIN_TELEGRAM_ID` | backend | Telegram ID администратора (единственный допустимый) |
+| `ADMIN_SESSION_TTL_HOURS` | backend | Время жизни admin-сессии (default: 2) |
+| `ADMIN_IP_ALLOWLIST` | backend | Белый список IP (через запятую, пусто = любой) |
+| `ANONYMIZE_SALT` | backend | Соль для SHA256-анонимизации telegram_id |
+
+## Admin API
+
+Внутренняя админ-панель. Все `/api/admin/*` эндпоинты (кроме login) защищены cookie-based сессией через `Depends(get_admin_user)`. Доступ только для `ADMIN_TELEGRAM_ID`.
+
+### Аутентификация
+
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| POST | `/api/admin/auth/login` | Telegram Login Widget | Вход: HMAC-SHA256 верификация → cookie `admin_session` |
+| POST | `/api/admin/auth/logout` | cookie | Деактивация сессии, удаление cookie |
+| GET | `/api/admin/auth/me` | cookie | Данные текущей сессии |
+
+### Dashboard
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/dashboard/summary` | 6 метрик: users, active_7d, bookings, today, errors_24h, pending |
+| GET | `/api/admin/dashboard/bookings-trend?days=30` | Бронирования по дням за N дней |
+| GET | `/api/admin/dashboard/platforms` | Распределение расписаний по платформам |
+
+### Logs (app_events)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/logs` | Пагинированный список событий с фильтрами (event_type, severity, date, search) |
+| GET | `/api/admin/logs/stats` | Агрегация за 24ч: by_severity, by_type, unique_users |
+
+### Tasks (Kanban)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/tasks` | Все задачи, сгруппированные по статусу (backlog/in_progress/done) |
+| POST | `/api/admin/tasks` | Создать задачу |
+| PATCH | `/api/admin/tasks/reorder` | Перестановка задач в колонке |
+| PATCH | `/api/admin/tasks/{id}` | Обновить задачу (при смене status — пересчёт priority) |
+| DELETE | `/api/admin/tasks/{id}` | Физическое удаление задачи |
+
+### Audit Log
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/audit-log` | Пагинированный лог действий администратора |
+
+### Event Tracking (публичный)
+
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| POST | `/api/events` | optional initData | Трекинг событий из Mini App (анонимизированный) |
+
+### Admin Panel (Frontend)
+
+**Расположение:** `admin/index.html` — SPA, раздаётся nginx с `/admin/`.
+
+**Auth flow:**
+1. Пользователь открывает `/admin/` → JS проверяет `GET /api/admin/auth/me`
+2. Если 401 → экран логина с Telegram Login Widget
+3. Нажатие "Log in with Telegram" → Telegram OAuth → `onTelegramAuth(user)`
+4. JS отправляет `POST /api/admin/auth/login` с данными от Telegram
+5. Backend верифицирует HMAC, проверяет `telegram_id == ADMIN_TELEGRAM_ID`, создаёт сессию
+6. Cookie `admin_session` устанавливается (HttpOnly, Secure, SameSite=Strict, path=/api/admin)
+7. JS переключает на экран дашборда
+
+**SPA-навигация:** hash-роутинг (#dashboard, #logs, #tasks, #settings).
+
+**Rate limiting:** auth — 3 req/min (nginx) + 3 attempts/5min (backend in-memory), прочие admin — 5 req/s.
 
 ## Основные потоки данных
 

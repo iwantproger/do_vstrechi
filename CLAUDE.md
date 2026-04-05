@@ -22,11 +22,14 @@ do_vstrechi/
 │   └── Dockerfile
 ├── frontend/               # Telegram Mini App (SPA)
 │   └── index.html          # Весь фронтенд в одном файле (HTML + CSS + JS)
+├── admin/                  # Админ-панель (SPA)
+│   └── index.html          # Весь фронтенд админки (HTML + CSS + JS)
 ├── database/               # Инициализация и миграции БД
 │   ├── init.sql            # Схема: таблицы, индексы, триггеры, view
 │   └── migrations/         # Инкрементальные SQL-миграции
 │       ├── 002_add_timezone.sql
-│       └── 003_add_reminder_flags.sql
+│       ├── 003_add_reminder_flags.sql
+│       └── 004_admin_tables.sql
 ├── nginx/                  # Reverse proxy
 │   ├── nginx.conf          # Конфиг: SSL, rate limiting, security headers
 │   └── Dockerfile
@@ -317,3 +320,6 @@ make logs        # Посмотреть логи
 - **Docker: non-root** — backend и bot контейнеры работают под пользователем `appuser` (uid 1000)
 - **nginx rate limiting** — `/api/` 10 req/s burst=20, `/api/bookings` 5 req/min burst=3
 - **Security headers** — HSTS, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- **Telegram Login Widget** требует домен, зарегистрированный в BotFather: `/setdomain` → `dovstrechiapp.ru`
+- **Админка** доступна по `/admin/`, rate limit 5 req/s (auth: 3 req/min), cookie-based сессии
+- **CSP** включает `https://telegram.org` и `https://oauth.telegram.org` для Telegram Login Widget

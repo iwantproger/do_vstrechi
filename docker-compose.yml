@@ -16,6 +16,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations:ro
     networks:
       - internal
     healthcheck:
@@ -39,6 +40,10 @@ services:
       BOT_TOKEN: ${BOT_TOKEN}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       BOT_INTERNAL_URL: http://bot:8080
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      ADMIN_SESSION_TTL_HOURS: ${ADMIN_SESSION_TTL_HOURS:-2}
+      ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST:-}
+      ANONYMIZE_SALT: ${ANONYMIZE_SALT:-do-vstrechi-2026}
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,6 +92,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend:/usr/share/nginx/html:ro
+      - ./admin:/usr/share/nginx/html/admin:ro
       - certbot_www:/var/www/certbot:ro
       - certbot_certs:/etc/letsencrypt:ro
     depends_on:
