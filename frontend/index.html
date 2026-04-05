@@ -58,6 +58,11 @@
   /* ── Blue special ── */
   --blue:#7aaaff;
   --blue-soft:rgba(91,142,255,.13);
+
+  /* ── Safe area ── */
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --tg-header-height:56px;
 }
 html,body{height:100%;background:#05100E;overflow:hidden}
 body{font-family:var(--font);color:var(--t1)}
@@ -75,12 +80,18 @@ body{font-family:var(--font);color:var(--t1)}
   transform:translateX(100%);
   transition:transform .28s cubic-bezier(.4,0,.2,1);
   will-change:transform;
-  padding-bottom:82px;
+  padding-top:calc(var(--tg-header-height) + var(--safe-top) + 8px);
+  padding-bottom:calc(82px + var(--safe-bottom));
+  visibility:hidden;
+  pointer-events:none;
 }
 .screen::-webkit-scrollbar{display:none}
-.screen.active{transform:translateX(0)}
-.screen.prev{transform:translateX(-30%)}
+.screen.active{transform:translateX(0);visibility:visible;pointer-events:auto}
+.screen.prev{transform:translateX(-30%);visibility:hidden;pointer-events:none}
+.screen.leaving{transform:translateX(100%);visibility:hidden;pointer-events:none}
 .screen.no-pad{padding-bottom:0}
+.screen.has-inner-header{padding-top:calc(var(--tg-header-height) + var(--safe-top))}
+.screen.has-page-head{padding-top:0}
 
 /* ═══════════════════════════════════════════════════
    4. NAVBAR (floating glass pill)
@@ -88,7 +99,7 @@ body{font-family:var(--font);color:var(--t1)}
 .navbar-outer{
   flex-shrink:0;
   display:flex;align-items:center;flex-wrap:nowrap;gap:8px;
-  padding:8px 14px calc(14px + env(safe-area-inset-bottom,0));
+  padding:8px 14px calc(14px + var(--safe-bottom));
   position:absolute;bottom:0;left:0;right:0;z-index:40;
   background:transparent;
 }
@@ -300,7 +311,7 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 /* ── Toggle row ── */
 .tog-row{
   display:flex;align-items:center;justify-content:space-between;
-  padding:14px 0;border-bottom:1px solid var(--b1);
+  padding:14px 16px;border-bottom:1px solid var(--b1);
 }
 .tog-row:last-child{border-bottom:none}
 .tog-info{flex:1}
@@ -357,7 +368,7 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .tab-count{background:var(--ams);color:var(--amber);padding:1px 5px;border-radius:var(--rf);font-size:10px}
 
 /* ── Page head ── */
-.page-head{padding:20px 20px 0;flex-shrink:0}
+.page-head{padding:calc(20px + var(--tg-header-height) + var(--safe-top)) 20px 0;flex-shrink:0}
 .page-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
 .page-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
 
@@ -617,6 +628,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 @media(max-width:500px){
   #app{border-radius:0}
 }
+/* Скрыть Telegram MainButton — используем собственные кнопки */
+.tgme_main_button,[data-testid="main-button"]{display:none!important}
 </style>
 </head>
 <body>
@@ -641,14 +654,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div id="home-hero"></div>
   <div id="home-section-label" class="hidden" style="padding:32px 20px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--t2)">Встречи сегодня</div>
   <div id="home-meetings"></div>
-  <div id="home-stats" style="padding-top:16px"></div>
   <div class="scroll-fill"></div>
 </div>
 
 <!-- ═══════════════════════════════
      MEETINGS
 ════════════════════════════════ -->
-<div class="screen" id="s-meetings">
+<div class="screen has-page-head" id="s-meetings">
   <div class="page-head" style="padding-bottom:4px">
     <div class="page-title">Встречи</div>
   </div>
@@ -674,7 +686,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      MEETING DETAIL
 ════════════════════════════════ -->
-<div class="screen" id="s-meet-detail">
+<div class="screen has-inner-header" id="s-meet-detail">
   <div class="inner-header">
     <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Встреча</div>
@@ -686,7 +698,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      MEETING NO-ANSWER DETAIL
 ════════════════════════════════ -->
-<div class="screen" id="s-meet-noans">
+<div class="screen has-inner-header" id="s-meet-noans">
   <div class="inner-header">
     <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Встреча</div>
@@ -698,7 +710,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      SCHEDULES
 ════════════════════════════════ -->
-<div class="screen" id="s-schedules">
+<div class="screen has-page-head" id="s-schedules">
   <div class="page-head">
     <div class="page-title">Расписания</div>
   </div>
@@ -714,7 +726,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      SCHEDULE DETAIL
 ════════════════════════════════ -->
-<div class="screen" id="s-link-detail">
+<div class="screen has-inner-header" id="s-link-detail">
   <div class="inner-header">
     <button class="back-btn" onclick="scheduleBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title" id="link-detail-title">Расписание</div>
@@ -801,68 +813,134 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div class="profile-name" id="profile-name">Загрузка...</div>
     <div class="profile-sub" id="profile-sub"></div>
   </div>
-  <div id="profile-content">
-    <div class="group-title">Моя ссылка для записи</div>
-    <div style="padding:0 16px">
-      <div class="link-card" id="profile-link-card" style="cursor:default">
-        <div class="link-card-body">
-          <div id="profile-link-url" style="font-size:13px;font-weight:600;color:var(--a);word-break:break-all;line-height:1.5"></div>
+
+  <!-- МОЯ ССЫЛКА -->
+  <div class="group-title">Моя ссылка</div>
+  <div style="padding:0 16px">
+    <div class="settings-group">
+      <div class="set-row" onclick="copyProfileLink()">
+        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <div class="set-content">
+          <div class="set-title">Ссылка для записи</div>
+          <div class="set-sub" id="profile-link-sub">—</div>
         </div>
-        <div class="lc-footer">
-          <button class="lc-btn lc-share" onclick="shareProfileLink()">
-            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Поделиться
-          </button>
-          <button class="lc-btn lc-copy" onclick="copyProfileLink()">
-            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Копировать
-          </button>
-        </div>
+        <div class="set-right"><span class="set-val">Скопировать</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       </div>
-    </div>
-    <div class="group-title">Уведомления</div>
-    <div style="padding:0 16px">
-      <div class="settings-group">
-        <div class="set-row" style="cursor:default">
-          <div class="set-icon si-a"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
-          <div class="set-content"><div class="set-title">Уведомления о записях</div></div>
-          <div class="tog on" id="tog-bookings" onclick="toggleSetting('bookings')"></div>
+      <div class="set-row" onclick="shareProfileLink()">
+        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><circle cx="6" cy="12" r="3"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/><circle cx="18" cy="19" r="3"/></svg></div>
+        <div class="set-content">
+          <div class="set-title">Поделиться ботом</div>
+          <div class="set-sub">Отправить друзьям</div>
         </div>
-        <div class="set-row" style="cursor:default">
-          <div class="set-icon si-am"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <div class="set-content"><div class="set-title">Напоминание за 24ч</div></div>
-          <div class="tog on" id="tog-remind24" onclick="toggleSetting('remind24')"></div>
-        </div>
-        <div class="set-row" style="cursor:default">
-          <div class="set-icon si-am"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <div class="set-content"><div class="set-title">Напоминание за 1ч</div></div>
-          <div class="tog on" id="tog-remind1" onclick="toggleSetting('remind1')"></div>
-        </div>
-      </div>
-    </div>
-    <div class="group-title">Информация</div>
-    <div style="padding:0 16px">
-      <div class="settings-group">
-        <div class="set-row" style="cursor:default">
-          <div class="set-icon si-m"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg></div>
-          <div class="set-content"><div class="set-title">Версия приложения</div></div>
-          <div class="set-val">1.0.0-beta</div>
-        </div>
-        <div class="set-row" onclick="shareBot()">
-          <div class="set-icon si-b"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div>
-          <div class="set-content"><div class="set-title">Поделиться ботом</div></div>
-          <div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-        </div>
+        <div class="set-right"><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       </div>
     </div>
   </div>
-  <div class="scroll-fill"></div>
+
+  <!-- УВЕДОМЛЕНИЯ -->
+  <div class="group-title">Уведомления</div>
+  <div style="padding:0 16px">
+    <div class="settings-group">
+      <div class="tog-row">
+        <div class="tog-info">
+          <div class="tog-title">Уведомления о записях</div>
+          <div class="tog-sub">Когда кто-то бронирует встречу</div>
+        </div>
+        <div class="tog on" id="tog-notif" onclick="toggleSetting('notif')"></div>
+      </div>
+      <div class="tog-row">
+        <div class="tog-info">
+          <div class="tog-title">Напоминание за 24 ч</div>
+          <div class="tog-sub">За день до встречи</div>
+        </div>
+        <div class="tog on" id="tog-h24" onclick="toggleSetting('h24')"></div>
+      </div>
+      <div class="tog-row">
+        <div class="tog-info">
+          <div class="tog-title">Напоминание за 1 ч</div>
+          <div class="tog-sub">Перед встречей</div>
+        </div>
+        <div class="tog" id="tog-h1" onclick="toggleSetting('h1')"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- АККАУНТ -->
+  <div class="group-title">Аккаунт</div>
+  <div style="padding:0 16px">
+    <div class="settings-group">
+      <div class="set-row" style="cursor:default">
+        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        <div class="set-content">
+          <div class="set-title">Часовой пояс</div>
+          <div class="set-sub">Используется при расчёте слотов</div>
+        </div>
+        <div class="set-right"><span class="set-val">Europe/Moscow</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ИНТЕГРАЦИИ -->
+  <div class="group-title">Интеграции</div>
+  <div style="margin:0 16px 8px;background:var(--ams);border-radius:var(--r2);padding:10px 14px;border:1px solid rgba(245,166,35,.2)">
+    <span style="font-size:12px;font-weight:600;color:var(--amber);line-height:1.5">Интеграции с календарями и видеосервисами появятся в следующем обновлении</span>
+  </div>
+  <div style="padding:0 16px;opacity:.6;pointer-events:none">
+    <div class="settings-group">
+      <div class="set-row">
+        <div class="set-icon" style="background:#34A853"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="set-content"><div class="set-title">Google Календарь</div><div class="set-sub">Синхронизация занятых слотов</div></div>
+        <div class="set-right"><span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--ams);color:var(--amber)">Скоро</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+      <div class="set-row">
+        <div class="set-icon" style="background:#E8460C"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="set-content"><div class="set-title">Яндекс Календарь</div><div class="set-sub">Синхронизация занятых слотов</div></div>
+        <div class="set-right"><span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--ams);color:var(--amber)">Скоро</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+      <div class="set-row">
+        <div class="set-icon" style="background:#555"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="set-content"><div class="set-title">Apple Calendar</div><div class="set-sub">CalDAV синхронизация</div></div>
+        <div class="set-right"><span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--ams);color:var(--amber)">Скоро</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+      <div class="set-row">
+        <div class="set-icon" style="background:#2D8CFF"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 7V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v3"/></svg></div>
+        <div class="set-content"><div class="set-title">Zoom</div><div class="set-sub">Ссылки на видеозвонки</div></div>
+        <div class="set-right"><span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--ams);color:var(--amber)">Скоро</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+      <div class="set-row">
+        <div class="set-icon" style="background:#00897B"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M17 7V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v3"/></svg></div>
+        <div class="set-content"><div class="set-title">Google Meet</div><div class="set-sub">OAuth интеграция</div></div>
+        <div class="set-right"><span style="padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:var(--ams);color:var(--amber)">Скоро</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- О ПРИЛОЖЕНИИ -->
+  <div class="group-title">О приложении</div>
+  <div style="padding:0 16px">
+    <div class="settings-group">
+      <div class="set-row" style="cursor:default">
+        <div class="set-icon si-m"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg></div>
+        <div class="set-content"><div class="set-title">Версия приложения</div></div>
+        <div class="set-right"><span class="set-val">1.0.0-beta</span></div>
+      </div>
+      <div class="set-row" onclick="tg?.openTelegramLink('https://t.me/do_vstrechi_bot')">
+        <div class="set-icon si-m"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="set-content">
+          <div class="set-title">Связаться с поддержкой</div>
+          <div class="set-sub">Telegram @do_vstrechi_bot</div>
+        </div>
+        <div class="set-right"><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-fill" style="padding-bottom:24px"></div>
 </div>
 
 <!-- ═══════════════════════════════
      CREATE WIZARD (single screen)
 ════════════════════════════════ -->
-<div class="screen no-pad" id="s-new-link">
+<div class="screen no-pad has-inner-header" id="s-new-link">
   <div class="inner-header">
     <button class="back-btn" onclick="cancelCreate()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Отмена</button>
     <div class="inner-title">Новое расписание</div>
@@ -935,7 +1013,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      CLIENT: CALENDAR
 ════════════════════════════════ -->
-<div class="screen" id="s-calendar">
+<div class="screen has-inner-header" id="s-calendar">
   <div class="inner-header">
     <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title" id="cal-header-title">Выберите время</div>
@@ -977,7 +1055,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 <!-- ═══════════════════════════════
      CLIENT: CONFIRM FORM
 ════════════════════════════════ -->
-<div class="screen no-pad" id="s-form">
+<div class="screen no-pad has-inner-header" id="s-form">
   <div class="inner-header">
     <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Назад</button>
     <div class="inner-title">Подтвердить запись</div>
@@ -1170,7 +1248,7 @@ const state = {
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); }
+  if (tg) { tg.ready(); tg.expand(); tg.enableClosingConfirmation(); if (tg.MainButton) tg.MainButton.hide(); }
 
   const urlParams = new URLSearchParams(window.location.search);
   const scheduleId = urlParams.get('schedule_id');
@@ -1249,14 +1327,9 @@ function back() {
   const cur = document.getElementById(state.currentScreen);
   const prevEl = document.getElementById(prev);
 
-  /* cleanup MainButton listeners when leaving form/calendar screens */
-  if (tg?.MainButton) {
-    tg.MainButton.hide();
-    tg.MainButton.offClick(setupForm);
-    if (typeof _submitBookingBound !== 'undefined') tg.MainButton.offClick(_submitBookingBound);
-  }
-
   cur.classList.remove('active');
+  cur.classList.add('leaving');
+  setTimeout(() => cur.classList.remove('leaving'), 300);
   prevEl.classList.remove('prev');
   prevEl.classList.add('active');
   state.currentScreen = prev;
@@ -1549,18 +1622,9 @@ function applyIeo() {
 async function loadHome() {
   if (!state.user) return;
 
-  try {
-    var [statsRes, bookingsRes] = await Promise.all([
-      apiFetch('GET', '/api/stats'),
-      apiFetch('GET', '/api/bookings?role=organizer'),
-    ]);
-  } catch (e) {
-    setHomeSubtitle('Не удалось загрузить данные', true);
-    return;
-  }
-
-  if (statsRes.data) state.stats = statsRes.data;
-  if (bookingsRes.data) state.bookings = bookingsRes.data;
+  var { data, error } = await apiFetch('GET', '/api/bookings?role=organizer');
+  if (error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
+  if (data) state.bookings = data;
 
   const now = new Date();
   const todayStr = formatDate(now);
@@ -1599,18 +1663,6 @@ async function loadHome() {
     if (label) label.classList.add('hidden');
     if (listEl) listEl.innerHTML = renderEmpty('Нет встреч', 'На сегодня ничего не запланировано');
   }
-
-  /* stats grid */
-  const statsEl = document.getElementById('home-stats');
-  if (statsEl && state.stats) {
-    const s = state.stats;
-    statsEl.innerHTML = '<div class="stat-grid">'
-      + '<div class="stat-card"><div class="stat-val ac">' + (s.active_schedules || 0) + '</div><div class="stat-lbl">Расписаний</div></div>'
-      + '<div class="stat-card"><div class="stat-val">' + (s.total_bookings || 0) + '</div><div class="stat-lbl">Всего встреч</div></div>'
-      + '<div class="stat-card"><div class="stat-val">' + (s.confirmed_bookings || 0) + '</div><div class="stat-lbl">Подтверждённых</div></div>'
-      + '<div class="stat-card"><div class="stat-val">' + (s.upcoming_bookings || 0) + '</div><div class="stat-lbl">Предстоящих</div></div>'
-      + '</div>';
-  }
 }
 
 function renderHeroCard(m, now) {
@@ -1641,27 +1693,10 @@ function renderHeroCard(m, now) {
     + '</div>';
   }
 
-  if (withinHour) {
-    return '<div style="margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3)">'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin-bottom:8px">До встречи меньше часа</div>'
-      + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
-      + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
-      + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">'
-        + '<div>'
-          + '<div style="font-size:30px;font-weight:800;color:#fff;line-height:1">' + time + '</div>'
-          + '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-top:2px">' + meta + '</div>'
-        + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:8px;margin-top:14px">'
-        + '<button class="btn btn-confirm" onclick="confirmMeeting(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Подтвердить</button>'
-        + '<button class="btn btn-danger" onclick="openCancelSheet(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Отклонить</button>'
-      + '</div>'
-    + '</div>';
-  }
-
-  /* pending, not urgent → "waiting for response" (blue) */
-  return '<div style="margin:32px 16px 0;background:#0A111E;border-radius:20px;padding:18px;border:1px solid rgba(91,142,255,.3)">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#7AAAFF;margin-bottom:8px">Ждём ответа от участника</div>'
+  /* pending — amber card, label depends on urgency */
+  const heroLabel = withinHour ? 'До встречи меньше часа' : 'Ожидает подтверждения';
+  return '<div style="margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3)">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin-bottom:8px">' + heroLabel + '</div>'
     + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
     + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
     + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">'
@@ -1669,7 +1704,10 @@ function renderHeroCard(m, now) {
         + '<div style="font-size:30px;font-weight:800;color:#fff;line-height:1">' + time + '</div>'
         + '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-top:2px">' + meta + '</div>'
       + '</div>'
-      + '<button onclick="openMeetDetail(\'' + m.id + '\')" style="height:40px;padding:0 16px;background:rgba(91,142,255,.15);border:1px solid rgba(91,142,255,.3);border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:#7AAAFF;cursor:pointer;white-space:nowrap;flex-shrink:0">Написать</button>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px">'
+      + '<button class="btn btn-confirm" onclick="confirmMeeting(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Подтвердить</button>'
+      + '<button class="btn btn-danger" onclick="openCancelSheet(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Отклонить</button>'
     + '</div>'
   + '</div>';
 }
@@ -2493,17 +2531,9 @@ function openNewSchedule() {
   if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Создать расписание'; }
 
   showScreen('s-new-link');
-
-  /* Telegram MainButton */
-  if (tg?.MainButton) {
-    tg.MainButton.setText('Создать расписание');
-    tg.MainButton.show();
-    tg.MainButton.onClick(submitNewSchedule);
-  }
 }
 
 function cancelCreate() {
-  if (tg?.MainButton) { tg.MainButton.hide(); tg.MainButton.offClick(submitNewSchedule); }
   goBack();
 }
 
@@ -2571,14 +2601,12 @@ async function submitNewSchedule() {
   /* loading state */
   var btn = document.getElementById('nw-submit-btn');
   if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Создание…'; }
-  if (tg?.MainButton) { tg.MainButton.showProgress(); }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/schedules', form);
 
   /* restore button */
   if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Создать расписание'; }
-  if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); tg.MainButton.offClick(submitNewSchedule); }
 
   if (error) {
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
@@ -2830,13 +2858,6 @@ function selectTime(time) {
     gridEl.innerHTML = html;
   }
 
-  /* show MainButton */
-  if (tg?.MainButton) {
-    tg.MainButton.setText('Продолжить');
-    tg.MainButton.show();
-    tg.MainButton.offClick(setupForm);
-    tg.MainButton.onClick(setupForm);
-  }
 }
 
 function changeMonth(dir) {
@@ -2849,16 +2870,13 @@ function changeMonth(dir) {
   /* hide slot panel */
   var panel = document.getElementById('cal-slot-panel');
   if (panel) panel.style.display = 'none';
-  hideMainButton();
 
   renderCalendar();
   loadMonthSlots();
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-function hideMainButton() {
-  if (tg?.MainButton) { tg.MainButton.hide(); tg.MainButton.offClick(setupForm); tg.MainButton.offClick(_submitBookingBound); }
-}
+function hideMainButton() { /* MainButton отключён — используем собственные кнопки */ }
 
 /* ── Form setup ── */
 function setupForm() {
@@ -2908,15 +2926,6 @@ function setupForm() {
   var btn = document.getElementById('btn-book');
   if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Забронировать'; }
 
-  /* hide calendar MainButton, show form MainButton */
-  if (tg?.MainButton) {
-    tg.MainButton.offClick(setupForm);
-    tg.MainButton.setText('Забронировать');
-    tg.MainButton.show();
-    tg.MainButton.offClick(_submitBookingBound);
-    tg.MainButton.onClick(_submitBookingBound);
-  }
-
   showScreen('s-form');
 }
 
@@ -2955,14 +2964,12 @@ async function submitBooking() {
   /* loading state */
   var btn = document.getElementById('btn-book');
   if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…'; }
-  if (tg?.MainButton) tg.MainButton.showProgress();
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/bookings', body);
 
   /* restore button */
   if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Забронировать'; }
-  if (tg?.MainButton) { tg.MainButton.hideProgress(); tg.MainButton.hide(); tg.MainButton.offClick(_submitBookingBound); }
 
   if (error) {
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
@@ -3023,7 +3030,7 @@ function openMeetingLink() {
 /* ═══════════════════════════════════════════
    PROFILE (s-profile)
 ═══════════════════════════════════════════ */
-var _settingsKeys = ['bookings', 'remind24', 'remind1'];
+var _settingsKeys = ['notif', 'h24', 'h1'];
 
 function loadProfile() {
   var u = state.user || tg?.initDataUnsafe?.user;
@@ -3038,20 +3045,21 @@ function loadProfile() {
   if (sub) sub.textContent = u.username ? '@' + u.username : 'ID: ' + (u.telegram_id || u.id);
 
   /* profile link */
-  var uid = u.telegram_id || u.id;
-  var linkUrl = location.origin + location.pathname + '?user_id=' + uid;
-  var linkEl = document.getElementById('profile-link-url');
-  if (linkEl) linkEl.textContent = linkUrl;
+  var slug = u.username || (u.telegram_id || u.id);
+  var linkUrl = location.origin + '/u/' + slug;
+  var linkSubEl = document.getElementById('profile-link-sub');
+  if (linkSubEl) linkSubEl.textContent = linkUrl.replace(/^https?:\/\//, '');
   state._profileLink = linkUrl;
 
-  /* restore toggle states from localStorage */
+  /* restore toggle states from localStorage (defaults: notif=on, h24=on, h1=off) */
   var saved = {};
   try { saved = JSON.parse(localStorage.getItem('sb_settings') || '{}'); } catch(e) {}
+  var defaults = { notif: true, h24: true, h1: false };
   _settingsKeys.forEach(function(key) {
     var el = document.getElementById('tog-' + key);
     if (!el) return;
-    if (saved[key] === false) el.classList.remove('on');
-    else el.classList.add('on');
+    var val = (key in saved) ? saved[key] : defaults[key];
+    if (val) el.classList.add('on'); else el.classList.remove('on');
   });
 }
 
@@ -3071,30 +3079,19 @@ function toggleSetting(key) {
 function copyProfileLink() {
   var url = state._profileLink;
   if (!url) return;
-  navigator.clipboard.writeText(url).catch(function() {});
-  showToast('Ссылка скопирована');
+  navigator.clipboard?.writeText(url).catch(function() {});
+  showToast('Ссылка скопирована ✓', 'success');
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 }
 
 function shareProfileLink() {
   var url = state._profileLink;
   if (!url) return;
-  if (tg?.switchInlineQuery) {
-    tg.switchInlineQuery(url, ['users', 'groups']);
-  } else if (tg?.openTelegramLink) {
+  if (tg?.openTelegramLink) {
     tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url));
   } else {
-    navigator.clipboard.writeText(url).catch(function() {});
-    showToast('Ссылка скопирована');
-  }
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-}
-
-function shareBot() {
-  if (tg?.switchInlineQuery) {
-    tg.switchInlineQuery('');
-  } else {
-    showToast('Откройте в Telegram');
+    navigator.clipboard?.writeText(url).catch(function() {});
+    showToast('Ссылка скопирована ✓', 'success');
   }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 }

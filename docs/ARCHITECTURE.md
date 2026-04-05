@@ -17,8 +17,9 @@ API-сервер (FastAPI), фронтенд (Vanilla JS, раздаётся ngi
 graph LR
     TU[Telegram User] -->|команды| BOT["Bot<br/>aiogram 3.6"]
     TU -->|Mini App| FE["Frontend<br/>Vanilla JS"]
-    BOT -->|HTTP| API["Backend API<br/>FastAPI 0.111"]
-    FE -->|fetch /api/| NGX["nginx 1.25"]
+    BOT -->|HTTP + X-Internal-Key| API["Backend API<br/>FastAPI 0.111"]
+    API -->|POST /internal/notify| BOT
+    FE -->|fetch /api/ + X-Init-Data| NGX["nginx 1.25"]
     NGX -->|proxy_pass| API
     NGX -->|static| FE
     API -->|asyncpg| DB["PostgreSQL 16"]
@@ -57,9 +58,17 @@ stateDiagram-v2
 ```
 
 **Menu Button:** кнопка «Открыть» в чате — открывает Mini App через `MenuButtonWebApp`.
+Устанавливается глобально при старте бота и per-user при `/start`.
 
-**Уведомления:** бот пока не отправляет push-уведомлений при бронировании.
-Организатор проверяет встречи вручную через меню «Мои встречи» или Mini App.
+**Уведомления:** бот принимает push-уведомления о новых бронированиях через внутренний
+HTTP-сервер (aiohttp на порту 8080, endpoint `/internal/notify`). Backend отправляет
+fire-and-forget POST при создании бронирования. Бот уведомляет и организатора, и гостя.
+
+**Напоминания:** фоновый цикл `reminder_loop()` каждые 5 минут проверяет
+`GET /api/bookings/pending-reminders` и рассылает напоминания за 24ч и 1ч до встречи.
+
+**ReplyKeyboard:** при `/start` бот устанавливает постоянную нижнюю панель (4 кнопки:
+Создать расписание, Мои расписания, Мои встречи, Помощь).
 
 ### Backend API (`backend/main.py`)
 
@@ -70,25 +79,31 @@ CRUD расписаний и бронирований, рассчитывает 
 
 **Все эндпоинты:**
 
-| Метод | Путь | Описание | Параметры |
-|-------|------|----------|-----------|
-| GET | `/` | Healthcheck | — |
-| GET | `/health` | Проверка подключения к БД | — |
-| POST | `/api/users/auth` | Upsert пользователя | body: `UserAuth` |
-| GET | `/api/users/{telegram_id}` | Получить пользователя | path: telegram_id |
-| POST | `/api/schedules` | Создать расписание | body: `ScheduleCreate` |
-| GET | `/api/schedules` | Список расписаний пользователя | query: telegram_id |
-| GET | `/api/schedules/{schedule_id}` | Детали расписания | path: schedule_id (UUID) |
-| DELETE | `/api/schedules/{schedule_id}` | Мягкое удаление (is_active=FALSE) | path: schedule_id, query: telegram_id |
-| GET | `/api/available-slots/{schedule_id}` | Свободные слоты на дату | path: schedule_id, query: date (YYYY-MM-DD) |
-| POST | `/api/bookings` | Создать бронирование | body: `BookingCreate` |
-| GET | `/api/bookings` | Список бронирований | query: telegram_id, role (organizer/guest/all) |
-| PATCH | `/api/bookings/{booking_id}/confirm` | Подтвердить | path: booking_id, query: telegram_id |
-| PATCH | `/api/bookings/{booking_id}/cancel` | Отменить | path: booking_id, query: telegram_id |
-| GET | `/api/stats` | Статистика пользователя | query: telegram_id |
+| Метод | Путь | Auth | Описание | Параметры |
+|-------|------|------|----------|-----------|
+| GET | `/` | — | Healthcheck | — |
+| GET | `/health` | — | Проверка подключения к БД | — |
+| POST | `/api/users/auth` | initData | Upsert пользователя | body: `UserAuth` |
+| GET | `/api/users/{telegram_id}` | — | Получить пользователя | path: telegram_id |
+| POST | `/api/schedules` | initData | Создать расписание | body: `ScheduleCreate` |
+| GET | `/api/schedules` | initData | Список расписаний пользователя | — |
+| GET | `/api/schedules/{schedule_id}` | — | Детали расписания (публичный) | path: schedule_id (UUID) |
+| DELETE | `/api/schedules/{schedule_id}` | initData | Мягкое удаление (is_active=FALSE) | path: schedule_id |
+| GET | `/api/available-slots/{schedule_id}` | — | Свободные слоты на дату | query: date, viewer_tz |
+| POST | `/api/bookings` | optional | Создать бронирование + push | body: `BookingCreate` |
+| GET | `/api/bookings` | initData | Список бронирований | query: role (organizer/guest/all) |
+| PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить | path: booking_id |
+| PATCH | `/api/bookings/{booking_id}/cancel` | initData | Отменить | path: booking_id |
+| GET | `/api/bookings/pending-reminders` | — | Бронирования для напоминаний | query: reminder_type (24h/1h) |
+| PATCH | `/api/bookings/{booking_id}/reminder-sent` | — | Пометить напоминание отправленным | query: reminder_type |
+| GET | `/api/stats` | initData | Статистика пользователя | — |
 
-**Аутентификация:** отсутствует. Доступ к данным контролируется по `telegram_id` в query/body.
-Telegram InitData не валидируется на backend.
+**Аутентификация:** двухканальная.
+- **Mini App → Backend:** заголовок `X-Init-Data` с Telegram initData. Backend валидирует HMAC-SHA256 подпись
+  через `validate_init_data()` и извлекает `user.id`. Dependency: `Depends(get_current_user)`.
+- **Bot → Backend:** заголовок `X-Internal-Key` с `INTERNAL_API_KEY`. `telegram_id` передаётся в query params.
+- **Публичные эндпоинты:** `get_schedule`, `available_slots`, `get_user` — без auth.
+- **Опциональная auth:** `create_booking` — `Depends(get_optional_user)`, гость может быть не авторизован.
 
 **Connection pool:** asyncpg, min_size=2, max_size=10. Создаётся при старте через lifespan,
 закрывается при остановке. Dependency `db()` выдаёт соединение из пула на каждый запрос.
@@ -167,6 +182,7 @@ erDiagram
         TEXT username
         TEXT first_name
         TEXT last_name
+        TEXT timezone
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -198,6 +214,8 @@ erDiagram
         TEXT status
         TEXT meeting_link
         TEXT notes
+        BOOLEAN reminder_24h_sent
+        BOOLEAN reminder_1h_sent
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -215,29 +233,36 @@ erDiagram
 
 | Сервис | Образ | Порты | Volumes |
 |--------|-------|-------|---------|
-| postgres | postgres:16-alpine | — (internal) | postgres_data, init.sql |
-| backend | python:3.12-slim (custom) | 8000 (internal) | — |
-| bot | python:3.12-slim (custom) | — | — |
+| postgres | postgres:16-alpine | — (internal) | postgres_data, init.sql, migrations/ |
+| backend | python:3.12-slim (custom, non-root) | 8000 (internal) | — |
+| bot | python:3.12-slim (custom, non-root) | 8080 (internal) | — |
 | nginx | nginx:1.25-alpine (custom) | 80, 443 | nginx.conf, frontend/, certbot certs |
 | certbot | certbot/certbot:latest | — (профиль ssl) | certbot_www, certbot_certs |
 
 **nginx routing:**
 
-| Путь | Upstream | Описание |
-|------|---------|----------|
-| `/` | filesystem | Статика из `/usr/share/nginx/html` (frontend) |
-| `/api/*` | `http://backend:8000` | Проксирование API-запросов |
-| `/health` | `http://backend:8000/health` | Healthcheck |
-| `/.well-known/acme-challenge/` | filesystem | Let's Encrypt challenge |
+| Путь | Upstream | Rate limit | Описание |
+|------|---------|------------|----------|
+| `/` | filesystem | — | Статика из `/usr/share/nginx/html` (frontend) |
+| `/api/*` | `http://backend:8000` | 10 req/s, burst=20 | Проксирование API-запросов |
+| `/api/bookings` | `http://backend:8000` | 5 req/min, burst=3 | Отдельный лимит на бронирование |
+| `/health` | `http://backend:8000/health` | — | Healthcheck |
+| `/.well-known/acme-challenge/` | filesystem | — | Let's Encrypt challenge |
 
 **SSL:** Let's Encrypt через certbot. HTTP (80) → редирект на HTTPS (443). TLS 1.2 + 1.3.
+
+**Security headers:** HSTS (max-age=31536000), CSP (default-src 'self', script-src telegram.org),
+X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin,
+Permissions-Policy (camera, microphone, geolocation disabled). `server_tokens off`.
 
 **Переменные окружения:**
 
 | Переменная | Сервис | Описание |
 |-----------|--------|----------|
-| `BOT_TOKEN` | bot | Токен Telegram-бота |
-| `MINI_APP_URL` | bot | URL фронтенда Mini App |
+| `BOT_TOKEN` | backend, bot | Токен Telegram-бота (нужен обоим для HMAC валидации) |
+| `MINI_APP_URL` | backend, bot | URL фронтенда Mini App |
+| `INTERNAL_API_KEY` | backend, bot | Ключ для аутентификации бот↔backend |
+| `BOT_INTERNAL_URL` | backend | URL HTTP-сервера бота (default: `http://bot:8080`) |
 | `BACKEND_API_URL` | bot | URL backend (default: `http://backend:8000`) |
 | `DATABASE_URL` | backend | PostgreSQL connection string |
 | `SECRET_KEY` | backend | Секретный ключ |
@@ -283,6 +308,8 @@ sequenceDiagram
     participant NGX as nginx
     participant API as Backend (FastAPI)
     participant DB as PostgreSQL
+    participant BOT2 as Bot (aiogram)
+    participant TG2 as Telegram API
 
     G->>FE: Открывает ссылку ?schedule_id=UUID
     FE->>NGX: GET /api/schedules/{id}
@@ -299,14 +326,22 @@ sequenceDiagram
 
     G->>FE: Выбирает дату и время
     G->>FE: Заполняет форму (имя, контакт)
-    FE->>NGX: POST /api/bookings
+    FE->>NGX: POST /api/bookings (X-Init-Data)
     NGX->>API: proxy
     API->>DB: CHECK conflict → INSERT bookings
     Note over API: generate_meeting_link (Jitsi)
     DB-->>API: booking record
     API-->>FE: booking JSON + meeting_link
     FE-->>G: Экран успеха + ссылка на встречу
+
+    Note over API: fire-and-forget
+    API->>BOT2: POST /internal/notify
+    BOT2->>TG2: Уведомление организатору
+    BOT2->>TG2: Уведомление гостю
 ```
+
+> **Примечание:** BOT2/TG2 в диаграмме — это бот-сервис и Telegram API,
+> показаны отдельно для наглядности потока уведомлений.
 
 ### Подтверждение / отмена встречи
 
@@ -328,8 +363,17 @@ sequenceDiagram
 
 ### Уведомления
 
-Автоматические push-уведомления **не реализованы**. Организатор узнаёт о новых
-бронированиях через:
-- Меню «Мои встречи» в боте (callback `my_bookings`)
-- Экран «Встречи» в Mini App (GET `/api/bookings`)
-- Статистику (callback `stats` / GET `/api/stats`)
+**Push-уведомления о новых бронированиях:**
+1. Гость создаёт бронирование → backend POST `/api/bookings`
+2. Backend отправляет fire-and-forget `POST http://bot:8080/internal/notify` с данными бронирования
+3. Бот (`handle_new_booking`) отправляет сообщение организатору (с кнопками ✅/❌) и гостю
+
+**Напоминания о предстоящих встречах:**
+1. Фоновый цикл `reminder_loop()` в боте — каждые 5 минут
+2. Запрашивает `GET /api/bookings/pending-reminders?reminder_type=24h|1h`
+3. Backend возвращает confirmed бронирования с `reminder_*_sent = FALSE` в нужном временном окне
+4. Бот отправляет напоминание организатору и гостю
+5. Помечает отправленным: `PATCH /api/bookings/{id}/reminder-sent?reminder_type=24h|1h`
+
+**Таймзоны:** все даты/времена в уведомлениях форматируются в таймзоне организатора
+(`users.timezone`, default 'UTC') через `format_dt(dt_str, tz=...)`.

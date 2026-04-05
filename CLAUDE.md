@@ -13,21 +13,30 @@
 ```
 do_vstrechi/
 ├── backend/                # FastAPI-приложение (API + БД)
-│   ├── main.py             # Весь backend в одном файле (роуты, модели, БД)
+│   ├── main.py             # Весь backend в одном файле (роуты, модели, БД, auth)
 │   ├── requirements.txt    # Python-зависимости backend
 │   └── Dockerfile
 ├── bot/                    # Telegram-бот на aiogram 3.x
-│   ├── bot.py              # Весь бот в одном файле (handlers, FSM, клавиатуры)
+│   ├── bot.py              # Бот + внутренний HTTP-сервер уведомлений (:8080)
 │   ├── requirements.txt    # Python-зависимости бота
 │   └── Dockerfile
 ├── frontend/               # Telegram Mini App (SPA)
 │   └── index.html          # Весь фронтенд в одном файле (HTML + CSS + JS)
-├── database/               # Инициализация БД
-│   └── init.sql            # Схема: таблицы, индексы, триггеры, view
+├── database/               # Инициализация и миграции БД
+│   ├── init.sql            # Схема: таблицы, индексы, триггеры, view
+│   └── migrations/         # Инкрементальные SQL-миграции
+│       ├── 002_add_timezone.sql
+│       └── 003_add_reminder_flags.sql
 ├── nginx/                  # Reverse proxy
-│   ├── nginx.conf          # Конфиг: SSL, проксирование /api/ → backend
+│   ├── nginx.conf          # Конфиг: SSL, rate limiting, security headers
 │   └── Dockerfile
 ├── design/                 # Дизайн-макеты и прототипы (HTML, SVG, PDF)
+├── docs/                   # Техническая документация
+│   ├── ARCHITECTURE.md     # Архитектура и диаграммы
+│   ├── DATA_MODELS.md      # ER-диаграммы, схема БД, Pydantic-модели
+│   ├── MODULES.md          # Описание модулей и функций
+│   ├── DECISIONS.md        # Архитектурные решения, техдолг
+│   └── SECURITY.md         # Аудит безопасности
 ├── .github/workflows/
 │   └── deploy.yml          # CI/CD: автодеплой на VPS при push в main
 ├── docker-compose.yml      # Оркестрация всех сервисов
@@ -84,13 +93,13 @@ make logs        # Посмотреть логи
 
 | Переменная | Сервис | Описание | Обязательная |
 |-----------|--------|----------|-------------|
-| `BOT_TOKEN` | bot | Токен Telegram-бота от BotFather | ✅ |
-| `MINI_APP_URL` | bot | URL фронтенда Mini App (без `/` на конце) | ✅ |
+| `BOT_TOKEN` | backend, bot | Токен Telegram-бота от BotFather (нужен обоим для валидации initData) | ✅ |
+| `MINI_APP_URL` | backend, bot | URL фронтенда Mini App (без `/` на конце) | ✅ |
+| `INTERNAL_API_KEY` | backend, bot | Ключ для аутентификации бот↔backend (HMAC) | ✅ |
 | `BACKEND_API_URL` | bot | URL backend API (default: `http://backend:8000`) | — |
+| `BOT_INTERNAL_URL` | backend | URL внутреннего HTTP-сервера бота (default: `http://bot:8080`) | — |
 | `DATABASE_URL` | backend | PostgreSQL connection string (формируется в docker-compose) | ✅ |
 | `SECRET_KEY` | backend | Секретный ключ приложения | ✅ |
-| `BOT_TOKEN` | backend, bot | Токен бота (нужен backend для валидации initData) | ✅ |
-| `INTERNAL_API_KEY` | backend, bot | Ключ для аутентификации бот→backend | ✅ |
 | `POSTGRES_DB` | postgres | Имя базы данных (default: `dovstrechi`) | — |
 | `POSTGRES_USER` | postgres | Пользователь PostgreSQL (default: `dovstrechi`) | — |
 | `POSTGRES_PASSWORD` | postgres | Пароль PostgreSQL | ✅ |
@@ -101,22 +110,24 @@ make logs        # Посмотреть логи
 
 Все роуты определены в `backend/main.py`. Версия API: **2.0.0**.
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/` | Корневой healthcheck — возвращает имя, версию, статус |
-| GET | `/health` | Проверка подключения к БД |
-| POST | `/api/users/auth` | Регистрация / обновление пользователя (upsert по telegram_id) |
-| GET | `/api/users/{telegram_id}` | Получить пользователя по Telegram ID |
-| POST | `/api/schedules` | Создать расписание |
-| GET | `/api/schedules?telegram_id=` | Список активных расписаний пользователя |
-| GET | `/api/schedules/{schedule_id}` | Детали расписания |
-| DELETE | `/api/schedules/{schedule_id}?telegram_id=` | Мягкое удаление расписания (is_active=FALSE) |
-| GET | `/api/available-slots/{schedule_id}?date=` | Свободные слоты на дату (с учётом duration, buffer, занятых) |
-| POST | `/api/bookings` | Создать бронирование (автогенерация Jitsi-ссылки) |
-| GET | `/api/bookings?telegram_id=&role=` | Список бронирований (role: organizer / guest / all) |
-| PATCH | `/api/bookings/{booking_id}/confirm?telegram_id=` | Подтвердить бронирование (только организатор) |
-| PATCH | `/api/bookings/{booking_id}/cancel?telegram_id=` | Отменить бронирование (организатор или гость) |
-| GET | `/api/stats?telegram_id=` | Статистика: кол-во расписаний, бронирований, pending, confirmed, upcoming |
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| GET | `/` | — | Корневой healthcheck — возвращает имя, версию, статус |
+| GET | `/health` | — | Проверка подключения к БД |
+| POST | `/api/users/auth` | initData | Регистрация / обновление пользователя (upsert по telegram_id) |
+| GET | `/api/users/{telegram_id}` | — | Получить пользователя по Telegram ID |
+| POST | `/api/schedules` | initData | Создать расписание |
+| GET | `/api/schedules` | initData | Список активных расписаний текущего пользователя |
+| GET | `/api/schedules/{schedule_id}` | — | Детали расписания (публичный) |
+| DELETE | `/api/schedules/{schedule_id}` | initData | Мягкое удаление расписания (is_active=FALSE) |
+| GET | `/api/available-slots/{schedule_id}?date=&viewer_tz=` | — | Свободные слоты на дату (с учётом таймзон) |
+| POST | `/api/bookings` | optional | Создать бронирование (автогенерация Jitsi-ссылки + push организатору) |
+| GET | `/api/bookings?role=` | initData | Список бронирований (role: organizer / guest / all) |
+| PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить бронирование (только организатор) |
+| PATCH | `/api/bookings/{booking_id}/cancel` | initData | Отменить бронирование (организатор или гость) |
+| GET | `/api/bookings/pending-reminders?reminder_type=` | — | Список бронирований для напоминаний (24h/1h) |
+| PATCH | `/api/bookings/{booking_id}/reminder-sent?reminder_type=` | — | Отметить напоминание как отправленное |
+| GET | `/api/stats` | initData | Статистика: кол-во расписаний, бронирований, pending, confirmed, upcoming |
 
 ## Telegram Bot — команды и handlers
 
@@ -126,10 +137,23 @@ make logs        # Посмотреть логи
 
 | Команда | Описание |
 |---------|----------|
-| `/start` | Регистрация через API + главное меню (5 кнопок) |
+| `/start` | Регистрация через API + главное меню (ReplyKeyboard + InlineKeyboard) |
 | `/help` | Справка по использованию |
 
-### Главное меню (InlineKeyboard)
+### Главное меню
+
+При `/start` бот отправляет два типа клавиатур:
+
+**ReplyKeyboard (постоянная нижняя панель):**
+
+| Кнопка | Handler | Действие |
+|--------|---------|----------|
+| 📅 Создать расписание | `reply_create_schedule` | Запуск FSM |
+| 📋 Мои расписания | `reply_my_schedules` | Список расписаний |
+| 👥 Мои встречи | `reply_my_bookings` | Список встреч |
+| ❓ Помощь | `reply_help` | Справка |
+
+**InlineKeyboard (в сообщении):**
 
 | Кнопка | Callback / Тип | Действие |
 |--------|---------------|----------|
@@ -175,9 +199,9 @@ make logs        # Посмотреть логи
 
 | Таблица | Ключевые поля | Назначение |
 |---------|--------------|-----------|
-| `users` | id (UUID PK), telegram_id (BIGINT UNIQUE), username, first_name, last_name, created_at, updated_at | Пользователи-организаторы |
+| `users` | id (UUID PK), telegram_id (BIGINT UNIQUE), username, first_name, last_name, **timezone** (TEXT, default 'UTC'), created_at, updated_at | Пользователи-организаторы |
 | `schedules` | id (UUID PK), user_id (FK→users CASCADE), title, duration (INT, мин), buffer_time (INT, мин), work_days (INT[]), start_time (TIME), end_time (TIME), location_mode, platform, is_active (BOOL), created_at, updated_at | Расписания для бронирования |
-| `bookings` | id (UUID PK), schedule_id (FK→schedules CASCADE), guest_name, guest_contact, guest_telegram_id, scheduled_time (TIMESTAMPTZ), status (pending/confirmed/cancelled), meeting_link, notes, created_at, updated_at | Бронирования встреч |
+| `bookings` | id (UUID PK), schedule_id (FK→schedules CASCADE), guest_name, guest_contact, guest_telegram_id, scheduled_time (TIMESTAMPTZ), status (CHECK: pending/confirmed/cancelled/completed), meeting_link, notes, **reminder_24h_sent** (BOOL), **reminder_1h_sent** (BOOL), created_at, updated_at | Бронирования встреч |
 
 ### View
 
@@ -205,7 +229,7 @@ make logs        # Посмотреть логи
 - **Async/await везде** — никаких синхронных I/O
 - **Секреты только в .env** — никакого хардкода
 - **Бот → Backend → БД** — бот не ходит в БД напрямую, только через HTTP API
-- **Изменения схемы БД** — только через `database/init.sql` (миграции пока не выделены)
+- **Изменения схемы БД** — через `database/init.sql` (начальная схема) + `database/migrations/*.sql` (инкрементальные)
 - **UUID** как первичные ключи во всех таблицах
 - **CORS** ограничен whitelist'ом доменов (`dovstrechiapp.ru`)
 - **Аутентификация** — все защищённые эндпоинты используют `Depends(get_current_user)`, **не** `telegram_id` из query/body
@@ -217,7 +241,7 @@ make logs        # Посмотреть логи
 - Хардкодить токены, пароли, ключи
 - Синхронные библиотеки (requests, psycopg2, time.sleep)
 - Прямые запросы из бота в PostgreSQL
-- Менять схему БД без обновления `database/init.sql`
+- Менять схему БД без обновления `database/init.sql` и создания миграции в `database/migrations/`
 - Зарубежные managed-сервисы для хранения данных (требование 152-ФЗ — данные только на российском VPS)
 - Принимать `telegram_id` из query params или тела запроса для авторизации
 - Использовать `innerHTML` с непроверенными данными без `escHtml()`
@@ -261,7 +285,7 @@ make logs        # Посмотреть логи
 |--------|----------|-------|
 | postgres | dovstrechi_postgres | — (internal) |
 | backend | dovstrechi_backend | 8000 (internal) |
-| bot | dovstrechi_bot | — (polling) |
+| bot | dovstrechi_bot | 8080 (internal, уведомления) |
 | nginx | dovstrechi_nginx | 80, 443 (external) |
 | certbot | dovstrechi_certbot | — (профиль `ssl`) |
 
@@ -278,13 +302,18 @@ make logs        # Посмотреть логи
 - **Telegram MainButton** не рендерится в обычных браузерах — в Mini App есть fallback на HTML-кнопку
 - **Inline-режим бота** требует активации в BotFather: Bot Settings → Inline Mode
 - **Trailing slash** в URL вызывает двойной слеш — убирать `/` в конце `MINI_APP_URL`
-- **Бот работает polling'ом** (не webhook) — `dp.start_polling(bot)`
-- **CORS** ограничен whitelist'ом — менять в `backend/main.py` переменную `allow_origins`
+- **Бот работает polling'ом** (не webhook) — `dp.start_polling(bot)` + aiohttp-сервер на :8080 для приёма уведомлений от backend
+- **CORS** ограничен whitelist'ом (`dovstrechiapp.ru`) — менять в `backend/main.py` переменную `allow_origins`
 - **Аутентификация** двухканальная: Mini App через `X-Init-Data` (HMAC-SHA256), бот через `X-Internal-Key`
 - **Security audit log** ведётся в `docs/SECURITY.md` — обновлять при каждом изменении безопасности
-- **Нет миграций** — схема БД применяется только при первой инициализации через `init.sql`
+- **Миграции** — ручные SQL-файлы в `database/migrations/`, применяются через `docker-compose exec postgres psql`
 - **Meeting link** генерируется как Jitsi-ссылка по UUID: `https://meet.jit.si/dovstrechi-{uuid4}`
 - **Расписание удаляется мягко** — `is_active=FALSE`, данные остаются в БД
 - **Фронтенд определяет API-URL как пустую строку** (`const BACKEND = ''`) — запросы идут на тот же origin через nginx proxy `/api/`
 - **work_days** хранятся как массив int: 0=Понедельник, 6=Воскресенье
 - **Connection pool** asyncpg: min_size=2, max_size=10
+- **Напоминания** — фоновый цикл в боте (каждые 5 мин) проверяет pending-reminders через API и рассылает за 24ч и 1ч до встречи
+- **Push-уведомления** — backend → POST `http://bot:8080/internal/notify` при новом бронировании (fire-and-forget)
+- **Docker: non-root** — backend и bot контейнеры работают под пользователем `appuser` (uid 1000)
+- **nginx rate limiting** — `/api/` 10 req/s burst=20, `/api/bookings` 5 req/min burst=3
+- **Security headers** — HSTS, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy

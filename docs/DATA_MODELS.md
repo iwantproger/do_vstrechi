@@ -13,6 +13,7 @@ erDiagram
         TEXT username "NULL"
         TEXT first_name "NULL"
         TEXT last_name "NULL"
+        TEXT timezone "NOT NULL DEFAULT UTC"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
@@ -41,9 +42,11 @@ erDiagram
         TEXT guest_contact "NOT NULL"
         BIGINT guest_telegram_id "NULL"
         TIMESTAMPTZ scheduled_time "NOT NULL"
-        TEXT status "DEFAULT pending"
+        TEXT status "CHECK pending confirmed cancelled completed"
         TEXT meeting_link "NULL"
         TEXT notes "NULL"
+        BOOLEAN reminder_24h_sent "DEFAULT FALSE"
+        BOOLEAN reminder_1h_sent "DEFAULT FALSE"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
@@ -64,12 +67,15 @@ erDiagram
 | username | TEXT | NULL | Username в Telegram (@handle) |
 | first_name | TEXT | NULL | Имя из Telegram |
 | last_name | TEXT | NULL | Фамилия из Telegram |
+| timezone | TEXT | NOT NULL, DEFAULT 'UTC' | IANA-таймзона пользователя |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время регистрации |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время последнего обновления |
 
 **Индексы:** `idx_users_telegram_id` ON (telegram_id)
 
-**Особенности:** при повторной авторизации (POST `/api/users/auth`) — UPSERT: обновляет username, first_name, last_name.
+**Особенности:** при повторной авторизации (POST `/api/users/auth`) — UPSERT: обновляет username, first_name, last_name, timezone.
+
+**Миграция:** `database/migrations/002_add_timezone.sql` — добавление колонки timezone.
 
 ### schedules
 
@@ -114,9 +120,11 @@ erDiagram
 | guest_contact | TEXT | NOT NULL | Контакт (email или @username) |
 | guest_telegram_id | BIGINT | NULL | Telegram ID гостя (если есть) |
 | scheduled_time | TIMESTAMPTZ | NOT NULL | Дата и время встречи |
-| status | TEXT | NOT NULL, DEFAULT 'pending' | Статус бронирования |
+| status | TEXT | NOT NULL, DEFAULT 'pending', CHECK (IN pending/confirmed/cancelled/completed) | Статус бронирования |
 | meeting_link | TEXT | NULL | Ссылка на видеозвонок |
 | notes | TEXT | NULL | Заметки от гостя |
+| reminder_24h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 24ч |
+| reminder_1h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 1ч |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
 
@@ -125,6 +133,8 @@ erDiagram
 - `idx_bookings_guest_telegram_id` ON (guest_telegram_id)
 - `idx_bookings_scheduled_time` ON (scheduled_time)
 - `idx_bookings_status` ON (status)
+
+**Миграция:** `database/migrations/003_add_reminder_flags.sql` — добавление reminder-флагов.
 
 ## Жизненный цикл бронирования
 
@@ -167,42 +177,45 @@ stateDiagram-v2
 
 ## Pydantic-схемы (Backend)
 
-Определены в `backend/main.py`, строки 69–93.
+Определены в `backend/main.py`, строки ~148–177.
 
 ### UserAuth (запрос: POST `/api/users/auth`)
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|-------------|---------|
-| telegram_id | int | да | Telegram user ID |
-| username | Optional[str] | нет | Username в Telegram |
-| first_name | Optional[str] | нет | Имя |
-| last_name | Optional[str] | нет | Фамилия |
+`telegram_id` больше **не** передаётся в теле запроса — извлекается из `X-Init-Data` через `Depends(get_current_user)`.
+
+| Поле | Тип | Валидация | Описание |
+|------|-----|-----------|---------|
+| username | Optional[str] | max_length=100 | Username в Telegram |
+| first_name | Optional[str] | max_length=200 | Имя |
+| last_name | Optional[str] | max_length=200 | Фамилия |
+| timezone | Optional[str] | default="UTC" | IANA-таймзона (валидируется через `zoneinfo.available_timezones()`) |
 
 ### ScheduleCreate (запрос: POST `/api/schedules`)
 
-| Поле | Тип | Обязательное | Default | Описание |
-|------|-----|-------------|---------|---------|
-| telegram_id | int | да | — | Telegram ID организатора |
-| title | str | да | — | Название расписания |
-| description | Optional[str] | нет | None | Описание |
-| duration | int | нет | 60 | Длительность встречи (мин) |
-| buffer_time | int | нет | 0 | Буфер между встречами (мин) |
-| work_days | List[int] | нет | [0,1,2,3,4] | Рабочие дни (0=Пн, 6=Вс) |
-| start_time | str | нет | "09:00" | Начало рабочего дня (HH:MM) |
-| end_time | str | нет | "18:00" | Конец рабочего дня (HH:MM) |
-| location_mode | str | нет | "fixed" | Режим выбора платформы |
-| platform | str | нет | "jitsi" | Платформа |
+`telegram_id` больше **не** передаётся — извлекается из auth.
+
+| Поле | Тип | Валидация | Default | Описание |
+|------|-----|-----------|---------|---------|
+| title | str | min=1, max=200 | — | Название расписания |
+| description | Optional[str] | max=2000 | None | Описание |
+| duration | int | ge=5, le=480 | 60 | Длительность встречи (мин) |
+| buffer_time | int | ge=0, le=120 | 0 | Буфер между встречами (мин) |
+| work_days | List[int] | — | [0,1,2,3,4] | Рабочие дни (0=Пн, 6=Вс) |
+| start_time | str | pattern `^\d{2}:\d{2}$` | "09:00" | Начало рабочего дня (HH:MM) |
+| end_time | str | pattern `^\d{2}:\d{2}$` | "18:00" | Конец рабочего дня (HH:MM) |
+| location_mode | str | max=50 | "fixed" | Режим выбора платформы |
+| platform | str | max=50 | "jitsi" | Платформа |
 
 ### BookingCreate (запрос: POST `/api/bookings`)
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|-------------|---------|
-| schedule_id | str | да | UUID расписания (строка) |
-| guest_name | str | да | Имя гостя |
-| guest_contact | str | да | Email или @username |
-| guest_telegram_id | Optional[int] | нет | Telegram ID гостя |
-| scheduled_time | str | да | ISO-формат даты/времени |
-| notes | Optional[str] | нет | Заметки |
+| Поле | Тип | Валидация | Описание |
+|------|-----|-----------|---------|
+| schedule_id | str | max=50 | UUID расписания (строка) |
+| guest_name | str | min=1, max=200 | Имя гостя |
+| guest_contact | str | min=1, max=200 | Email или @username |
+| guest_telegram_id | Optional[int] | — | Telegram ID гостя (предпочитается из initData) |
+| scheduled_time | str | max=50 | ISO-формат даты/времени |
+| notes | Optional[str] | max=2000 | Заметки |
 
 ### Ответы API
 
@@ -223,5 +236,12 @@ stateDiagram-v2
 | user.first_name | users.first_name | Имя |
 | user.last_name | users.last_name | Фамилия |
 
-**Важно:** InitData не валидируется на backend (нет проверки подписи). Аутентификация построена
-исключительно на доверии к `telegram_id`, передаваемому в query/body параметрах.
+**Валидация InitData:**
+Реализована в `backend/main.py` → `validate_init_data()`. Алгоритм по
+[документации Telegram](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app):
+1. Разобрать query string, извлечь `hash`
+2. Отсортировать оставшиеся пары `key=value` по ключу
+3. HMAC-SHA256: `secret = HMAC(b"WebAppData", BOT_TOKEN)`, `hash = HMAC(secret, data_check_string)`
+4. Сравнить `hash` с переданным (timing-safe `hmac.compare_digest`)
+5. Проверить `auth_date` — отклонять если старше 24 часов
+6. Извлечь объект `user` из JSON
