@@ -830,23 +830,21 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 
   <!-- МОЯ ССЫЛКА -->
   <div class="group-title section-gap">Моя ссылка</div>
-  <div style="padding:0 16px">
-    <div class="settings-group">
-      <div class="set-row" onclick="copyProfileLink()">
-        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
-        <div class="set-content">
-          <div class="set-title">Ссылка для записи</div>
-          <div class="set-sub" id="profile-link-sub">—</div>
+  <div style="padding:0 16px;margin-bottom:8px">
+    <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden">
+      <div style="padding:14px 16px 12px">
+        <div style="font-size:13px;color:var(--t2);word-break:break-all;margin-bottom:12px" id="profile-link-sub">—</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;color:var(--t3)">Ссылка для записи</span>
+          <div style="display:flex;gap:6px">
+            <button onclick="copyProfileLink()" class="lc-btn lc-copy" title="Скопировать">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button onclick="shareProfileLink()" class="lc-btn lc-share" title="Поделиться">
+              <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="set-right"><span class="set-val">Скопировать</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
-      </div>
-      <div class="set-row" onclick="shareProfileLink()">
-        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><circle cx="6" cy="12" r="3"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/><circle cx="18" cy="19" r="3"/></svg></div>
-        <div class="set-content">
-          <div class="set-title">Поделиться ботом</div>
-          <div class="set-sub">Отправить друзьям</div>
-        </div>
-        <div class="set-right"><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       </div>
     </div>
   </div>
@@ -854,27 +852,17 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <!-- УВЕДОМЛЕНИЯ -->
   <div class="group-title">Уведомления</div>
   <div style="padding:0 16px">
-    <div class="settings-group">
-      <div class="tog-row">
-        <div class="tog-info">
-          <div class="tog-title">Уведомления о записях</div>
-          <div class="tog-sub">Когда кто-то бронирует встречу</div>
+    <div class="settings-group" id="notif-group">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b1)">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Уведомления о записях</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Когда кто-то бронирует встречу</div>
         </div>
-        <div class="tog on" id="tog-notif" onclick="toggleSetting('notif')"></div>
+        <div class="tog on" id="tog-notif" onclick="toggleNotifMain(this)"></div>
       </div>
-      <div class="tog-row">
-        <div class="tog-info">
-          <div class="tog-title">Напоминание за 24 ч</div>
-          <div class="tog-sub">За день до встречи</div>
-        </div>
-        <div class="tog on" id="tog-h24" onclick="toggleSetting('h24')"></div>
-      </div>
-      <div class="tog-row">
-        <div class="tog-info">
-          <div class="tog-title">Напоминание за 1 ч</div>
-          <div class="tog-sub">Перед встречей</div>
-        </div>
-        <div class="tog" id="tog-h1" onclick="toggleSetting('h1')"></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Напомнить за</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px" id="reminder-chips"></div>
       </div>
     </div>
   </div>
@@ -883,13 +871,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="group-title">Аккаунт</div>
   <div style="padding:0 16px">
     <div class="settings-group">
-      <div class="set-row" style="cursor:default">
-        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+      <div class="set-row" onclick="showTimezoneInfo()">
+        <div class="set-icon si-a"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div class="set-content">
           <div class="set-title">Часовой пояс</div>
           <div class="set-sub">Используется при расчёте слотов</div>
         </div>
-        <div class="set-right"><span class="set-val">Europe/Moscow</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
+        <div class="set-right"><span class="set-val" id="profile-tz-val">—</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       </div>
     </div>
   </div>
@@ -1284,6 +1272,24 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div id="qa-error" style="display:none;color:var(--red);font-size:13px;margin-bottom:10px;padding:10px 12px;background:rgba(240,100,73,.1);border-radius:10px"></div>
 
     <button id="qa-submit-btn" class="btn btn-primary" onclick="submitQuickAdd()" style="width:100%;height:50px;font-size:16px;font-weight:700;margin-top:4px">Создать встречу</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TIMEZONE INFO SHEET
+════════════════════════════════ -->
+<div class="overlay" id="sheet-timezone" onclick="closeSheet('sheet-timezone')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Часовой пояс</div>
+    <div style="padding:0 16px 16px">
+      <div style="background:var(--s2);border-radius:var(--r2);padding:16px;border:1px solid var(--b1);margin-bottom:16px">
+        <div style="font-size:22px;font-weight:800;color:var(--t1);text-align:center;margin-bottom:8px" id="tz-value">Europe/Moscow</div>
+        <div style="font-size:13px;color:var(--t2);text-align:center;line-height:1.5">Определено автоматически по настройкам устройства</div>
+      </div>
+      <div style="font-size:12px;color:var(--t3);line-height:1.6;padding:0 4px;margin-bottom:16px">Все слоты рассчитываются с учётом этого часового пояса. Ручная настройка появится в следующем обновлении.</div>
+      <button class="btn btn-secondary" style="width:100%" onclick="closeSheet('sheet-timezone')">Закрыть</button>
+    </div>
   </div>
 </div>
 
@@ -3233,7 +3239,15 @@ function openMeetingLink() {
 /* ═══════════════════════════════════════════
    PROFILE (s-profile)
 ═══════════════════════════════════════════ */
-var _settingsKeys = ['notif', 'h24', 'h1'];
+function getNotifSettings() {
+  try { return JSON.parse(localStorage.getItem('sb_settings') || '{"notif":true,"reminder":"60"}'); }
+  catch(e) { return { notif: true, reminder: '60' }; }
+}
+
+function detectTimezone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+  catch(e) { return 'Europe/Moscow'; }
+}
 
 function loadProfile() {
   var u = state.user || tg?.initDataUnsafe?.user;
@@ -3254,29 +3268,57 @@ function loadProfile() {
   if (linkSubEl) linkSubEl.textContent = linkUrl.replace(/^https?:\/\//, '');
   state._profileLink = linkUrl;
 
-  /* restore toggle states from localStorage (defaults: notif=on, h24=on, h1=off) */
-  var saved = {};
-  try { saved = JSON.parse(localStorage.getItem('sb_settings') || '{}'); } catch(e) {}
-  var defaults = { notif: true, h24: true, h1: false };
-  _settingsKeys.forEach(function(key) {
-    var el = document.getElementById('tog-' + key);
-    if (!el) return;
-    var val = (key in saved) ? saved[key] : defaults[key];
-    if (val) el.classList.add('on'); else el.classList.remove('on');
-  });
+  /* timezone */
+  var tz = detectTimezone();
+  var tzEl = document.getElementById('profile-tz-val');
+  if (tzEl) tzEl.textContent = tz;
+
+  /* notification settings: toggle + reminder chips */
+  var s = getNotifSettings();
+  var togEl = document.getElementById('tog-notif');
+  if (togEl) { if (s.notif) togEl.classList.add('on'); else togEl.classList.remove('on'); }
+
+  var chipsEl = document.getElementById('reminder-chips');
+  if (chipsEl) {
+    var opts = [
+      { val: '1440', label: '24 ч' },
+      { val: '60',   label: '1 ч' },
+      { val: '30',   label: '30 мин' },
+      { val: '15',   label: '15 мин' },
+      { val: '5',    label: '5 мин' },
+      { val: 'off',  label: 'Никогда' }
+    ];
+    chipsEl.innerHTML = opts.map(function(opt) {
+      return '<div class="chip reminder-chip' + (s.reminder === opt.val ? ' on' : '') + '" onclick="setReminderTime(\'' + opt.val + '\',this)">' + opt.label + '</div>';
+    }).join('');
+  }
 }
 
-function toggleSetting(key) {
-  var el = document.getElementById('tog-' + key);
-  if (!el) return;
-  el.classList.toggle('on');
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+function showTimezoneInfo() {
+  var tz = detectTimezone();
+  var el = document.getElementById('tz-value');
+  if (el) el.textContent = tz;
+  showSheet('sheet-timezone');
+}
 
-  /* persist to localStorage */
-  var saved = {};
-  try { saved = JSON.parse(localStorage.getItem('sb_settings') || '{}'); } catch(e) {}
-  saved[key] = el.classList.contains('on');
-  try { localStorage.setItem('sb_settings', JSON.stringify(saved)); } catch(e) {}
+function toggleNotifMain(el) {
+  el.classList.toggle('on');
+  var s = getNotifSettings();
+  s.notif = el.classList.contains('on');
+  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  showToast(s.notif ? 'Уведомления включены' : 'Уведомления выключены');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function setReminderTime(val, el) {
+  document.querySelectorAll('.reminder-chip').forEach(function(c) { c.classList.remove('on'); });
+  el.classList.add('on');
+  var s = getNotifSettings();
+  s.reminder = val;
+  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  var labels = { '1440': '24 ч', '60': '1 ч', '30': '30 мин', '15': '15 мин', '5': '5 мин', 'off': 'никогда' };
+  showToast('Напоминание: ' + (labels[val] || val), 'success');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 function copyProfileLink() {
