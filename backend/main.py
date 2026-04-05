@@ -198,6 +198,18 @@ class ScheduleCreate(BaseModel):
     location_mode: str = Field("fixed", max_length=50)
     platform: str = Field("jitsi", max_length=50)
 
+class ScheduleUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    duration: Optional[int] = Field(None, ge=5, le=480)
+    buffer_time: Optional[int] = Field(None, ge=0, le=120)
+    work_days: Optional[List[int]] = None
+    start_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    location_mode: Optional[str] = Field(None, max_length=50)
+    platform: Optional[str] = Field(None, max_length=50)
+    is_active: Optional[bool] = None
+
 class QuickMeetingCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -379,7 +391,7 @@ async def list_schedules(
         """
         SELECT s.* FROM schedules s
         JOIN users u ON u.id = s.user_id
-        WHERE u.telegram_id = $1 AND s.is_active = TRUE AND s.is_default = FALSE
+        WHERE u.telegram_id = $1 AND s.is_default = FALSE
         ORDER BY s.created_at DESC
         """,
         telegram_id
@@ -393,7 +405,7 @@ async def get_schedule(schedule_id: str, conn: asyncpg.Connection = Depends(db))
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат ID")
 
-    row = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1 AND is_active = TRUE", sid)
+    row = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1", sid)
     if not row:
         raise HTTPException(status_code=404, detail="Расписание не найдено")
     return row_to_dict(row)
@@ -421,6 +433,52 @@ async def delete_schedule(
     if result == "UPDATE 0":
         raise HTTPException(status_code=404, detail="Расписание не найдено или нет доступа")
     return {"success": True}
+
+@app.patch("/api/schedules/{schedule_id}")
+async def update_schedule(
+    schedule_id: str,
+    data: ScheduleUpdate,
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    try:
+        sid = uuid.UUID(schedule_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат ID")
+
+    telegram_id = auth_user["id"]
+    updates = data.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="Нет полей для обновления")
+
+    # Конвертировать time-строки в объекты time
+    for tf in ("start_time", "end_time"):
+        if tf in updates:
+            updates[tf] = datetime.strptime(updates[tf], "%H:%M").time()
+
+    # Динамически строить SET clause
+    set_parts = []
+    values = []
+    for i, (col, val) in enumerate(updates.items(), start=1):
+        set_parts.append(f"{col} = ${i}")
+        values.append(val)
+
+    values.append(sid)
+    values.append(telegram_id)
+    n = len(values)
+
+    row = await conn.fetchrow(
+        f"""
+        UPDATE schedules SET {', '.join(set_parts)}
+        WHERE id = ${n - 1}
+          AND user_id = (SELECT id FROM users WHERE telegram_id = ${n})
+        RETURNING *
+        """,
+        *values,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Расписание не найдено или нет доступа")
+    return row_to_dict(row)
 
 # ─────────────────────────────────────────────────────────
 # Quick meeting
