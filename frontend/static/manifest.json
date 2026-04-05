@@ -1,0 +1,16 @@
+{
+  "name": "До встречи",
+  "short_name": "До встречи",
+  "icons": [
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D1A16",
+  "theme_color": "#0D1A16"
+}
