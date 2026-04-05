@@ -120,6 +120,23 @@ async def lifespan(app: FastAPI):
     log.info("Connecting to PostgreSQL…")
     _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
     log.info("PostgreSQL pool ready")
+
+    # Idempotent migrations — safe to run on every startup
+    async with _pool.acquire() as conn:
+        await conn.execute("""
+            ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'UTC';
+        """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS reminder_1h_sent BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+    log.info("Migrations applied")
+
     yield
     await _pool.close()
     log.info("PostgreSQL pool closed")
