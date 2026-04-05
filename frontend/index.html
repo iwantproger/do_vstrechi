@@ -921,10 +921,10 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="group-title">О приложении</div>
   <div style="padding:0 16px">
     <div class="settings-group">
-      <div class="set-row" style="cursor:default">
-        <div class="set-icon si-m"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg></div>
+      <div class="set-row" onclick="showChangelog()">
+        <div class="set-icon si-m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/></svg></div>
         <div class="set-content"><div class="set-title">Версия приложения</div></div>
-        <div class="set-right"><span class="set-val">1.0.0-beta</span></div>
+        <div class="set-right"><span class="set-val" id="app-version-val">—</span><div class="chev"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div></div>
       </div>
       <div class="set-row" onclick="tg?.openTelegramLink('https://t.me/do_vstrechi_bot')">
         <div class="set-icon si-m"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
@@ -1293,6 +1293,20 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   </div>
 </div>
 
+<!-- ═══════════════════════════════
+     CHANGELOG SHEET
+════════════════════════════════ -->
+<div class="overlay" id="sheet-changelog" onclick="closeSheet('sheet-changelog')">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:80vh;overflow-y:auto;scrollbar-width:none">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">История обновлений</div>
+    <div id="changelog-body" style="padding:0 16px 4px;max-height:60vh;overflow-y:auto;scrollbar-width:none"></div>
+    <div style="padding:8px 16px 8px">
+      <button class="btn btn-secondary" style="width:100%" onclick="closeSheet('sheet-changelog')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /app -->
 
 <script>
@@ -1303,6 +1317,47 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 ═══════════════════════════════════════════ */
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
+const APP_VERSION = '1.0.7';
+/* ИНСТРУКЦИЯ: при каждом деплое с исправлениями — увеличивать последнюю цифру.
+   При значимом обновлении — среднюю. Добавлять запись в CHANGELOG ниже. */
+const CHANGELOG = [
+  {
+    version: '1.0.7',
+    date: '5 апреля 2026',
+    changes: [
+      '\ud83d\udc1b Исправлена кнопка "Отменить встречу" \u2014 теперь работает',
+      '\ud83d\udc1b Статус "Идёт" корректно отображается в списке встреч',
+      '\ud83d\udc1b Убрана дублирующая кнопка "Назад"',
+      '\u2728 Уведомления: добавлены варианты 5, 15, 30 минут',
+      '\u2728 Профиль: кнопки копирования и поделиться для ссылки',
+      '\u2699\ufe0f Отступы унифицированы на всех экранах',
+    ]
+  },
+  {
+    version: '1.0.6',
+    date: '5 апреля 2026',
+    changes: [
+      '\ud83d\udc1b Убраны зелёные точки в навбаре',
+      '\ud83d\udc1b Исправлена анимация переходов между экранами',
+      '\ud83d\udc1b Убрана синяя кнопка Telegram поверх интерфейса',
+      '\u2728 Главный экран переделан по дизайну v3',
+      '\u2728 Добавлен профиль с разделом интеграций',
+      '\u2728 Встречи: статус "Нет ответа" и кнопка "Написать"',
+      '\u2728 Статус "Идёт" с иконкой камеры для текущих встреч',
+    ]
+  },
+  {
+    version: '1.0.5',
+    date: '4 апреля 2026',
+    changes: [
+      '\ud83d\ude80 Первый рабочий релиз Mini App',
+      '\u2728 Создание расписаний через бота',
+      '\u2728 Бронирование встреч клиентами по ссылке',
+      '\u2728 Ссылки Jitsi Meet генерируются автоматически',
+      '\u2728 Подтверждение и отмена встреч',
+    ]
+  }
+];
 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const MONTHS     = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -3273,6 +3328,10 @@ function loadProfile() {
   var tzEl = document.getElementById('profile-tz-val');
   if (tzEl) tzEl.textContent = tz;
 
+  /* version */
+  var verEl = document.getElementById('app-version-val');
+  if (verEl) verEl.textContent = APP_VERSION;
+
   /* notification settings: toggle + reminder chips */
   var s = getNotifSettings();
   var togEl = document.getElementById('tog-notif');
@@ -3299,6 +3358,26 @@ function showTimezoneInfo() {
   var el = document.getElementById('tz-value');
   if (el) el.textContent = tz;
   showSheet('sheet-timezone');
+}
+
+function showChangelog() {
+  var body = document.getElementById('changelog-body');
+  if (!body) return;
+  body.innerHTML = CHANGELOG.map(function(release, i) {
+    return (i > 0 ? '<div style="height:1px;background:var(--b1);margin:4px 0 20px"></div>' : '')
+      + '<div style="margin-bottom:4px">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+          + '<span style="font-size:15px;font-weight:800;color:var(--t1)">v' + release.version + '</span>'
+          + '<span style="font-size:11px;color:var(--t3);font-weight:500">' + release.date + '</span>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:7px">'
+          + release.changes.map(function(c) {
+              return '<div style="font-size:13px;color:var(--t2);line-height:1.5">' + c + '</div>';
+            }).join('')
+        + '</div>'
+      + '</div>';
+  }).join('');
+  showSheet('sheet-changelog');
 }
 
 function toggleNotifMain(el) {
