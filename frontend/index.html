@@ -69,7 +69,8 @@
 }
 html,body{height:100%;background:#05100E;overflow:hidden}
 body{font-family:var(--font);color:var(--t1)}
-#app{width:100%;height:100%;overflow:hidden;position:relative;display:flex;flex-direction:column;background:var(--bg)}
+#app{width:100%;height:100%;overflow:hidden;position:relative;display:flex;flex-direction:column;background:var(--bg);opacity:0;transition:opacity .15s ease}
+#app.ready{opacity:1}
 
 /* ═══════════════════════════════════════════════════
    3. SCREENS SYSTEM
@@ -1339,14 +1340,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { tg.MainButton.hide(); tg.MainButton.offClick(); } catch(e) {}
     try { tg.BackButton.hide(); } catch(e) {}
 
-    /* Точные insets от Telegram WebApp API (Bot API 7.x+) */
-    const tgSafe    = tg.safeAreaInsets;          /* { top, bottom, left, right } */
-    const tgContent = tg.contentSafeAreaInsets;   /* { top, bottom, left, right } */
-    const tgHeaderH = (tgContent?.top ?? 0) + (tgSafe?.top ?? 0);
-    document.documentElement.style.setProperty('--tg-header', (tgHeaderH < 10 ? 84 : tgHeaderH) + 'px');
-    const tgBottomH = (tgContent?.bottom ?? 0) + (tgSafe?.bottom ?? 0);
-    document.documentElement.style.setProperty('--tg-bottom', (tgBottomH < 5 ? 34 : tgBottomH) + 'px');
+    /* Попытка перейти в fullscreen (Bot API 8.0+) */
+    if (tg.requestFullscreen) {
+      try { tg.requestFullscreen(); } catch(e) {}
+    }
+
+    /* Адаптивные insets: fullscreen vs обычный режим (Bot API 7.x+) */
+    function adaptTgInsets() {
+      var tgSafe    = tg.safeAreaInsets;
+      var tgContent = tg.contentSafeAreaInsets;
+      var tgHeaderH = (tgContent?.top ?? 0) + (tgSafe?.top ?? 0);
+      var tgBottomH = (tgContent?.bottom ?? 0) + (tgSafe?.bottom ?? 0);
+
+      /* Логика верхнего инсета:
+         - insets доступны (≥10px)  → использовать их
+         - isFullscreen, но insets=0 → fallback 84px (старый клиент)
+         - обычный режим (insets=0)  → 0px (TG-хедер уже над webview) */
+      var headerPx;
+      if (tgHeaderH >= 10) {
+        headerPx = tgHeaderH;
+      } else if (tg.isFullscreen) {
+        headerPx = 84;
+      } else {
+        headerPx = 0;
+      }
+
+      document.documentElement.style.setProperty('--tg-header', headerPx + 'px');
+      document.documentElement.style.setProperty('--tg-bottom', (tgBottomH < 5 ? 34 : tgBottomH) + 'px');
+    }
+
+    adaptTgInsets();
+
+    /* Пересчёт при смене режима (expand, fullscreen, ориентация) */
+    if (tg.onEvent) {
+      tg.onEvent('viewportChanged', adaptTgInsets);
+      tg.onEvent('fullscreenChanged', adaptTgInsets);
+    }
   }
+
+  /* Показать приложение — инсеты уже рассчитаны, флэша не будет */
+  document.getElementById('app').classList.add('ready');
 
   const urlParams = new URLSearchParams(window.location.search);
   const scheduleId = urlParams.get('schedule_id');
