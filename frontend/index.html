@@ -375,8 +375,8 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .tab-count{background:var(--ams);color:var(--amber);padding:1px 5px;border-radius:var(--rf);font-size:10px}
 
 /* ── Page head ── */
-.page-head{padding:calc(var(--tg-header) + 20px) 20px 0;flex-shrink:0}
-.section-gap{margin-top:32px}
+.page-head{padding:calc(var(--tg-header) + 28px) 20px 0;flex-shrink:0}
+.section-gap{margin-top:14px}
 .page-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
 .page-sub{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500}
 
@@ -415,7 +415,7 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .group-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:16px 20px 8px}
 
 /* ── Profile ── */
-.profile-head{display:flex;flex-direction:column;align-items:center;padding:24px 20px 20px;text-align:center}
+.profile-head{display:flex;flex-direction:column;align-items:center;padding:20px 20px 20px;text-align:center}
 .profile-av{
   width:72px;height:72px;border-radius:var(--r3);
   background:linear-gradient(135deg,var(--a),#009E73);
@@ -525,9 +525,9 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 }
 .slot:active{transform:scale(.94)}
 .s-free{background:var(--gs);color:var(--green);border-color:rgba(45,212,160,.15)}
-.s-free:active{background:rgba(45,212,160,.2)}
+.s-free:active{background:rgba(124,92,252,.15)}
 .s-taken{background:var(--s2);color:var(--t3);cursor:not-allowed}
-.s-sel{background:var(--a);color:#07221A;box-shadow:0 3px 14px rgba(0,229,168,.3)}
+.s-sel{background:#7C5CFC;color:#FFFFFF;box-shadow:0 3px 14px rgba(124,92,252,.35)}
 
 /* ── Wizard progress ── */
 .wiz-progress{display:flex;gap:5px;padding:16px 20px 0}
@@ -758,14 +758,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div class="inp-wrap" style="margin-bottom:14px">
       <div class="inp-label">Длительность</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-        <input type="range" id="sl-dur" min="5" max="480" step="5" value="60" oninput="updateSliderSmart(this,'sl-dur-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <input type="range" id="sl-dur" min="5" max="120" step="5" value="60" oninput="updateSliderSmart(this,'sl-dur-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
         <div id="sl-dur-val" onclick="openSliderEdit('sl-dur','sl-dur-val',5,2880,'мин','Длительность встречи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">60 мин</div>
       </div>
     </div>
     <div class="inp-wrap" style="margin-bottom:14px">
       <div class="inp-label">Перерыв между встречами</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-        <input type="range" id="sl-buf" min="0" max="120" step="5" value="0" oninput="updateSliderSmart(this,'sl-buf-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <input type="range" id="sl-buf" min="0" max="60" step="5" value="0" oninput="updateSliderSmart(this,'sl-buf-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
         <div id="sl-buf-val" onclick="openSliderEdit('sl-buf','sl-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
       </div>
     </div>
@@ -958,14 +958,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div class="inp-wrap" style="margin-bottom:14px">
       <div class="inp-label">Длительность</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-        <input type="range" id="nw-dur" min="5" max="480" step="5" value="60" oninput="updateSliderSmart(this,'nw-dur-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <input type="range" id="nw-dur" min="5" max="120" step="5" value="60" oninput="updateSliderSmart(this,'nw-dur-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
         <div id="nw-dur-val" onclick="openSliderEdit('nw-dur','nw-dur-val',5,2880,'мин','Длительность встречи')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">1 ч</div>
       </div>
     </div>
     <div class="inp-wrap" style="margin-bottom:14px">
       <div class="inp-label">Перерыв между встречами</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-        <input type="range" id="nw-buf" min="0" max="120" step="5" value="0" oninput="updateSliderSmart(this,'nw-buf-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <input type="range" id="nw-buf" min="0" max="60" step="5" value="0" oninput="updateSliderSmart(this,'nw-buf-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
         <div id="nw-buf-val" onclick="openSliderEdit('nw-buf','nw-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
       </div>
     </div>
@@ -1443,7 +1443,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('app').classList.add('ready');
 
   const urlParams = new URLSearchParams(window.location.search);
-  const scheduleId = urlParams.get('schedule_id');
+  var scheduleId = urlParams.get('schedule_id');
+  if (!scheduleId && tg?.initDataUnsafe?.start_param) {
+    scheduleId = tg.initDataUnsafe.start_param;
+  }
 
   if (scheduleId) {
     state.isGuestMode = true;
@@ -2390,6 +2393,10 @@ function getScheduleUrl(id) {
   return location.origin + location.pathname + '?schedule_id=' + id;
 }
 
+function getScheduleTelegramUrl(id) {
+  return 'https://t.me/do_vstrechi_bot/app?startapp=' + id;
+}
+
 function renderLinkCard(s) {
   var title = escHtml(s.title || '');
   var desc = s.description ? escHtml(s.description) : '';
@@ -2419,9 +2426,8 @@ function renderLinkCard(s) {
       + '<span class="lc-pill">' + escHtml(timeStr) + '</span>'
       + (platName ? '<span class="lc-pill">' + escHtml(platName) + '</span>' : '')
     + '</div>'
-    + '<div style="display:flex;gap:5px;flex-shrink:0">'
-      + '<button class="lc-btn lc-copy" onclick="event.stopPropagation();copyScheduleLink(\'' + s.id + '\')" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'
-      + '<button class="lc-btn lc-share" onclick="event.stopPropagation();openShareSheet(\'' + s.id + '\')" style="width:30px;height:30px;padding:0;justify-content:center"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>'
+    + '<div style="flex-shrink:0">'
+      + '<button class="lc-btn lc-share" onclick="event.stopPropagation();openShareSheet(\'' + s.id + '\')" style="height:32px;padding:0 12px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Поделиться</button>'
     + '</div>'
   + '</div>';
   html += '</div>';
@@ -2513,7 +2519,7 @@ function updatePauseBtn(isActive) {
   var lbl = document.getElementById('sl-pause-label');
   /* also update sheet-link-menu pause row */
   var sheetLbl = document.getElementById('sheet-pause-label');
-  if (sheetLbl) sheetLbl.textContent = isActive ? 'Поставить на паузу' : 'Активировать';
+  if (sheetLbl) sheetLbl.textContent = isActive ? 'Поставить на паузу' : 'Включить';
   if (!btn) return;
   if (isActive) {
     lbl.textContent = 'Поставить на паузу';
@@ -2521,7 +2527,7 @@ function updatePauseBtn(isActive) {
     btn.style.color = 'var(--amber)';
     btn.style.borderColor = 'rgba(245,166,35,.2)';
   } else {
-    lbl.textContent = 'Активировать';
+    lbl.textContent = 'Включить';
     btn.style.background = 'var(--gs)';
     btn.style.color = 'var(--green)';
     btn.style.borderColor = 'rgba(45,212,160,.2)';
@@ -2677,6 +2683,7 @@ function openSliderEdit(sliderId, labelId, min, max, unit, title) {
 function openShareSheet(schedId) {
   var id = schedId || _editScheduleId;
   if (!id) { showSheet('sheet-share'); return; }
+  state._shareScheduleId = id;
   var url = getScheduleUrl(id);
   state._shareUrl = url;
   var el = document.getElementById('sheet-share-url');
@@ -2685,7 +2692,8 @@ function openShareSheet(schedId) {
 }
 
 function shareTelegram() {
-  var url = state._shareUrl;
+  var schedId = _editScheduleId || state._shareScheduleId || '';
+  var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
   if (url) {
     var shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url);
     openLink(shareUrl);
