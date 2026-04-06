@@ -71,6 +71,8 @@ html,body{height:100%;background:#05100E;overflow:hidden}
 body{font-family:var(--font);color:var(--t1)}
 #app{width:100%;height:100%;overflow:hidden;position:relative;display:flex;flex-direction:column;background:var(--bg);opacity:0;transition:opacity .15s ease}
 #app.ready{opacity:1}
+@keyframes _force-show{to{opacity:1}}
+#app{animation:_force-show 0s 5s forwards}
 
 /* ═══════════════════════════════════════════════════
    3. SCREENS SYSTEM
@@ -739,7 +741,47 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 </div>
 
 <!-- ═══════════════════════════════
-     SCHEDULE DETAIL
+     SCHEDULE VIEW (read-only)
+════════════════════════════════ -->
+<div class="screen no-pad has-inner-header" id="s-schedule-view">
+  <div class="inner-header">
+    <div class="inner-title" id="sv-title">Расписание</div>
+    <button class="inner-action" onclick="showSheet('sheet-link-menu')">•••</button>
+  </div>
+  <div style="padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span class="badge b-green" id="sv-status-badge">Активно</span>
+    </div>
+    <div class="detail-card" style="margin:0 0 16px">
+      <div class="detail-row"><div class="dr-label">Название</div><div class="dr-val" id="sv-name"></div></div>
+      <div class="detail-row" id="sv-desc-row"><div class="dr-label">Описание</div><div class="dr-val" id="sv-desc" style="color:var(--t2);font-weight:500"></div></div>
+      <div class="detail-row"><div class="dr-label">Длительность</div><div class="dr-val" id="sv-duration"></div></div>
+      <div class="detail-row"><div class="dr-label">Перерыв</div><div class="dr-val" id="sv-buffer"></div></div>
+      <div class="detail-row"><div class="dr-label">Рабочие дни</div><div class="dr-val" id="sv-days"></div></div>
+      <div class="detail-row"><div class="dr-label">Время</div><div class="dr-val" id="sv-time"></div></div>
+      <div class="detail-row"><div class="dr-label">Платформа</div><div class="dr-val" id="sv-platform"></div></div>
+      <div class="detail-row" id="sv-advance-row" style="display:none"><div class="dr-label">Мин. время до записи</div><div class="dr-val" id="sv-advance"></div></div>
+    </div>
+    <button class="btn" onclick="previewAsGuest()" style="width:100%;background:rgba(124,92,252,.1);color:#7C5CFC;border:1.5px solid rgba(124,92,252,.3);margin-bottom:8px">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Как видят другие
+    </button>
+    <button class="btn btn-primary" onclick="editCurrentSchedule()" style="width:100%;margin-bottom:8px">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Редактировать
+    </button>
+    <div style="height:8px"></div>
+    <button class="btn" id="sv-pause-btn" onclick="toggleSchedulePause()" style="width:100%;background:var(--ams);color:var(--amber);border:1px solid rgba(245,166,35,.2);margin-bottom:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+      <span id="sv-pause-label">Приостановить</span>
+    </button>
+    <button class="btn btn-danger" onclick="openDeleteConfirm()" style="width:100%">Удалить расписание</button>
+  </div>
+  <div class="scroll-fill"></div>
+</div>
+
+<!-- ═══════════════════════════════
+     SCHEDULE DETAIL (edit)
 ════════════════════════════════ -->
 <div class="screen has-inner-header" id="s-link-detail">
   <div class="inner-header">
@@ -807,13 +849,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
       Сохранить изменения
     </button>
-    <div style="height:8px"></div>
-    <button class="btn" id="sl-pause-btn" onclick="toggleSchedulePause()" style="background:var(--ams);color:var(--amber);border:1px solid rgba(245,166,35,.2)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
-      <span id="sl-pause-label">Поставить на паузу</span>
-    </button>
-    <div style="height:8px"></div>
-    <button class="btn btn-danger" onclick="openDeleteConfirm()">Удалить расписание</button>
   </div>
   <div class="scroll-fill"></div>
 </div>
@@ -1046,6 +1081,17 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
         <div class="slot-panel-title" id="csp-title"></div>
         <div class="slot-panel-sub">Выберите удобное время</div>
         <div class="slots-grid" id="csp-grid"></div>
+      </div>
+    </div>
+    <!-- Inline guest form (progressive disclosure) -->
+    <div id="cal-guest-form" style="display:none;padding:0 16px 16px;margin-top:8px">
+      <div style="border-top:1px solid var(--b1);padding-top:16px">
+        <div style="font-size:16px;font-weight:800;color:var(--t1);margin-bottom:4px">Ваши данные</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Заполните для бронирования</div>
+        <div class="inp-wrap"><div class="inp-label">Ваше имя *</div><input class="inp" id="cal-g-name" placeholder="Имя Фамилия"></div>
+        <div class="inp-wrap"><div class="inp-label">Telegram или email</div><input class="inp" id="cal-g-contact" placeholder="@username или email"></div>
+        <div class="inp-wrap"><div class="inp-label">Заметка для организатора</div><textarea class="inp" rows="2" id="cal-g-notes" placeholder="Что хотите обсудить?"></textarea></div>
+        <button class="btn btn-primary" id="cal-book-btn" onclick="submitInlineBooking()" style="width:100%;margin-top:8px">Забронировать</button>
       </div>
     </div>
   </div>
@@ -1315,6 +1361,18 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 /* ═══════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════ */
+/* ── Global error boundary — гарантирует видимость app при любом crash ── */
+window.addEventListener('error', function(e) {
+  console.error('[GLOBAL]', e.message, e.filename, e.lineno);
+  var app = document.getElementById('app');
+  if (app && !app.classList.contains('ready')) app.classList.add('ready');
+});
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[GLOBAL] Unhandled promise:', e.reason);
+  var app = document.getElementById('app');
+  if (app && !app.classList.contains('ready')) app.classList.add('ready');
+});
+
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
 const APP_VERSION = '1.0.7';
@@ -1394,49 +1452,55 @@ const state = {
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  if (tg) {
-    tg.ready();
-    tg.expand();
-    tg.enableClosingConfirmation();
-    try { tg.MainButton.hide(); tg.MainButton.offClick(); } catch(e) {}
-    try { tg.BackButton.hide(); } catch(e) {}
+  /* ── Telegram SDK init — wrapped in try/catch to guarantee app visibility ── */
+  try {
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { tg.enableClosingConfirmation(); } catch(e) { console.warn('[TG] enableClosingConfirmation:', e.message); }
+      try { tg.MainButton.hide(); tg.MainButton.offClick(); } catch(e) {}
+      try { tg.BackButton.hide(); } catch(e) {}
 
-    /* Попытка перейти в fullscreen (Bot API 8.0+) */
-    if (tg.requestFullscreen) {
-      try { tg.requestFullscreen(); } catch(e) {}
-    }
-
-    /* Адаптивные insets: fullscreen vs обычный режим (Bot API 7.x+) */
-    function adaptTgInsets() {
-      var tgSafe    = tg.safeAreaInsets;
-      var tgContent = tg.contentSafeAreaInsets;
-      var tgHeaderH = (tgContent?.top ?? 0) + (tgSafe?.top ?? 0);
-      var tgBottomH = (tgContent?.bottom ?? 0) + (tgSafe?.bottom ?? 0);
-
-      /* Логика верхнего инсета:
-         - insets доступны (≥10px)  → использовать их
-         - isFullscreen, но insets=0 → fallback 84px (старый клиент)
-         - обычный режим (insets=0)  → 0px (TG-хедер уже над webview) */
-      var headerPx;
-      if (tgHeaderH >= 10) {
-        headerPx = tgHeaderH;
-      } else if (tg.isFullscreen) {
-        headerPx = 84;
-      } else {
-        headerPx = 0;
+      /* Попытка перейти в fullscreen (Bot API 8.0+) */
+      if (tg.requestFullscreen) {
+        try { tg.requestFullscreen(); } catch(e) { console.warn('[TG] requestFullscreen:', e.message); }
       }
 
-      document.documentElement.style.setProperty('--tg-header', headerPx + 'px');
-      document.documentElement.style.setProperty('--tg-bottom', (tgBottomH < 5 ? 34 : tgBottomH) + 'px');
-    }
+      /* Адаптивные insets: fullscreen vs обычный режим (Bot API 7.x+) */
+      function adaptTgInsets() {
+        try {
+          var tgSafe    = tg.safeAreaInsets;
+          var tgContent = tg.contentSafeAreaInsets;
+          var tgHeaderH = (tgContent?.top ?? 0) + (tgSafe?.top ?? 0);
+          var tgBottomH = (tgContent?.bottom ?? 0) + (tgSafe?.bottom ?? 0);
 
-    adaptTgInsets();
+          var headerPx;
+          if (tgHeaderH >= 10) {
+            headerPx = tgHeaderH;
+          } else if (tg.isFullscreen) {
+            headerPx = 84;
+          } else {
+            headerPx = 0;
+          }
 
-    /* Пересчёт при смене режима (expand, fullscreen, ориентация) */
-    if (tg.onEvent) {
-      tg.onEvent('viewportChanged', adaptTgInsets);
-      tg.onEvent('fullscreenChanged', adaptTgInsets);
+          document.documentElement.style.setProperty('--tg-header', headerPx + 'px');
+          document.documentElement.style.setProperty('--tg-bottom', (tgBottomH < 5 ? 34 : tgBottomH) + 'px');
+        } catch(e) {
+          console.warn('[TG] adaptTgInsets:', e.message);
+        }
+      }
+
+      adaptTgInsets();
+
+      if (tg.onEvent) {
+        try {
+          tg.onEvent('viewportChanged', adaptTgInsets);
+          tg.onEvent('fullscreenChanged', adaptTgInsets);
+        } catch(e) { console.warn('[TG] onEvent:', e.message); }
+      }
     }
+  } catch(e) {
+    console.error('[INIT] Telegram SDK init failed:', e);
   }
 
   /* Показать приложение — инсеты уже рассчитаны, флэша не будет */
