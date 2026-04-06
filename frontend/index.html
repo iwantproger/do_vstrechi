@@ -331,6 +331,9 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .reminder-chip:not(.on) .rc-x{background:rgba(0,0,0,.15)}
 .rc-add{border:1.5px dashed var(--b2)!important;background:transparent!important;color:var(--t2)!important;gap:4px}
 .rc-add:active{background:var(--s2)!important}
+/* ── Changelog tabs ── */
+.changelog-tab{flex:1;padding:8px 12px;border-radius:var(--rf);font-family:var(--font);font-size:12px;font-weight:700;border:1px solid var(--b1);background:var(--s2);color:var(--t2);cursor:pointer;transition:all .15s}
+.changelog-tab.on{background:var(--a);color:#07221A;border-color:transparent}
 /* FIX: Bug #7 — кнопка «Поделиться» в блоке «Моя ссылка» */
 .btn-share-link{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:32px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:var(--rf);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
 .btn-share-link:active{transform:scale(.97);background:var(--s4)}
@@ -923,21 +926,33 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     </div>
   </div>
 
-  <!-- УВЕДОМЛЕНИЯ -->
+  <!-- УВЕДОМЛЕНИЯ О ЗАПИСЯХ -->
   <div class="group-title">Уведомления</div>
-  <div style="padding:0 16px">
-    <div class="settings-group" id="notif-group">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b1)">
+  <div style="padding:0 16px;margin-bottom:8px">
+    <div class="settings-group">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px">
         <div>
           <div style="font-size:14px;font-weight:700;color:var(--t1)">Уведомления о записях</div>
           <div style="font-size:12px;color:var(--t2);margin-top:2px">Когда кто-то бронирует встречу</div>
         </div>
-        <div class="tog on" id="tog-notif" onclick="toggleNotifMain(this)"></div>
+        <div class="tog on" id="tog-booking-notif" onclick="toggleBookingNotif(this)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- НАПОМИНАНИЯ О ВСТРЕЧЕ -->
+  <div style="padding:0 16px">
+    <div class="settings-group">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--b1)">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Напоминания о встрече</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Напомним заранее о предстоящей встрече</div>
+        </div>
+        <div class="tog on" id="tog-reminder-notif" onclick="toggleReminderNotif(this)"></div>
       </div>
       <div style="padding:14px 16px">
         <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">
           Напомнить за
-          <!-- FIX: Bug #4 — иконка ⓘ с подсказкой по удалению чипов -->
           <span class="info-hint" onclick="showChipHint()" title="Как удалить напоминание">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           </span>
@@ -1402,10 +1417,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
      CHANGELOG SHEET
 ════════════════════════════════ -->
 <div class="overlay" id="sheet-changelog" onclick="closeSheet('sheet-changelog')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:80vh;overflow-y:auto;scrollbar-width:none">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;scrollbar-width:none">
     <div class="sheet-handle"></div>
     <div class="sheet-title">История обновлений</div>
-    <div id="changelog-body" style="padding:0 16px 4px;max-height:60vh;overflow-y:auto;scrollbar-width:none"></div>
+    <div style="display:flex;gap:8px;padding:0 16px 12px">
+      <button class="changelog-tab on" id="cl-tab-simple" onclick="switchChangelogTab('simple')">Простым языком</button>
+      <button class="changelog-tab" id="cl-tab-tech" onclick="switchChangelogTab('technical')">Для разработчиков</button>
+    </div>
+    <div id="changelog-body" style="padding:0 16px 4px;max-height:55vh;overflow-y:auto;scrollbar-width:none"></div>
     <div style="padding:8px 16px 8px">
       <button class="btn btn-secondary" style="width:100%" onclick="closeSheet('sheet-changelog')">Закрыть</button>
     </div>
@@ -1458,70 +1477,86 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
-const APP_VERSION = '1.0.59';
-/* АВТО: APP_VERSION и CHANGELOG обновляются скриптом scripts/update_version.py при каждом деплое.
-   Не редактировать вручную — изменения будут перезаписаны. */
+const APP_VERSION = '1.1.0';
+/* ВЕРСИОНИРОВАНИЕ:
+   - Patch (1.0.X → 1.0.X+1): багфиксы, мелкие правки
+   - Minor (1.X.0 → 1.X+1.0): новые фичи, визуальные изменения
+   - Major (X.0.0 → X+1.0.0): большие переделки, breaking changes
+   - ОДНА запись на деплой. Если несколько деплоев в день — буквенный суффикс: 1.1.0a */
 const CHANGELOG = [
   {
-    version: '1.0.59',
+    version: '1.1.0',
     date: '6 апреля 2026',
-    changes: [
-    '✨ Просмотр задачи по клику + кнопка «Скопировать всё»',
-    '🐛 Баги гостевого flow бронирования — UI, цвета, успех, уведомления',
-    '⚙️ Ui: переименовать сервис в «Do Встречи!» в заголовках админки',
-    '🐛 Mask header, native tg share, unified status styles',
-    '🐛 Desktop max-width, chip editing UX, share button, smooth blur',
-    '🐛 Telegram Login Widget auth — HMAC mismatch + CSP connect-src',
-    '🐛 Отступы экранов, blur хедера, long-press чипы, иконка подсказки',
-    '🐛 CSP unsafe-eval + Chart.js cdn fix'
-    ]
+    simple: [
+      'Экран бронирования: убраны дубли заголовка, цвета дат по загруженности',
+      'Фиолетовая тема для гостевого бронирования',
+      'Кнопка «Забронировать» — спиннер теперь по центру',
+      'Экран успеха: текст «До встречи! 👋» и кнопка включения уведомлений',
+      'Дропдаун «По дате / По расписаниям» больше не уходит за край экрана',
+      'При входе на «Встречи» сразу открывается нужный таб',
+      'Уведомления о записях и напоминания разделены на два блока',
+      'Changelog теперь с двумя форматами: простым и техническим',
+    ],
+    technical: [
+      'fix: duplicate schedule title in booking screen header',
+      'feat: 3-tier calendar date colors (c-free/c-part/c-almost) based on slot availability',
+      'feat: .guest-theme CSS — purple accent (--a: #8B7BF4) for s-calendar and s-success',
+      'fix: booking button spinner centered via flex justify-content:center',
+      'feat: success screen «До встречи!» subtitle + enableBookingNotifications() → t.me bot',
+      'fix: group-by dropdown right-aligned (window.innerWidth - r.right) instead of left',
+      'fix: loadMeetings() auto-selects confirm tab when pending>0 else all',
+      'fix: back() now calls loadSchedules()/loadHome() for fresh data on tab return',
+      'feat: split booking_notif and reminder_notif into independent settings blocks',
+      'feat: dual changelog — simple[] and technical[] per version entry',
+      'feat: changelog tabs UI with .changelog-tab CSS',
+    ],
   },
   {
     version: '1.0.59',
-    date: '5 апреля 2026',
-    changes: [
-    '✨ Версия приложения с changelog sheet',
-    '✨ Профиль — link-card с иконками, timezone sheet, reminder chips',
-    '🐛 Адаптивные insets — убрать лишний отступ в обычном режиме Telegram',
-    '🐛 Унифицировать отступ 32px между заголовком и первым блоком на всех экранах',
-    '🚀 Re-trigger deploy',
-    '🐛 PWA-иконка — залить белый фон цветом #0D1A16 для iOS',
-    '🐛 Убрать дублирующуюся кнопку Назад — только нативная Telegram BackButton',
-    '✨ Пауза/активация расписания — полная реализация'
-    ]
+    date: '5–6 апреля 2026',
+    simple: [
+      'Мульти-выбор напоминаний: можно выбрать несколько интервалов сразу',
+      'Пользовательские напоминания — добавить своё время',
+      'Версия приложения с историей изменений',
+      'Профиль: кнопка «Поделиться», информация о часовом поясе',
+      'Убрана лишняя кнопка «Назад» (оставлена только нативная Telegram)',
+      'Исправлен большой отступ в обычном режиме Telegram',
+    ],
+    technical: [
+      'feat: multi-select reminder chips + localStorage migration (reminder → reminders[])',
+      'feat: custom reminder sheet with preset chips (45m/2h/3h/2d)',
+      'feat: long-press chip editing mode with wiggle animation',
+      'feat: APP_VERSION constant + CHANGELOG array + showChangelog sheet',
+      'feat: profile timezone info sheet + link share button',
+      'fix: removed duplicate HTML back buttons — only tg.BackButton used',
+      'fix: adaptTgInsets() — 0px header in normal TG mode (not fullscreen)',
+      'fix: desktop max-width 430px, fixed elements constrained',
+    ],
   },
   {
     version: '1.0.26',
     date: '4 апреля 2026',
     changes: [
-    '✨ Полный редизайн v3 — новый фронтенд, аутентификация, безопасность',
-    '🐛 Исправить docker-compose.yml — отступ nginx, дублирующийся certbot, лишний блок volumes',
-    '📚 Обновить README для публичного репозитория, убрать реальные секреты из .env.example',
-    '📚 Добавить CLAUDE.md и техническую документацию проекта',
-    '⚙️ Design: обновить навбар — иконка камеры и AI-пилюля'
-    ]
+      '✨ Полный редизайн v3 — новый фронтенд, аутентификация, безопасность',
+      '🐛 Исправить docker-compose.yml',
+      '📚 Обновить README, убрать секреты из .env.example',
+      '⚙️ Design: обновить навбар — иконка камеры и AI-пилюля',
+    ],
   },
   {
     version: '1.0.15',
     date: '1 апреля 2026',
     changes: [
-    '⚙️ Полный редизайн мини-приложения и улучшения бота'
-    ]
+      '⚙️ Полный редизайн мини-приложения и улучшения бота',
+    ],
   },
   {
-    version: '1.0.15',
+    version: '1.0.1',
     date: '31 марта 2026',
     changes: [
-    '🐛 Актуальный nginx.conf с SSL и исправленный index.html',
-    '🐛 Таймаут деплоя и reset --hard',
-    '🐛 Обновлён MINI_APP_URL на dovstrechiapp.ru',
-    '⚙️ Актуализация кнопок Telegram бота: добавить WebApp-кнопки',
-    '🧪 Проверка автодеплоя',
-    '🐛 Убран Railway URL, починена кнопка Забронировать',
-    '🐛 Правильная структура monorepo',
-    '⚙️ Rename init.sql to database/init.sql'
-    ]
-  }
+      '🐛 Первый рабочий деплой — nginx SSL, Telegram бот, бронирование',
+    ],
+  },
 ];
 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -3742,17 +3777,24 @@ async function submitInlineBooking() {
 function getNotifSettings() {
   try {
     var s = JSON.parse(localStorage.getItem('sb_settings') || '{}');
-    /* Миграция старого формата (reminder: '60') → новый (reminders: ['60']) */
+    /* Миграция: reminder (строка) → reminders (массив) */
     if (s.reminder !== undefined && !s.reminders) {
       s.reminders = (s.reminder === 'off') ? [] : [s.reminder];
       delete s.reminder;
-      try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+    }
+    /* Миграция: старый notif → booking_notif + reminder_notif */
+    if (s.notif !== undefined && s.booking_notif === undefined) {
+      s.booking_notif = s.notif;
+      s.reminder_notif = s.notif;
+      delete s.notif;
     }
     if (!s.reminders) s.reminders = ['60'];
     if (!s.customReminders) s.customReminders = [];
-    if (s.notif === undefined) s.notif = true;
+    if (s.booking_notif === undefined) s.booking_notif = true;
+    if (s.reminder_notif === undefined) s.reminder_notif = true;
+    try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
     return s;
-  } catch(e) { return { notif: true, reminders: ['60'], customReminders: [] }; }
+  } catch(e) { return { booking_notif: true, reminder_notif: true, reminders: ['60'], customReminders: [] }; }
 }
 
 function formatReminderMinutes(mins) {
@@ -3802,10 +3844,12 @@ function loadProfile() {
   var verEl = document.getElementById('app-version-val');
   if (verEl) verEl.textContent = APP_VERSION;
 
-  /* notification settings: toggle + reminder chips */
+  /* notification settings: two toggles + reminder chips */
   var s = getNotifSettings();
-  var togEl = document.getElementById('tog-notif');
-  if (togEl) { if (s.notif) togEl.classList.add('on'); else togEl.classList.remove('on'); }
+  var togBook = document.getElementById('tog-booking-notif');
+  if (togBook) { if (s.booking_notif) togBook.classList.add('on'); else togBook.classList.remove('on'); }
+  var togRem = document.getElementById('tog-reminder-notif');
+  if (togRem) { if (s.reminder_notif) togRem.classList.add('on'); else togRem.classList.remove('on'); }
 
   renderReminderChips();
 }
@@ -3900,32 +3944,65 @@ function showTimezoneInfo() {
   showSheet('sheet-timezone');
 }
 
-function showChangelog() {
+var _changelogMode = 'simple';
+
+function switchChangelogTab(mode) {
+  _changelogMode = mode;
+  var stab = document.getElementById('cl-tab-simple');
+  var ttab = document.getElementById('cl-tab-tech');
+  if (stab) stab.classList.toggle('on', mode === 'simple');
+  if (ttab) ttab.classList.toggle('on', mode === 'technical');
+  renderChangelog();
+}
+
+function renderChangelog() {
   var body = document.getElementById('changelog-body');
   if (!body) return;
   body.innerHTML = CHANGELOG.map(function(release, i) {
-    return (i > 0 ? '<div style="height:1px;background:var(--b1);margin:4px 0 20px"></div>' : '')
+    var changes = _changelogMode === 'technical'
+      ? (release.technical || release.changes || [])
+      : (release.simple || release.changes || []);
+    return (i > 0 ? '<div style="height:1px;background:var(--b1);margin:4px 0 16px"></div>' : '')
       + '<div style="margin-bottom:4px">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
           + '<span style="font-size:15px;font-weight:800;color:var(--t1)">v' + release.version + '</span>'
           + '<span style="font-size:11px;color:var(--t3);font-weight:500">' + release.date + '</span>'
         + '</div>'
-        + '<div style="display:flex;flex-direction:column;gap:7px">'
-          + release.changes.map(function(c) {
-              return '<div style="font-size:13px;color:var(--t2);line-height:1.5">' + c + '</div>';
+        + '<div style="display:flex;flex-direction:column;gap:6px">'
+          + changes.map(function(c) {
+              return '<div style="font-size:13px;color:var(--t2);line-height:1.5">' + escHtml(c) + '</div>';
             }).join('')
         + '</div>'
       + '</div>';
   }).join('');
+}
+
+function showChangelog() {
+  /* reset to simple tab each open */
+  _changelogMode = 'simple';
+  var stab = document.getElementById('cl-tab-simple');
+  var ttab = document.getElementById('cl-tab-tech');
+  if (stab) stab.classList.add('on');
+  if (ttab) ttab.classList.remove('on');
+  renderChangelog();
   showSheet('sheet-changelog');
 }
 
-function toggleNotifMain(el) {
+function toggleBookingNotif(el) {
   el.classList.toggle('on');
   var s = getNotifSettings();
-  s.notif = el.classList.contains('on');
+  s.booking_notif = el.classList.contains('on');
   try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
-  showToast(s.notif ? 'Уведомления включены' : 'Уведомления выключены');
+  showToast(s.booking_notif ? 'Уведомления о записях включены' : 'Уведомления о записях отключены');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function toggleReminderNotif(el) {
+  el.classList.toggle('on');
+  var s = getNotifSettings();
+  s.reminder_notif = el.classList.contains('on');
+  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  showToast(s.reminder_notif ? 'Напоминания включены' : 'Напоминания отключены');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
