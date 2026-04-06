@@ -141,6 +141,42 @@ async def list_bookings(
     return result
 
 
+@router.get("/api/bookings/pending-reminders")
+async def get_pending_reminders(
+    reminder_type: str = Query(...),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if reminder_type not in ("24h", "1h"):
+        raise HTTPException(400, "reminder_type must be '24h' or '1h'")
+
+    if reminder_type == "24h":
+        flag_col = "reminder_24h_sent"
+        interval = "INTERVAL '24 hours 15 minutes'"
+        min_interval = "INTERVAL '23 hours 45 minutes'"
+    else:
+        flag_col = "reminder_1h_sent"
+        interval = "INTERVAL '1 hour 15 minutes'"
+        min_interval = "INTERVAL '45 minutes'"
+
+    rows = await conn.fetch(f"""
+        SELECT b.id, b.guest_name, b.guest_contact, b.guest_telegram_id,
+               b.scheduled_time, b.meeting_link, b.notes,
+               s.title AS schedule_title, s.duration,
+               u.telegram_id AS organizer_telegram_id,
+               u.first_name AS organizer_name,
+               u.timezone AS organizer_timezone
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'confirmed'
+          AND b.{flag_col} = FALSE
+          AND b.scheduled_time > NOW()
+          AND b.scheduled_time <= NOW() + {interval}
+          AND b.scheduled_time >= NOW() + {min_interval}
+    """)
+    return {"bookings": [dict(r) for r in rows]}
+
+
 @router.get("/api/bookings/{booking_id}")
 async def get_booking(
     booking_id: str,
@@ -251,42 +287,6 @@ async def cancel_booking(
         raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя отменить")
     await _track_event(conn, "booking_cancelled", telegram_id, {"booking_id": booking_id})
     return row_to_dict(row)
-
-
-@router.get("/api/bookings/pending-reminders")
-async def get_pending_reminders(
-    reminder_type: str = Query(...),
-    conn: asyncpg.Connection = Depends(db),
-):
-    if reminder_type not in ("24h", "1h"):
-        raise HTTPException(400, "reminder_type must be '24h' or '1h'")
-
-    if reminder_type == "24h":
-        flag_col = "reminder_24h_sent"
-        interval = "INTERVAL '24 hours 15 minutes'"
-        min_interval = "INTERVAL '23 hours 45 minutes'"
-    else:
-        flag_col = "reminder_1h_sent"
-        interval = "INTERVAL '1 hour 15 minutes'"
-        min_interval = "INTERVAL '45 minutes'"
-
-    rows = await conn.fetch(f"""
-        SELECT b.id, b.guest_name, b.guest_contact, b.guest_telegram_id,
-               b.scheduled_time, b.meeting_link, b.notes,
-               s.title AS schedule_title, s.duration,
-               u.telegram_id AS organizer_telegram_id,
-               u.first_name AS organizer_name,
-               u.timezone AS organizer_timezone
-        FROM bookings b
-        JOIN schedules s ON b.schedule_id = s.id
-        JOIN users u ON s.user_id = u.id
-        WHERE b.status = 'confirmed'
-          AND b.{flag_col} = FALSE
-          AND b.scheduled_time > NOW()
-          AND b.scheduled_time <= NOW() + {interval}
-          AND b.scheduled_time >= NOW() + {min_interval}
-    """)
-    return {"bookings": [dict(r) for r in rows]}
 
 
 @router.patch("/api/bookings/{booking_id}/reminder-sent")
