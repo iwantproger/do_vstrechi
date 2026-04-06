@@ -4,6 +4,7 @@ FastAPI + asyncpg (PostgreSQL)
 """
 
 import os
+import sys
 import uuid
 import hmac
 import hashlib
@@ -11,6 +12,7 @@ import json
 import asyncio
 import logging
 import secrets
+import time as _time
 from datetime import datetime, timedelta, date, time, timezone
 from typing import Optional, List, Any
 from contextlib import asynccontextmanager
@@ -19,13 +21,28 @@ from zoneinfo import ZoneInfo, available_timezones
 
 import asyncpg
 import httpx
+import structlog
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-log = logging.getLogger(__name__)
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+log = structlog.get_logger()
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
@@ -36,6 +53,8 @@ ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
 ADMIN_SESSION_TTL_HOURS = int(os.environ.get("ADMIN_SESSION_TTL_HOURS", "2"))
 ADMIN_IP_ALLOWLIST = os.environ.get("ADMIN_IP_ALLOWLIST", "").strip()
 ANONYMIZE_SALT = os.environ.get("ANONYMIZE_SALT", "do-vstrechi-2026")
+
+_start_time = _time.time()
 
 # ─────────────────────────────���───────────────────────────
 # Telegram initData validation (HMAC-SHA256)
@@ -293,17 +312,65 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="До встречи API", version="2.0.0", lifespan=lifespan)
 
 MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
+_cors_origins = [
+    "https://dovstrechiapp.ru",
+    "https://www.dovstrechiapp.ru",
+    *([] if not MINI_APP_URL else [MINI_APP_URL]),
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dovstrechiapp.ru",
-        "https://www.dovstrechiapp.ru",
-        *([] if not MINI_APP_URL else [MINI_APP_URL]),
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "X-Init-Data"],
 )
+
+
+# ─────────────────────────────────────────────────────────
+# Structlog request context middleware
+# ─────────────────────────────────────────────────────────
+
+class StructlogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = uuid.uuid4().hex[:8]
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+        )
+        start = _time.monotonic()
+        response = await call_next(request)
+        duration_ms = round((_time.monotonic() - start) * 1000, 1)
+        if request.url.path not in ("/", "/health"):
+            log.info(
+                "request_handled",
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+            )
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+app.add_middleware(StructlogMiddleware)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error("unhandled_exception", exc_type=type(exc).__name__, detail=str(exc)[:500])
+    try:
+        async with _pool.acquire() as conn:
+            await _track_event(conn, "error", 0, {
+                "exc_type": type(exc).__name__,
+                "detail": str(exc)[:500],
+                "path": request.url.path,
+                "method": request.method,
+            }, severity="error")
+    except Exception:
+        pass
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 # ─────────────────────────────────────────────────────────
 # Pydantic models
@@ -325,6 +392,7 @@ class ScheduleCreate(BaseModel):
     end_time: str = Field("18:00", pattern=r"^\d{2}:\d{2}$")
     location_mode: str = Field("fixed", max_length=50)
     platform: str = Field("jitsi", max_length=50)
+    min_booking_advance: Optional[int] = Field(0, ge=0, le=10080)
 
 class ScheduleUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
@@ -337,6 +405,7 @@ class ScheduleUpdate(BaseModel):
     location_mode: Optional[str] = Field(None, max_length=50)
     platform: Optional[str] = Field(None, max_length=50)
     is_active: Optional[bool] = None
+    min_booking_advance: Optional[int] = Field(None, ge=0, le=10080)
 
 class QuickMeetingCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -389,6 +458,10 @@ class AppEvent(BaseModel):
     metadata: Optional[dict] = None
     severity: str = Field("info", pattern=r"^(info|warn|error|critical)$")
 
+class CleanupRequest(BaseModel):
+    older_than_days: int = Field(default=30, ge=7, le=365)
+    severity: str = Field(default="info", pattern=r"^(info|warn)$")
+
 def row_to_dict(row) -> dict:
     """asyncpg Record → plain dict"""
     if row is None:
@@ -409,6 +482,30 @@ def generate_meeting_link(platform: str) -> str:
     return f"https://meet.jit.si/dovstrechi-{room}"
 
 
+async def _track_event(
+    conn: asyncpg.Connection,
+    event_type: str,
+    telegram_id: int = 0,
+    metadata: dict | None = None,
+    severity: str = "info",
+    session_id: str | None = None,
+) -> None:
+    """Write an event to app_events (fire-and-forget safe)."""
+    try:
+        anon_id = anonymize_id(telegram_id)
+        await conn.execute(
+            """
+            INSERT INTO app_events (event_type, anonymous_id, session_id, metadata, severity)
+            VALUES ($1, $2, $3, $4::jsonb, $5)
+            """,
+            event_type, anon_id, session_id,
+            json.dumps(metadata) if metadata else None,
+            severity,
+        )
+    except Exception:
+        log.warning("track_event_failed", event_type=event_type)
+
+
 async def _notify_bot_new_booking(**kwargs: Any) -> None:
     """Fire-and-forget: tell bot to message the organizer about a new booking."""
     try:
@@ -420,11 +517,11 @@ async def _notify_bot_new_booking(**kwargs: Any) -> None:
             )
             result = resp.json()
             if result.get("ok"):
-                log.info(f"Bot notified about booking {kwargs.get('booking_id')}")
+                log.info("bot_notified", booking_id=kwargs.get("booking_id"))
             else:
-                log.warning(f"Bot notification failed: {result}")
+                log.warning("bot_notification_failed", response=result)
     except Exception as e:
-        log.warning(f"Failed to notify bot about new booking: {e}")
+        log.warning("bot_notification_error", error=str(e))
 
 # ─────────────────────────────────────────────────────────
 # Quick meeting helper
@@ -471,7 +568,7 @@ async def health(conn: asyncpg.Connection = Depends(db)):
         await conn.fetchval("SELECT 1")
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        log.error(f"Health check failed: {e}")
+        log.error("health_check_failed", error=str(e))
         raise HTTPException(status_code=503, detail="Database unavailable")
 
 # ─────────────────────────────────────────────────────────
@@ -500,6 +597,8 @@ async def auth_user(
         """,
         telegram_id, data.username, data.first_name, data.last_name, tz
     )
+    is_new = row["created_at"] == row["updated_at"] if row else False
+    await _track_event(conn, "user_auth", telegram_id, {"timezone": tz, "is_new": is_new})
     return row_to_dict(row)
 
 @app.get("/api/users/{telegram_id}")
@@ -529,16 +628,19 @@ async def create_schedule(
         """
         INSERT INTO schedules
             (user_id, title, description, duration, buffer_time,
-             work_days, start_time, end_time, location_mode, platform)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             work_days, start_time, end_time, location_mode, platform, min_booking_advance)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         RETURNING *
         """,
         user["id"], data.title, data.description, data.duration, data.buffer_time,
         data.work_days,
         datetime.strptime(data.start_time, "%H:%M").time(),
         datetime.strptime(data.end_time, "%H:%M").time(),
-        data.location_mode, data.platform
+        data.location_mode, data.platform, data.min_booking_advance or 0
     )
+    await _track_event(conn, "schedule_created", telegram_id, {
+        "schedule_id": str(row["id"]), "duration": data.duration, "platform": data.platform,
+    })
     return row_to_dict(row)
 
 @app.get("/api/schedules")
@@ -593,6 +695,7 @@ async def delete_schedule(
     )
     if result == "UPDATE 0":
         raise HTTPException(status_code=404, detail="Расписание не найдено или нет доступа")
+    await _track_event(conn, "schedule_deleted", telegram_id, {"schedule_id": schedule_id})
     return {"success": True}
 
 @app.patch("/api/schedules/{schedule_id}")
@@ -736,7 +839,7 @@ async def create_quick_meeting(
         meeting_link, data.notes, data.title, end_dt, telegram_id,
     )
 
-    log.info(f"Quick meeting created: {booking['id']} by {telegram_id}")
+    log.info("quick_meeting_created", booking_id=str(booking["id"]), telegram_id=telegram_id)
     return row_to_dict(booking)
 
 
@@ -820,12 +923,14 @@ async def available_slots(
     step = timedelta(minutes=schedule["duration"] + schedule["buffer_time"])
     slot_duration = timedelta(minutes=schedule["duration"])
     now_utc = datetime.now(ZoneInfo("UTC"))
+    min_advance = schedule.get("min_booking_advance") or 0
+    earliest_bookable_utc = now_utc + timedelta(minutes=min_advance)
 
     slots = []
     current = slot_start
     while current + slot_duration <= slot_end:
         current_utc = current.astimezone(ZoneInfo("UTC")).replace(second=0, microsecond=0)
-        if current_utc > now_utc and current_utc not in booked_utc:
+        if current_utc > earliest_bookable_utc and current_utc not in booked_utc:
             viewer_dt = current.astimezone(vtz)
             slots.append({
                 "time": current.strftime("%H:%M"),
@@ -835,6 +940,10 @@ async def available_slots(
             })
         current += step
 
+    if slots:
+        await _track_event(conn, "slots_viewed", 0, {
+            "schedule_id": schedule_id, "date": date, "slots_count": len(slots),
+        })
     return {"available_slots": slots, "date": date}
 
 # ─────────────────────────────────────────────────────────
@@ -851,7 +960,7 @@ async def create_booking(
         sid = uuid.UUID(data.schedule_id)
         scheduled_time = datetime.fromisoformat(data.scheduled_time.replace("Z", "+00:00"))
     except ValueError as e:
-        log.warning(f"Invalid booking data: {e}")
+        log.warning("invalid_booking_data", error=str(e))
         raise HTTPException(status_code=400, detail="Неверный формат данных")
 
     schedule = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1 AND is_active = TRUE", sid)
@@ -907,7 +1016,10 @@ async def create_booking(
             meeting_link=meeting_link,
         ))
 
-    log.info(f"New booking created: {result['id']} for schedule {sid}")
+    await _track_event(conn, "booking_created", guest_telegram_id or 0, {
+        "booking_id": str(result["id"]), "schedule_id": str(sid),
+    })
+    log.info("booking_created", booking_id=str(result["id"]), schedule_id=str(sid))
     return result
 
 
@@ -1001,6 +1113,7 @@ async def confirm_booking(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или уже обработано")
+    await _track_event(conn, "booking_confirmed", telegram_id, {"booking_id": booking_id})
     return row_to_dict(row)
 
 
@@ -1038,6 +1151,7 @@ async def cancel_booking(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя отменить")
+    await _track_event(conn, "booking_cancelled", telegram_id, {"booking_id": booking_id})
     return row_to_dict(row)
 
 
@@ -1168,7 +1282,7 @@ async def admin_login(
         max_age=ttl_seconds,
         path="/api/admin",
     )
-    log.info(f"Admin login from {client_ip}, session {session_token[:8]}…")
+    log.info("admin_login", client_ip=client_ip, session_prefix=session_token[:8])
     return response
 
 
@@ -1560,7 +1674,7 @@ async def admin_audit_log_list(
 # ─────────────────────────────────────────────────────────
 
 @app.post("/api/events")
-async def track_event(
+async def receive_event(
     data: AppEvent,
     request: Request,
     conn: asyncpg.Connection = Depends(db),
@@ -1579,3 +1693,96 @@ async def track_event(
         data.severity,
     )
     return {"status": "ok"}
+
+
+# ─────────────────────────────────────────────────────────
+# Admin system info
+# ─────────────────────────────────────────────────────────
+
+@app.get("/api/admin/system/info")
+async def admin_system_info(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    counts = await conn.fetchrow("""
+        SELECT
+            (SELECT COUNT(*) FROM users)                           AS users,
+            (SELECT COUNT(*) FROM schedules WHERE is_active = TRUE) AS schedules_active,
+            (SELECT COUNT(*) FROM bookings)                        AS bookings_total,
+            (SELECT COUNT(*) FROM app_events)                      AS events_total,
+            (SELECT COUNT(*) FROM admin_tasks)                     AS tasks_total
+    """)
+    tables_count = await conn.fetchval(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+    )
+    return {
+        "version": app.version,
+        "python_version": sys.version.split()[0],
+        "uptime_seconds": int(_time.time() - _start_time),
+        "database": {
+            "pool_size": _pool.get_size(),
+            "pool_free": _pool.get_idle_size(),
+            "tables_count": tables_count,
+        },
+        "counts": dict(counts) if counts else {},
+        "environment": {
+            "admin_ip_allowlist": ADMIN_IP_ALLOWLIST or "не задан",
+            "cors_origins": _cors_origins,
+            "rate_limits": "api: 10r/s, booking: 5r/m, admin: 5r/s, admin_auth: 3r/m",
+        },
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# Admin sessions — invalidate all except current
+# ─────────────────────────────────────────────────────────
+
+@app.post("/api/admin/sessions/invalidate-all")
+async def invalidate_all_sessions(
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    current_token = request.cookies.get("admin_session", "")
+    count = await conn.fetchval(
+        "SELECT COUNT(*) FROM admin_sessions WHERE is_active = TRUE AND session_token != $1",
+        current_token,
+    )
+    await conn.execute(
+        "UPDATE admin_sessions SET is_active = FALSE WHERE is_active = TRUE AND session_token != $1",
+        current_token,
+    )
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action(
+        "invalidate_sessions", client_ip,
+        {"invalidated_count": count or 0}, conn,
+    )
+    return {"status": "ok", "invalidated": count or 0}
+
+
+# ─────────────────────────────────────────────────────────
+# Admin maintenance — cleanup old events
+# ─────────────────────────────────────────────────────────
+
+@app.post("/api/admin/maintenance/cleanup-events")
+async def cleanup_events(
+    data: CleanupRequest,
+    request: Request,
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    count = await conn.fetchval(
+        "SELECT COUNT(*) FROM app_events WHERE severity = $1 AND created_at < NOW() - INTERVAL '1 day' * $2",
+        data.severity, data.older_than_days,
+    )
+    await conn.execute(
+        "DELETE FROM app_events WHERE severity = $1 AND created_at < NOW() - INTERVAL '1 day' * $2",
+        data.severity, data.older_than_days,
+    )
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action(
+        "cleanup_events", client_ip,
+        {"deleted": count or 0, "severity": data.severity, "older_than_days": data.older_than_days},
+        conn,
+    )
+    return {"status": "ok", "deleted": count or 0}

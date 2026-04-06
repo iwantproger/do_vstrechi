@@ -816,6 +816,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
         <div id="sl-buf-val" onclick="openSliderEdit('sl-buf','sl-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
       </div>
     </div>
+    <div class="inp-wrap" style="margin-bottom:14px">
+      <div class="inp-label">Мин. время до записи</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:6px">За сколько минимум можно забронировать слот</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <input type="range" id="sl-advance" min="0" max="1440" step="30" value="0" oninput="updateAdvanceLabel('sl-advance','sl-advance-val');markScheduleDirty()" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <div id="sl-advance-val" onclick="openSliderEdit('sl-advance','sl-advance-val',0,10080,'мин','Мин. время до записи')" style="min-width:70px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
+      </div>
+    </div>
     <div class="inp-wrap">
       <div class="inp-label">Рабочие дни</div>
       <div class="chips mt-1" id="sl-days">
@@ -1007,6 +1015,14 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
       <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
         <input type="range" id="nw-buf" min="0" max="60" step="5" value="0" oninput="updateSliderSmart(this,'nw-buf-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
         <div id="nw-buf-val" onclick="openSliderEdit('nw-buf','nw-buf-val',0,120,'мин','Перерыв')" style="min-width:60px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
+      </div>
+    </div>
+    <div class="inp-wrap" style="margin-bottom:14px">
+      <div class="inp-label">Мин. время до записи</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:6px">За сколько минимум можно забронировать слот</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <input type="range" id="nw-advance" min="0" max="1440" step="30" value="0" oninput="updateAdvanceLabel('nw-advance','nw-advance-val')" style="flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;outline:none;cursor:pointer">
+        <div id="nw-advance-val" onclick="openSliderEdit('nw-advance','nw-advance-val',0,10080,'мин','Мин. время до записи')" style="min-width:70px;height:36px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer;flex-shrink:0">Нет</div>
       </div>
     </div>
     <div class="inp-wrap">
@@ -1619,6 +1635,15 @@ function showScreen(id, push = true) {
 }
 
 function back() {
+  /* preview mode: clean up banner and flag */
+  if (state._previewMode && state.currentScreen === 's-calendar') {
+    state._previewMode = false;
+    var banner = document.getElementById('preview-banner');
+    if (banner) banner.remove();
+    var formBlock = document.getElementById('cal-guest-form');
+    if (formBlock) formBlock.style.display = 'none';
+  }
+
   if (!state.screenStack.length) {
     /* guest mode: nothing to go back to — close app */
     if (state.isGuestMode && tg) tg.close();
@@ -2503,7 +2528,7 @@ function renderLinkCard(s) {
   var badgeText = isActive ? 'Активно' : 'На паузе';
   var url = getScheduleUrl(s.id);
 
-  var html = '<div class="link-card" onclick="openScheduleDetail(\'' + s.id + '\')" style="padding:14px 16px' + opacity + '">';
+  var html = '<div class="link-card" onclick="openScheduleView(\'' + s.id + '\')" style="padding:14px 16px' + opacity + '">';
   /* row 1: title + badge */
   html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (desc ? '6' : '10') + 'px">'
     + '<div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>'
@@ -2561,6 +2586,13 @@ function openScheduleDetail(id) {
   if (bufInp) {
     bufInp.value = s.buffer_time || 0;
     updateSliderSmart(bufInp, 'sl-buf-val');
+  }
+
+  /* advance slider */
+  var advInp = document.getElementById('sl-advance');
+  if (advInp) {
+    advInp.value = s.min_booking_advance || 0;
+    updateAdvanceLabel('sl-advance', 'sl-advance-val');
   }
 
   /* work days */
@@ -2666,6 +2698,8 @@ function collectScheduleForm() {
     if (sel) plat = sel.getAttribute('data-plat') || 'jitsi';
   }
 
+  var advance = parseInt((document.getElementById('sl-advance') || {}).value) || 0;
+
   return {
     title: nameVal,
     description: descVal || null,
@@ -2675,6 +2709,7 @@ function collectScheduleForm() {
     start_time: startVal,
     end_time: endVal,
     platform: plat,
+    min_booking_advance: advance,
   };
 }
 
@@ -2725,6 +2760,27 @@ async function toggleSchedulePause() {
 
   s.is_active = newActive;
   updatePauseBtn(newActive);
+
+  /* update s-schedule-view badges and pause button */
+  var svBadge = document.getElementById('sv-status-badge');
+  if (svBadge) {
+    svBadge.className = newActive ? 'badge b-green' : 'badge b-amber';
+    svBadge.textContent = newActive ? 'Активно' : 'На паузе';
+  }
+  var svPauseLabel = document.getElementById('sv-pause-label');
+  var svPauseBtn = document.getElementById('sv-pause-btn');
+  if (svPauseLabel && svPauseBtn) {
+    if (newActive) {
+      svPauseLabel.textContent = 'Приостановить';
+      svPauseBtn.style.background = 'var(--ams)';
+      svPauseBtn.style.color = 'var(--amber)';
+    } else {
+      svPauseLabel.textContent = 'Включить';
+      svPauseBtn.style.background = 'var(--gs)';
+      svPauseBtn.style.color = 'var(--green)';
+    }
+  }
+
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   showToast(newActive ? 'Расписание активировано' : 'Расписание на паузе', 'success');
 }
@@ -2735,6 +2791,104 @@ function scheduleBack() {
     _schedDirty = false;
   }
   goBack();
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE VIEW (read-only, s-schedule-view)
+═══════════════════════════════════════════ */
+function openScheduleView(id) {
+  var s = (state.schedules || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  _editScheduleId = id;
+
+  var el;
+  el = document.getElementById('sv-title'); if (el) el.textContent = s.title || 'Расписание';
+  el = document.getElementById('sv-name'); if (el) el.textContent = s.title || '';
+  el = document.getElementById('sv-desc'); if (el) el.textContent = s.description || '—';
+  el = document.getElementById('sv-desc-row'); if (el) el.style.display = s.description ? '' : 'none';
+  el = document.getElementById('sv-duration'); if (el) el.textContent = sliderLabel(s.duration || 60);
+  el = document.getElementById('sv-buffer'); if (el) el.textContent = s.buffer_time ? sliderLabel(s.buffer_time) : 'Нет';
+  el = document.getElementById('sv-days'); if (el) el.textContent = formatWorkDays(s.work_days || []);
+  el = document.getElementById('sv-time'); if (el) el.textContent = fmtTimeStr(s.start_time) + ' – ' + fmtTimeStr(s.end_time);
+  el = document.getElementById('sv-platform'); if (el) el.textContent = PLAT_NAMES[s.platform] || s.platform || '';
+
+  /* advance row */
+  var advRow = document.getElementById('sv-advance-row');
+  var advVal = document.getElementById('sv-advance');
+  if (advRow && advVal) {
+    var adv = s.min_booking_advance || 0;
+    if (adv > 0) {
+      advRow.style.display = '';
+      advVal.textContent = advanceLabel(adv);
+    } else {
+      advRow.style.display = 'none';
+    }
+  }
+
+  var isActive = s.is_active !== false;
+  var badgeEl = document.getElementById('sv-status-badge');
+  if (badgeEl) {
+    badgeEl.className = isActive ? 'badge b-green' : 'badge b-amber';
+    badgeEl.textContent = isActive ? 'Активно' : 'На паузе';
+  }
+  var svPauseLabel = document.getElementById('sv-pause-label');
+  var svPauseBtn = document.getElementById('sv-pause-btn');
+  if (svPauseLabel && svPauseBtn) {
+    if (isActive) {
+      svPauseLabel.textContent = 'Приостановить';
+      svPauseBtn.style.background = 'var(--ams)';
+      svPauseBtn.style.color = 'var(--amber)';
+    } else {
+      svPauseLabel.textContent = 'Включить';
+      svPauseBtn.style.background = 'var(--gs)';
+      svPauseBtn.style.color = 'var(--green)';
+    }
+  }
+
+  showScreen('s-schedule-view');
+}
+
+function editCurrentSchedule() {
+  if (_editScheduleId) openScheduleDetail(_editScheduleId);
+}
+
+function previewAsGuest() {
+  var scheduleId = _editScheduleId;
+  if (!scheduleId) return;
+  state._previewMode = true;
+  state._previewReturnScreen = 's-schedule-view';
+  showScreen('s-calendar');
+  loadCalendar(scheduleId);
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+/* ═══════════════════════════════════════════
+   ADVANCE LABEL HELPER
+═══════════════════════════════════════════ */
+function advanceLabel(mins) {
+  mins = parseInt(mins);
+  if (!mins || mins <= 0) return 'Нет';
+  if (mins < 60) return mins + ' мин';
+  if (mins === 60) return '1 ч';
+  if (mins < 1440) {
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return h + ' ч' + (m ? ' ' + m + ' мин' : '');
+  }
+  if (mins === 1440) return '1 дн';
+  var d = Math.floor(mins / 1440);
+  return d + ' дн';
+}
+
+function updateAdvanceLabel(inputId, labelId) {
+  var val = parseInt((document.getElementById(inputId) || {}).value) || 0;
+  var labelEl = document.getElementById(labelId);
+  if (!labelEl) return;
+  labelEl.textContent = advanceLabel(val);
+  var inp = document.getElementById(inputId);
+  if (inp) {
+    var pct = ((val - inp.min) / (inp.max - inp.min)) * 100;
+    inp.style.background = 'linear-gradient(to right,var(--a) ' + pct + '%,var(--s3) ' + pct + '%)';
+  }
 }
 
 function pickPlatEdit(el) {
@@ -2860,6 +3014,10 @@ function openNewSchedule() {
   var bufInp = document.getElementById('nw-buf');
   if (bufInp) { bufInp.value = 0; updateSliderSmart(bufInp, 'nw-buf-val'); }
 
+  /* advance 0 */
+  var advInp = document.getElementById('nw-advance');
+  if (advInp) { advInp.value = 0; updateAdvanceLabel('nw-advance', 'nw-advance-val'); }
+
   /* Пн–Пт on, Сб Вс off */
   var daysEl = document.getElementById('nw-days');
   if (daysEl) {
@@ -2920,6 +3078,8 @@ function getFormScheduleData() {
     if (sel) plat = sel.getAttribute('data-plat') || 'jitsi';
   }
 
+  var advance = parseInt((document.getElementById('nw-advance') || {}).value) || 0;
+
   return {
     title: nameVal,
     description: descVal || null,
@@ -2930,6 +3090,7 @@ function getFormScheduleData() {
     end_time: endVal,
     location_mode: 'fixed',
     platform: plat,
+    min_booking_advance: advance,
   };
 }
 
@@ -3035,6 +3196,18 @@ async function loadCalendar(scheduleId) {
   /* show calendar, hide loading */
   if (landing) landing.style.display = 'none';
   if (calContent) calContent.style.display = '';
+
+  /* preview mode banner */
+  var existingBanner = document.getElementById('preview-banner');
+  if (existingBanner) existingBanner.remove();
+  if (state._previewMode) {
+    var b = document.createElement('div');
+    b.id = 'preview-banner';
+    b.style.cssText = 'padding:8px 16px;background:rgba(124,92,252,.15);border-bottom:1px solid rgba(124,92,252,.2);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#7C5CFC;margin-bottom:4px';
+    b.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Режим предпросмотра';
+    var calContent2 = document.getElementById('client-cal-content');
+    if (calContent2) calContent2.insertBefore(b, calContent2.firstChild);
+  }
 
   renderCalendar();
   loadMonthSlots();
@@ -3163,6 +3336,10 @@ function selectDay(ds) {
   state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 
+  /* hide inline form when new day selected */
+  var formBlock = document.getElementById('cal-guest-form');
+  if (formBlock) formBlock.style.display = 'none';
+
   renderCalendar();
 
   var daySlots = state.monthSlots[ds] || [];
@@ -3223,6 +3400,22 @@ function selectTime(time) {
     gridEl.innerHTML = html;
   }
 
+  /* show inline guest form */
+  var formBlock = document.getElementById('cal-guest-form');
+  if (formBlock) {
+    formBlock.style.display = 'block';
+    /* autofill from Telegram user */
+    var u = tg?.initDataUnsafe?.user;
+    if (u) {
+      var nameInp = document.getElementById('cal-g-name');
+      if (nameInp && !nameInp.value) nameInp.value = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
+      var contactInp = document.getElementById('cal-g-contact');
+      if (contactInp && !contactInp.value && u.username) contactInp.value = '@' + u.username;
+    }
+    setTimeout(function() {
+      formBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }
 }
 
 function changeMonth(dir) {
@@ -3232,9 +3425,11 @@ function changeMonth(dir) {
   state.selectedDate = null;
   state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
 
-  /* hide slot panel */
+  /* hide slot panel and inline form */
   var panel = document.getElementById('cal-slot-panel');
   if (panel) panel.style.display = 'none';
+  var formBlock = document.getElementById('cal-guest-form');
+  if (formBlock) formBlock.style.display = 'none';
 
   renderCalendar();
   loadMonthSlots();
@@ -3391,6 +3586,47 @@ function openMeetingLink() {
   if (!link) return;
   if (tg?.openLink) tg.openLink(link);
   else window.open(link, '_blank');
+}
+
+/* ── Inline booking (progressive disclosure) ── */
+async function submitInlineBooking() {
+  if (state._previewMode) { showToast('Это режим предпросмотра'); return; }
+
+  var name = ((document.getElementById('cal-g-name') || {}).value || '').trim();
+  var contact = ((document.getElementById('cal-g-contact') || {}).value || '').trim();
+  var notes = ((document.getElementById('cal-g-notes') || {}).value || '').trim();
+
+  if (!name || name.length < 2) { showToast('Введите имя (мин. 2 символа)'); return; }
+  if (!state.selectedSlotUtc && !state.selectedTime) { showToast('Выберите слот'); return; }
+
+  var scheduled_time = state.selectedSlotUtc || (state.selectedDate + 'T' + state.selectedTime + ':00');
+  var u = tg?.initDataUnsafe?.user;
+  var body = {
+    schedule_id: state.scheduleId || (state.schedule && state.schedule.id),
+    guest_name: name,
+    guest_contact: contact || name,
+    guest_telegram_id: u ? u.id : null,
+    scheduled_time: scheduled_time,
+    notes: notes || null,
+  };
+
+  var btn = document.getElementById('cal-book-btn');
+  if (btn) { btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…'; btn.disabled = true; }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+  var { data, error } = await apiFetch('POST', '/api/bookings', body);
+
+  if (btn) { btn.innerHTML = 'Забронировать'; btn.disabled = false; }
+
+  if (error) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast(error === 'Это время уже занято' ? 'Это время уже занято, выберите другое' : 'Ошибка: ' + error);
+    return;
+  }
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  renderSuccess(data);
+  showScreen('s-success');
 }
 /* ═══════════════════════════════════════════
    PROFILE (s-profile)
