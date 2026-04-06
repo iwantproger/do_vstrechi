@@ -109,7 +109,6 @@ async def list_bookings(
             s.title        AS schedule_title,
             s.duration     AS schedule_duration,
             s.platform     AS schedule_platform,
-            u.telegram_id  AS organizer_telegram_id,
             u.first_name   AS organizer_first_name,
             u.username     AS organizer_username,
             u.timezone     AS organizer_timezone,
