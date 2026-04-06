@@ -292,6 +292,11 @@ function viewTask(id) {
     editTask(id);
   };
 
+  document.getElementById('tv-delete-btn').onclick = function() {
+    closeViewModal();
+    promptDeleteTask(id, task.title);
+  };
+
   document.getElementById('task-view-modal').style.display = 'flex';
 }
 
