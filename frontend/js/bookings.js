@@ -130,20 +130,32 @@ function renderHeroCard(m, now) {
   + '</div>';
 }
 
+function isGuestBooking(m) {
+  var myId = state.user && (state.user.telegram_id || state.user.id);
+  return myId && m.organizer_telegram_id && String(m.organizer_telegram_id) !== String(myId);
+}
+
 function renderMeetingCard(m) {
   const dt = new Date(m.scheduled_time);
   const dur = m.schedule_duration || 60;
   const timeStart = fmtTime(dt);
   const timeEnd = fmtTimeOffset(dt, dur);
-  const name = escHtml(m.guest_name || (m.is_manual ? 'Личная встреча' : ''));
+  const isGuest = isGuestBooking(m);
+  /* for guest bookings: show organizer name instead of guest name */
+  const name = escHtml(isGuest
+    ? (m.organizer_first_name || 'Организатор')
+    : (m.guest_name || (m.is_manual ? 'Личная встреча' : '')));
   const title = escHtml(m.is_manual ? (m.title || m.display_title || '') : (m.schedule_title || ''));
   const dStatus = m._ds || getMeetingStatus(m);
-  const isPending = dStatus === 'pending' && !m.is_manual;
+  const isPending = dStatus === 'pending' && !m.is_manual && !isGuest;
+  const guestBadge = isGuest
+    ? '<span style="font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 8px;border-radius:var(--rf);margin-left:6px;white-space:nowrap">Я участник</span>'
+    : '';
 
   return '<div onclick="openMeetDetail(\'' + m.id + '\')" style="margin:0 16px 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">'
     + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px' + (isPending ? ';margin-bottom:24px' : '') + '">'
       + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:14px;font-weight:700;color:var(--t1)">' + name + '</div>'
+        + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><span style="font-size:14px;font-weight:700;color:var(--t1)">' + name + '</span>' + guestBadge + '</div>'
         + '<div style="font-size:12px;font-weight:400;color:var(--t1);margin-top:1px">' + timeStart + ' – ' + timeEnd + '</div>'
         + '<div style="font-size:12px;font-weight:400;color:var(--t2);margin-top:2px">' + title + '</div>'
       + '</div>'
@@ -165,7 +177,8 @@ let _meetFilter = 'confirm';
 let _meetGroup = 'date';
 
 async function loadMeetings() {
-  var { data, error } = await apiFetch('GET', '/api/bookings?role=organizer');
+  /* FIX: role=all — показывать и организаторские, и гостевые встречи */
+  var { data, error } = await apiFetch('GET', '/api/bookings?role=all');
   if (error) { showToast('Ошибка загрузки встреч', 'error'); return; }
   if (data) state.bookings = data;
 
@@ -327,9 +340,19 @@ function renderMeetDetailHtml(m, dStatus) {
   var dt = new Date(m.scheduled_time);
   var dur = m.schedule_duration || 60;
   var now = new Date();
-  var name = escHtml(m.guest_name || '');
-  var initials = getInitials(m.guest_name);
-  var contact = escHtml(m.guest_contact || '');
+  var isGuest = isGuestBooking(m);
+
+  /* FIX: if I'm the guest, show organizer as the main person */
+  var name, initials, contact;
+  if (isGuest) {
+    name = escHtml(m.organizer_first_name || 'Организатор');
+    initials = getInitials(m.organizer_first_name || 'O');
+    contact = m.organizer_username ? escHtml('@' + m.organizer_username) : '';
+  } else {
+    name = escHtml(m.guest_name || '');
+    initials = getInitials(m.guest_name);
+    contact = escHtml(m.guest_contact || '');
+  }
   var schedTitle = escHtml(m.is_manual ? (m.title || 'Личная встреча') : (m.schedule_title || ''));
   var platform = escHtml(m.is_manual ? 'Личная встреча' : (m.schedule_platform || 'Jitsi Meet'));
   var notes = m.notes ? escHtml(m.notes) : '';
@@ -382,12 +405,17 @@ function renderMeetDetailHtml(m, dStatus) {
     ? '<div class="detail-row"><div class="dr-label">Заметка</div><div class="dr-val">' + notes + '</div></div>'
     : '';
 
+  /* role badge */
+  var roleBadge = isGuest
+    ? '<span style="font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 8px;border-radius:var(--rf);margin-left:6px">Я участник</span>'
+    : '';
+
   /* HTML: avatar + name */
   var html = '<div style="padding:20px 16px 0">'
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">'
       + '<div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:' + avatarColor + ';border:1px solid ' + borderColor + '">' + escHtml(initials) + '</div>'
       + '<div>'
-        + '<div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">' + name + '</div>'
+        + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">' + name + '</span>' + roleBadge + '</div>'
         + (contact ? '<div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">' + contact + '</div>' : '')
       + '</div>'
     + '</div>'
@@ -414,7 +442,7 @@ function renderMeetDetailHtml(m, dStatus) {
     + '</div>';
   }
 
-  /* action buttons */
+  /* action buttons — guests only see connect + cancel, not confirm/reject */
   var id = m.id;
   if (dStatus === 'confirmed' || dStatus === 'ongoing') {
     var linkAttr = link ? ' data-link="' + escHtml(link) + '"' : '';
@@ -422,10 +450,14 @@ function renderMeetDetailHtml(m, dStatus) {
       + '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px"' + linkAttr + ' onclick="if(this.dataset.link)openLink(this.dataset.link)">Подключиться</button>'
       + '<button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отменить встречу</button>'
     + '</div>';
-  } else if (dStatus === 'pending') {
+  } else if (dStatus === 'pending' && !isGuest) {
     html += '<div style="padding:0 16px;display:flex;gap:8px">'
       + '<button class="btn btn-confirm" style="flex:1;height:40px;padding:0;font-size:13px" onclick="confirmMeeting(\'' + id + '\')">Подтвердить</button>'
       + '<button class="btn btn-danger" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отклонить</button>'
+    + '</div>';
+  } else if (dStatus === 'pending' && isGuest) {
+    html += '<div style="padding:0 16px;display:flex;gap:8px">'
+      + '<button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отменить встречу</button>'
     + '</div>';
   } else if (dStatus === 'noans') {
     var writeAttr = contactUsername ? ' data-user="' + escHtml(contactUsername) + '" onclick="openTelegramChat(this.dataset.user)"' : '';

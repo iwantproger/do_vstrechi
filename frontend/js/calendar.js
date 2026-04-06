@@ -405,41 +405,95 @@ function renderSuccess(booking) {
   var dt = new Date(parseInt(parts[0]), mm, dd);
   var dow = (dt.getDay() + 6) % 7;
 
-  var displayTime2 = state.selectedTimeLocal || state.selectedTime;
-  var timeParts = displayTime2.split(':');
-  var startMin = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
-  var endMin = startMin + (sched ? sched.duration : 60);
+  var displayTime = state.selectedTimeLocal || state.selectedTime;
+  var tp = displayTime.split(':');
+  var startMin = parseInt(tp[0]) * 60 + parseInt(tp[1]);
+  var dur = sched ? sched.duration : 60;
+  var endMin = startMin + dur;
   var endH = String(Math.floor(endMin / 60)).padStart(2, '0');
   var endM = String(endMin % 60).padStart(2, '0');
+  var endTime = endH + ':' + endM;
 
-  var subEl = document.getElementById('book-success-sub');
-  if (subEl) subEl.textContent = dd + ' ' + MONTHS_GEN[mm] + ' · ' + displayTime2 + ' – ' + endH + ':' + endM;
+  /* save booking id for deep link buttons */
+  if (booking && booking.id) state._lastBookingId = booking.id;
+  if (booking && booking.meeting_link) state._meetingLink = booking.meeting_link;
 
-  /* detail card */
+  /* guest data from form inputs */
+  var guestName = '';
+  var guestContact = '';
+  var nameInp = document.getElementById('cal-g-name') || document.getElementById('guest-name');
+  var contactInp = document.getElementById('cal-g-contact') || document.getElementById('guest-contact');
+  if (nameInp) guestName = nameInp.value.trim();
+  if (contactInp) guestContact = contactInp.value.trim();
+
+  /* organizer data from schedule (if available) */
+  // TODO: ждём backend — organizer fields in GET /api/schedules/{id}
+  var orgName = sched ? escHtml((sched.organizer_first_name || '') + (sched.organizer_last_name ? ' ' + sched.organizer_last_name : '')) : '';
+  var orgUsername = sched ? (sched.organizer_username || '') : '';
+
+  /* build hero card */
   var detEl = document.getElementById('book-success-details');
   if (detEl && sched) {
-    detEl.innerHTML = '<div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:16px;margin-bottom:16px">'
-      + '<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:8px">' + escHtml(sched.title) + '</div>'
-      + '<div style="font-size:13px;color:var(--t2);line-height:1.6">'
-      + DAYS_FULL[dow] + ', ' + dd + ' ' + MONTHS_GEN[mm] + '<br>'
-      + displayTime2 + ' – ' + endH + ':' + endM + ' · ' + sliderLabel(sched.duration) + '<br>'
-      + escHtml(PLAT_NAMES[sched.platform] || sched.platform)
-      + '</div></div>';
-  }
+    var html = '<div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);padding:18px;margin-bottom:12px">';
 
-  /* meeting link button */
-  var linkBtn = document.getElementById('btn-open-link');
-  if (linkBtn && booking && booking.meeting_link) {
-    state._meetingLink = booking.meeting_link;
-    linkBtn.style.display = '';
+    /* header label */
+    html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--t3);margin-bottom:10px">Ваша встреча</div>';
+
+    /* schedule title */
+    html += '<div style="font-size:16px;font-weight:800;color:var(--t1);margin-bottom:12px">' + escHtml(sched.title) + '</div>';
+
+    /* big time */
+    html += '<div style="font-size:30px;font-weight:800;color:var(--t1);line-height:1.1">' + displayTime + '</div>';
+
+    /* date + details */
+    html += '<div style="font-size:13px;color:var(--t2);margin-top:4px;line-height:1.6">'
+      + DAYS_FULL[dow] + ', ' + dd + ' ' + MONTHS_GEN[mm] + '<br>'
+      + displayTime + ' – ' + endTime + ' · ' + sliderLabel(dur) + '<br>'
+      + escHtml(PLAT_NAMES[sched.platform] || sched.platform)
+      + '</div>';
+
+    /* guest data section */
+    if (guestName) {
+      html += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:12px">';
+      html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:6px">Ваши данные</div>';
+      html += '<div style="font-size:14px;font-weight:600;color:var(--t1)">' + escHtml(guestName) + '</div>';
+      if (guestContact) html += '<div style="font-size:13px;color:var(--t2);margin-top:2px">' + escHtml(guestContact) + '</div>';
+      html += '</div>';
+    }
+
+    /* organizer section */
+    if (orgName) {
+      html += '<div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:12px">';
+      html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:6px">Организатор</div>';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between">';
+      html += '<div style="font-size:14px;font-weight:600;color:var(--t1)">' + orgName + '</div>';
+      if (orgUsername) {
+        html += '<button onclick="openOrganizerChat(\'' + escHtml(orgUsername) + '\')" style="background:var(--s3);border:1px solid var(--b2);border-radius:var(--rf);padding:6px 12px;font-family:var(--font);font-size:12px;font-weight:700;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:4px">'
+          + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+          + 'Написать</button>';
+      }
+      html += '</div></div>';
+    }
+
+    html += '</div>';
+    detEl.innerHTML = html;
   }
 }
 
-function openMeetingLink() {
-  var link = state._meetingLink;
-  if (!link) return;
-  if (tg?.openLink) tg.openLink(link);
-  else window.open(link, '_blank');
+function openMyBooking() {
+  var bid = state._lastBookingId;
+  if (bid && tg?.openTelegramLink) {
+    tg.openTelegramLink('https://t.me/do_vstrechi_bot/app?startapp=booking_' + bid);
+  } else if (state._meetingLink) {
+    if (tg?.openLink) tg.openLink(state._meetingLink);
+    else window.open(state._meetingLink, '_blank');
+  }
+}
+
+function openOrganizerChat(username) {
+  var url = 'https://t.me/' + String(username).replace(/^@/, '');
+  if (tg?.openTelegramLink) tg.openTelegramLink(url);
+  else window.open(url, '_blank');
 }
 
 /* ── Inline booking (progressive disclosure) ── */
