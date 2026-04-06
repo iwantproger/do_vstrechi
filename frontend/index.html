@@ -539,6 +539,12 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .c-past:active{transform:none}
 .c-today{outline:2px solid var(--a);outline-offset:-2px}
 .c-sel{background:var(--a)!important}.c-sel .cn{color:#07221A!important}.c-sel .cs{color:#07221A!important;opacity:1!important}
+.c-almost{background:rgba(240,100,73,.1)}.c-almost .cn{color:#E07050}
+.cal-cell:focus{outline:none}
+/* FIX: Гостевая тема — фиолетовые акценты для бронирования */
+.guest-theme{--a:#8B7BF4;--ad:rgba(139,123,244,.14);--as:rgba(139,123,244,.07)}
+.guest-theme .s-free{background:rgba(139,123,244,.13);color:#8B7BF4;border-color:rgba(139,123,244,.2)}
+.guest-theme .s-free:active{background:rgba(139,123,244,.25)}
 .cal-empty{aspect-ratio:1}
 .cal-legend{display:flex;gap:12px;justify-content:center;padding:0 16px 16px}
 .leg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3);font-weight:600}
@@ -1120,8 +1126,9 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <!-- legend -->
     <div class="cal-legend">
       <div class="leg"><div class="leg-dot" style="background:var(--green)"></div>Свободно</div>
-      <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>Частично</div>
-      <div class="leg"><div class="leg-dot" style="background:var(--t3)"></div>Нет слотов</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--amber)"></div>Мало</div>
+      <div class="leg"><div class="leg-dot" style="background:#E07050"></div>1–2 слота</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--t3)"></div>Нет</div>
     </div>
     <!-- time slots panel -->
     <div id="cal-slot-panel" style="display:none">
@@ -1180,6 +1187,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="success-hero">
     <div class="success-icon" id="book-success-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
     <div class="success-title" id="book-success-title">Встреча забронирована!</div>
+    <div style="font-size:15px;color:var(--t2);margin-top:4px;font-weight:600">До встречи! 👋</div>
     <div class="success-sub" id="book-success-sub"></div>
   </div>
   <div id="book-success-details" style="padding:0 16px"></div>
@@ -1187,6 +1195,10 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <button class="btn btn-primary" id="btn-open-link" style="display:none" onclick="openMeetingLink()">
       <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.868v6.264a1 1 0 0 1-1.447.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
       Открыть встречу
+    </button>
+    <button class="btn btn-secondary" onclick="enableBookingNotifications()" style="display:flex;align-items:center;justify-content:center;gap:8px">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Включить уведомления
     </button>
     <button class="btn btn-secondary" onclick="closeMiniApp()">Закрыть</button>
   </div>
@@ -1900,6 +1912,13 @@ function openTelegramChat(username) {
 
 function closeMiniApp() {
   if (tg) tg.close();
+  else window.close();
+}
+
+function enableBookingNotifications() {
+  var botUrl = 'https://t.me/do_vstrechi_bot?start=notify';
+  if (tg?.openTelegramLink) tg.openTelegramLink(botUrl);
+  else window.open(botUrl, '_blank');
 }
 
 function renderEmpty(title, desc) {
@@ -3221,9 +3240,13 @@ async function loadCalendar(scheduleId) {
   state.monthSlots = {};
   state.currentMonth = new Date();
 
-  /* header title */
-  var hdr = document.getElementById('cal-header-title');
-  if (hdr) hdr.textContent = escHtml(data.title || 'Выберите время');
+  /* header title stays as "Выберите время" — schedule name shown in the card below */
+
+  /* apply guest colour theme to calendar and success screens */
+  var calScreen = document.getElementById('s-calendar');
+  if (calScreen) calScreen.classList.add('guest-theme');
+  var successScreen = document.getElementById('s-success');
+  if (successScreen) successScreen.classList.add('guest-theme');
 
   /* schedule info card */
   var info = document.getElementById('cal-schedule-info');
@@ -3313,15 +3336,15 @@ function renderCalendar() {
         html += '<div class="' + cls + '"><div class="cn">' + d + '</div></div>';
         continue;
       } else {
-        /* estimate total possible slots */
+        /* estimate total possible slots — 3 availability tiers */
         var totalPossible = estimateTotalSlots(sched);
-        if (daySlots.length >= totalPossible) cls += ' c-free';
-        else if (daySlots.length > 0) cls += ' c-part';
-        else cls += ' c-past';
+        var pct = daySlots.length / totalPossible;
+        if (daySlots.length <= 2) cls += ' c-almost';
+        else if (pct <= 0.5) cls += ' c-part';
+        else cls += ' c-free';
       }
       html += '<div class="' + cls + '" onclick="selectDay(\'' + ds + '\')">'
         + '<div class="cn">' + d + '</div>'
-        + (daySlots && daySlots.length > 0 ? '<div class="cs">' + daySlots.length + '</div>' : '')
         + '</div>';
     }
   }
@@ -3568,7 +3591,7 @@ async function submitBooking() {
 
   /* loading state */
   var btn = document.getElementById('btn-book');
-  if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…'; }
+  if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>'; }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/bookings', body);
@@ -3656,7 +3679,7 @@ async function submitInlineBooking() {
   };
 
   var btn = document.getElementById('cal-book-btn');
-  if (btn) { btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…'; btn.disabled = true; }
+  if (btn) { btn.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>'; btn.disabled = true; }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/bookings', body);
