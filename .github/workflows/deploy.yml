@@ -23,6 +23,9 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
+            # Auto-update APP_VERSION and CHANGELOG from git log
+            python3 scripts/update_version.py
+
             # Build and deploy
             docker compose build
             docker compose up -d
