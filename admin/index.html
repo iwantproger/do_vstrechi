@@ -1363,6 +1363,7 @@ async function checkSession() {
 }
 
 function onTelegramAuth(user) {
+  console.log('[ADMIN AUTH] Telegram callback received, id=' + user.id + ' fields=' + Object.keys(user).join(','));
   const errorEl = document.getElementById('loginError');
   const loadingEl = document.getElementById('loginLoading');
   errorEl.classList.remove('visible');
@@ -1370,6 +1371,7 @@ function onTelegramAuth(user) {
 
   api('POST', '/api/admin/auth/login', user)
     .then(data => {
+      console.log('[ADMIN AUTH] Login success');
       loadingEl.classList.remove('visible');
       sessionData = { telegram_id: user.id };
       showApp();
@@ -1377,6 +1379,7 @@ function onTelegramAuth(user) {
     })
     .then(me => { sessionData = me; updateHeaderMeta(); })
     .catch(err => {
+      console.error('[ADMIN AUTH] Login failed, status=' + err.status + ' detail=' + err.detail);
       loadingEl.classList.remove('visible');
       if (err.status === 429) {
         errorEl.textContent = 'Слишком много попыток. Подождите.';

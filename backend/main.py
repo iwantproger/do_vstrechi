@@ -428,7 +428,9 @@ class BookingCreate(BaseModel):
 class TelegramLoginData(BaseModel):
     id: int = Field(..., ge=1)
     first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
     username: Optional[str] = Field(None, max_length=100)
+    photo_url: Optional[str] = Field(None, max_length=500)
     auth_date: int = Field(..., ge=0)
     hash: str = Field(..., min_length=64, max_length=64)
 
@@ -1256,7 +1258,8 @@ async def admin_login(
 
     _record_login_attempt(client_ip)
 
-    auth_dict = data.model_dump()
+    auth_dict = data.model_dump(exclude_none=True)
+    log.info("admin_login_attempt", telegram_id=data.id, username=data.username)
     if not verify_telegram_login(auth_dict):
         raise HTTPException(status_code=401, detail="Authentication failed")
 
