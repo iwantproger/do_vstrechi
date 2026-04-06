@@ -339,8 +339,8 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 #reminder-chips.chips-editing .reminder-chip.removable{animation:chip-wiggle .25s ease-in-out infinite alternate}
 /* FIX: Bug #6a — запретить выделение текста при long-press */
 #reminder-chips,#reminder-chips *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-/* FIX: Bug #2 / Bug #8 — плавный blur-оверлей верхней зоны Telegram */
-.tg-header-blur{position:fixed;top:0;left:0;right:0;height:calc(var(--tg-header) + 28px);background:linear-gradient(to bottom,var(--bg) 0%,rgba(10,14,13,.88) 38%,rgba(10,14,13,.55) 62%,rgba(10,14,13,.25) 80%,transparent 100%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);-webkit-mask-image:linear-gradient(to bottom,black 52%,transparent 100%);mask-image:linear-gradient(to bottom,black 52%,transparent 100%);z-index:25;pointer-events:none}
+/* FIX: Bug #2/#8/#9 — блюр полностью маскирует нативный хедер «◀ До Встречи» в fullscreen */
+.tg-header-blur{position:fixed;top:0;left:0;right:0;height:calc(var(--tg-header) + 32px);background:linear-gradient(to bottom,var(--bg) 0%,var(--bg) 50%,rgba(10,14,13,.8) 68%,rgba(10,14,13,.4) 82%,transparent 100%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);-webkit-mask-image:linear-gradient(to bottom,black 55%,transparent 100%);mask-image:linear-gradient(to bottom,black 55%,transparent 100%);z-index:25;pointer-events:none}
 /* FIX: Bug #4 — иконка подсказки для секции напоминаний */
 .info-hint{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;cursor:pointer;opacity:.6;transition:opacity .15s;vertical-align:middle;margin-left:4px}
 .info-hint:active{opacity:1}
@@ -781,9 +781,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <button class="inner-action" onclick="showSheet('sheet-link-menu')">•••</button>
   </div>
   <div style="padding:16px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <span class="badge b-green" id="sv-status-badge">Активно</span>
-    </div>
+    <!-- FIX: Bug #11 — статус без подложки, обновляется из JS -->
+    <div style="margin-bottom:16px" id="sv-status-badge"></div>
     <div class="detail-card" style="margin:0 0 16px">
       <div class="detail-row"><div class="dr-label">Название</div><div class="dr-val" id="sv-name"></div></div>
       <div class="detail-row" id="sv-desc-row"><div class="dr-label">Описание</div><div class="dr-val" id="sv-desc" style="color:var(--t2);font-weight:500"></div></div>
@@ -1961,6 +1960,16 @@ function meetingStatusHtml(status) {
   return `<div class="mst ${s.cls}"><svg viewBox="0 0 24 24">${s.icon}</svg><span class="mst-label">${s.text}</span></div>`;
 }
 
+/* FIX: Bug #11 — статус расписания в едином стиле с meetingStatusHtml (иконка + текст, без подложки) */
+function scheduleStatusHtml(isActive) {
+  if (isActive) {
+    /* зелёная галочка — как "Всё в силе" у встреч */
+    return '<div class="mst mst-confirmed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span class="mst-label">Активно</span></div>';
+  }
+  /* жёлтая пауза — как "Ожидает" у встреч */
+  return '<div class="mst mst-pending"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/><rect x="14" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/></svg><span class="mst-label">На паузе</span></div>';
+}
+
 /* ═══════════════════════════════════════════
    IEO (Inline Edit Overlay)
 ═══════════════════════════════════════════ */
@@ -2552,15 +2561,14 @@ function renderLinkCard(s) {
   var platName = PLAT_NAMES[s.platform] || s.platform || '';
   var isActive = s.is_active !== false;
   var opacity = isActive ? '' : ';opacity:.65';
-  var badgeCls = isActive ? 'badge b-green' : 'badge b-amber';
-  var badgeText = isActive ? 'Активно' : 'На паузе';
   var url = getScheduleUrl(s.id);
 
   var html = '<div class="link-card" onclick="openScheduleView(\'' + s.id + '\')" style="padding:14px 16px' + opacity + '">';
-  /* row 1: title + badge */
+  /* FIX: Bug #11 — статус в едином стиле, без подложки */
+  /* row 1: title + статус */
   html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (desc ? '6' : '10') + 'px">'
     + '<div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>'
-    + '<span class="' + badgeCls + '" style="flex-shrink:0">' + badgeText + '</span>'
+    + '<span style="flex-shrink:0">' + scheduleStatusHtml(isActive) + '</span>'
   + '</div>';
   /* row 2: description (if any) */
   if (desc) html += '<div style="font-size:12px;color:var(--t2);margin-bottom:10px">' + desc + '</div>';
@@ -2789,12 +2797,9 @@ async function toggleSchedulePause() {
   s.is_active = newActive;
   updatePauseBtn(newActive);
 
-  /* update s-schedule-view badges and pause button */
+  /* update s-schedule-view статус и кнопка паузы */
   var svBadge = document.getElementById('sv-status-badge');
-  if (svBadge) {
-    svBadge.className = newActive ? 'badge b-green' : 'badge b-amber';
-    svBadge.textContent = newActive ? 'Активно' : 'На паузе';
-  }
+  if (svBadge) svBadge.innerHTML = scheduleStatusHtml(newActive);
   var svPauseLabel = document.getElementById('sv-pause-label');
   var svPauseBtn = document.getElementById('sv-pause-btn');
   if (svPauseLabel && svPauseBtn) {
@@ -2855,10 +2860,7 @@ function openScheduleView(id) {
 
   var isActive = s.is_active !== false;
   var badgeEl = document.getElementById('sv-status-badge');
-  if (badgeEl) {
-    badgeEl.className = isActive ? 'badge b-green' : 'badge b-amber';
-    badgeEl.textContent = isActive ? 'Активно' : 'На паузе';
-  }
+  if (badgeEl) badgeEl.innerHTML = scheduleStatusHtml(isActive);
   var svPauseLabel = document.getElementById('sv-pause-label');
   var svPauseBtn = document.getElementById('sv-pause-btn');
   if (svPauseLabel && svPauseBtn) {
@@ -2966,14 +2968,29 @@ function openShareSheet(schedId) {
   showSheet('sheet-share');
 }
 
+/* FIX: Bug #10 — шаринг через нативный Telegram без перехода в браузер */
 function shareTelegram() {
   var schedId = _editScheduleId || state._shareScheduleId || '';
   var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
-  if (url) {
-    var shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(url);
-    openLink(shareUrl);
-  }
   closeSheet('sheet-share');
+  if (!url) return;
+
+  /* Красивый текст: название расписания + ссылка */
+  var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
+  var title = schedule ? schedule.title : 'встречу';
+  var text = '📅 Запишись ко мне — ' + title;
+
+  var shareUrl = 'https://t.me/share/url'
+    + '?url=' + encodeURIComponent(url)
+    + '&text=' + encodeURIComponent(text);
+
+  /* tg.openTelegramLink() открывает t.me ссылки нативно, без браузера */
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 function copyShareLink() {
