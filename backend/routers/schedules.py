@@ -72,7 +72,15 @@ async def get_schedule(schedule_id: str, conn: asyncpg.Connection = Depends(db))
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат ID")
 
-    row = await conn.fetchrow("SELECT * FROM schedules WHERE id = $1", sid)
+    row = await conn.fetchrow("""
+        SELECT s.*,
+               u.first_name  AS organizer_first_name,
+               u.last_name   AS organizer_last_name,
+               u.username    AS organizer_username
+        FROM schedules s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.id = $1
+    """, sid)
     if not row:
         raise HTTPException(status_code=404, detail="Расписание не найдено")
     return row_to_dict(row)

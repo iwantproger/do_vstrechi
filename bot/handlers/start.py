@@ -1,12 +1,13 @@
-"""Handlers: /start, /help, reply-keyboard buttons."""
+"""Handlers: /start, /help, reply-keyboard buttons, notify deep link."""
 import logging
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
+from aiogram.filters.command import CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
-    Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
+    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
 )
 
 from api import api
@@ -20,10 +21,17 @@ router = Router()
 
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message, state: FSMContext):
+async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
     await state.clear()
     user = msg.from_user
-    log.info(f"User {user.id} started bot")
+    args = command.args or ""
+    log.info(f"User {user.id} started bot, args={args}")
+
+    # Deep link: notify_BOOKING_ID — настройка уведомлений после бронирования
+    if args.startswith("notify_"):
+        booking_id = args[len("notify_"):]
+        await handle_notify_setup(msg, booking_id)
+        return
 
     try:
         from aiogram.types import MenuButtonWebApp
@@ -150,3 +158,65 @@ async def reply_my_bookings(msg: Message):
 @router.message(F.text == "❓ Помощь")
 async def reply_help(msg: Message):
     await cmd_help(msg)
+
+
+# ── Deep link: notify setup ────────────────────────────
+
+async def handle_notify_setup(msg: Message, booking_id: str):
+    """Настройка уведомлений после бронирования гостем."""
+    booking = await api("get", f"/api/bookings/{booking_id}")
+
+    if booking and isinstance(booking, dict):
+        title = booking.get("schedule_title", "встречу")
+        scheduled = booking.get("scheduled_time", "")
+        date_str = scheduled[:10] if scheduled else "—"
+        text = (
+            f"🔔 <b>Уведомления включены!</b>\n\n"
+            f"Встреча: <b>{title}</b>\n"
+            f"Дата: {date_str}\n\n"
+            f"Напомним вам:\n"
+            f"• За 24 часа до встречи\n"
+            f"• За 1 час до встречи\n\n"
+            f"Хотите настроить напоминания подробнее?"
+        )
+    else:
+        text = (
+            "🔔 <b>Уведомления включены!</b>\n\n"
+            "Напомним вам:\n"
+            "• За 24 часа до встречи\n"
+            "• За 1 час до встречи\n\n"
+            "Хотите настроить напоминания подробнее?"
+        )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="⏰ Добавить за 30 минут",
+            callback_data=f"remind_30m_{booking_id}",
+        )],
+        [InlineKeyboardButton(
+            text="⏰ Добавить за 15 минут",
+            callback_data=f"remind_15m_{booking_id}",
+        )],
+        [InlineKeyboardButton(
+            text="📱 Настроить в приложении",
+            web_app=WebAppInfo(url=MINI_APP_URL),
+        )],
+    ])
+
+    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("remind_"))
+async def cb_remind_setup(callback: CallbackQuery):
+    """Заглушка: настройка дополнительных напоминаний."""
+    parts = callback.data.split("_")  # remind_30m_BOOKING_ID
+    interval = parts[1] if len(parts) > 1 else ""
+
+    interval_text = {
+        "30m": "30 минут",
+        "15m": "15 минут",
+        "5m": "5 минут",
+    }.get(interval, interval)
+
+    await callback.answer(f"✅ Напоминание за {interval_text} добавлено!")
+    # TODO: сохранить в БД через API

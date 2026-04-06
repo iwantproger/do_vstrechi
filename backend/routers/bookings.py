@@ -141,6 +141,50 @@ async def list_bookings(
     return result
 
 
+@router.get("/api/bookings/{booking_id}")
+async def get_booking(
+    booking_id: str,
+    auth_user: dict | None = Depends(get_optional_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Получить детали одного бронирования."""
+    try:
+        bid = uuid.UUID(booking_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат ID")
+
+    row = await conn.fetchrow("""
+        SELECT b.*,
+               s.title       AS schedule_title,
+               s.duration    AS schedule_duration,
+               s.platform    AS schedule_platform,
+               u.first_name  AS organizer_first_name,
+               u.last_name   AS organizer_last_name,
+               u.username    AS organizer_username
+        FROM bookings b
+        JOIN schedules s ON s.id = b.schedule_id
+        JOIN users u ON u.id = s.user_id
+        WHERE b.id = $1
+    """, bid)
+    if not row:
+        raise HTTPException(status_code=404, detail="Бронирование не найдено")
+
+    result = row_to_dict(row)
+
+    if auth_user:
+        tid = auth_user["id"]
+        if result.get("guest_telegram_id") == tid:
+            result["my_role"] = "guest"
+        else:
+            organizer_tid = await conn.fetchval(
+                "SELECT telegram_id FROM users WHERE id = (SELECT user_id FROM schedules WHERE id = $1)",
+                row["schedule_id"]
+            )
+            result["my_role"] = "organizer" if organizer_tid == tid else "viewer"
+
+    return result
+
+
 @router.patch("/api/bookings/{booking_id}/confirm")
 async def confirm_booking(
     booking_id: str,
