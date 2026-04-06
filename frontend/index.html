@@ -316,11 +316,21 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .chip:active{transform:scale(.95)}
 .chip.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.25)}
 .chip-day{width:40px;height:40px;padding:0;border-radius:var(--r1);font-size:12px;justify-content:center}
-.rc-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;border-radius:50%;background:rgba(255,255,255,.25);font-size:11px;font-weight:800;line-height:1;cursor:pointer;transition:background .15s;flex-shrink:0}
+.rc-x{display:none;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;border-radius:50%;background:rgba(255,255,255,.25);font-size:11px;font-weight:800;line-height:1;cursor:pointer;transition:background .15s;flex-shrink:0}
+/* FIX: Bug #3 — крестики показываются только в режиме редактирования (long-press) */
+#reminder-chips.chips-editing .rc-x{display:inline-flex}
 .rc-x:active{background:rgba(255,255,255,.5)}
 .reminder-chip:not(.on) .rc-x{background:rgba(0,0,0,.15)}
 .rc-add{border:1.5px dashed var(--b2)!important;background:transparent!important;color:var(--t2)!important;gap:4px}
 .rc-add:active{background:var(--s2)!important}
+/* FIX: Bug #3 — покачивание чипов в режиме редактирования */
+@keyframes chip-wiggle{0%{transform:rotate(-1deg)}100%{transform:rotate(1deg)}}
+#reminder-chips.chips-editing .reminder-chip:not(.rc-add){animation:chip-wiggle .25s ease-in-out infinite alternate}
+/* FIX: Bug #2 — блюр-оверлей верхней зоны Telegram при скролле */
+.tg-header-blur{position:fixed;top:0;left:0;right:0;height:calc(var(--tg-header) + 8px);background:linear-gradient(to bottom,var(--bg) 55%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:25;pointer-events:none}
+/* FIX: Bug #4 — иконка подсказки для секции напоминаний */
+.info-hint{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;cursor:pointer;opacity:.6;transition:opacity .15s;vertical-align:middle;margin-left:4px}
+.info-hint:active{opacity:1}
 
 /* ── Toggle row ── */
 .tog-row{
@@ -659,6 +669,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 </head>
 <body>
 <div id="app">
+<!-- FIX: Bug #2 — маскирует скроллящийся контент под зоной Telegram UI -->
+<div class="tg-header-blur" aria-hidden="true"></div>
 <div class="screens" id="screens">
 
 <!-- ═══════════════════════════════
@@ -686,10 +698,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
      MEETINGS
 ════════════════════════════════ -->
 <div class="screen has-page-head" id="s-meetings">
-  <div class="page-head" style="padding-bottom:4px">
+  <div class="page-head">
     <div class="page-title">Встречи</div>
   </div>
-  <div class="tab-pills section-gap" id="meet-tabs">
+  <!-- FIX: Bug #1 — унифицированный отступ заголовок→контент (≈32px с учётом внутреннего padding таб-пиллов) -->
+  <div class="tab-pills" style="margin-top:20px" id="meet-tabs">
     <div class="tab-pill on" id="mtab-confirm" onclick="switchMeetStatus('confirm',this)">Нужно подтвердить</div>
     <div class="tab-pill" id="mtab-all" onclick="switchMeetStatus('all',this)">Все</div>
     <div class="tab-pill" id="mtab-noans" onclick="switchMeetStatus('noans',this)">Нет ответа</div>
@@ -737,7 +750,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="page-head">
     <div class="page-title">Расписания</div>
   </div>
-  <div class="create-sched-btn section-gap" onclick="startCreate()">
+  <!-- FIX: Bug #1 — .create-sched-btn имеет margin:0 в CSS который перебивает section-gap; явный margin-top -->
+  <div class="create-sched-btn" style="margin-top:18px" onclick="startCreate()">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--a)" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     <span>Создать расписание</span>
   </div>
@@ -877,7 +891,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   </div>
 
   <!-- МОЯ ССЫЛКА -->
-  <div class="group-title section-gap">Моя ссылка</div>
+  <!-- FIX: Bug #1 — убрали section-gap (32px), profile-head уже имеет padding-bottom:20px + group-title padding-top:16px = 36px ≈ эталон -->
+  <div class="group-title">Моя ссылка</div>
   <div style="padding:0 16px;margin-bottom:8px">
     <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden">
       <div style="padding:14px 16px 12px">
@@ -909,7 +924,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
         <div class="tog on" id="tog-notif" onclick="toggleNotifMain(this)"></div>
       </div>
       <div style="padding:14px 16px">
-        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Напомнить за</div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">
+          Напомнить за
+          <!-- FIX: Bug #4 — иконка ⓘ с подсказкой по удалению чипов -->
+          <span class="info-hint" onclick="showChipHint()" title="Как удалить напоминание">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </span>
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:7px" id="reminder-chips"></div>
       </div>
     </div>
@@ -3705,6 +3726,8 @@ function loadProfile() {
 function renderReminderChips() {
   var chipsEl = document.getElementById('reminder-chips');
   if (!chipsEl) return;
+  /* сохранить состояние режима редактирования при перерисовке */
+  var wasEditing = chipsEl.classList.contains('chips-editing');
   var s = getNotifSettings();
   var selected = s.reminders || [];
   var defaultOpts = [
@@ -3725,6 +3748,7 @@ function renderReminderChips() {
       + (opt.custom ? ' data-custom="true"' : '')
       + ' onclick="toggleReminderChip(\'' + opt.val + '\',this)">'
       + escHtml(opt.label)
+      /* FIX: Bug #3 — rc-x у custom чипов; display управляется через CSS .chips-editing */
       + (opt.custom ? '<span class="rc-x" onclick="event.stopPropagation();removeCustomReminder(\'' + opt.val + '\')">×</span>' : '')
       + '</div>';
   }).join('');
@@ -3732,6 +3756,51 @@ function renderReminderChips() {
     + '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     + ' Своё</div>';
   chipsEl.innerHTML = html;
+  if (wasEditing) chipsEl.classList.add('chips-editing');
+  /* FIX: Bug #3 — вешаем long-press только один раз */
+  if (!chipsEl._longPressAttached) {
+    attachReminderChipLongPress(chipsEl);
+    chipsEl._longPressAttached = true;
+  }
+}
+
+/* FIX: Bug #3 — long-press 500ms для активации режима редактирования чипов */
+function attachReminderChipLongPress(container) {
+  var timer = null;
+  function startPress(e) {
+    var chip = e.target.closest && e.target.closest('.reminder-chip:not(.rc-add)');
+    if (!chip) return;
+    timer = setTimeout(function() {
+      timer = null;
+      container.classList.add('chips-editing');
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    }, 500);
+  }
+  function cancelPress() {
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+  container.addEventListener('touchstart', startPress, { passive: true });
+  container.addEventListener('touchend', cancelPress);
+  container.addEventListener('touchcancel', cancelPress);
+  container.addEventListener('touchmove', cancelPress, { passive: true });
+  /* mouse fallback для dev-режима */
+  container.addEventListener('mousedown', startPress);
+  container.addEventListener('mouseup', cancelPress);
+  container.addEventListener('mouseleave', cancelPress);
+}
+
+/* Выход из режима редактирования при клике вне блока */
+document.addEventListener('click', function(e) {
+  var container = document.getElementById('reminder-chips');
+  if (container && !container.contains(e.target)) {
+    container.classList.remove('chips-editing');
+  }
+});
+
+/* FIX: Bug #4 — подсказка по удалению чипов */
+function showChipHint() {
+  showToast('Удерживайте чип 0.5с, чтобы удалить');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 function showTimezoneInfo() {
@@ -3771,6 +3840,12 @@ function toggleNotifMain(el) {
 }
 
 function toggleReminderChip(val, el) {
+  /* FIX: Bug #3 — в режиме редактирования клик по чипу просто выходит из режима */
+  var container = document.getElementById('reminder-chips');
+  if (container && container.classList.contains('chips-editing')) {
+    container.classList.remove('chips-editing');
+    return;
+  }
   el.classList.toggle('on');
   var selected = [];
   document.querySelectorAll('.reminder-chip.on:not(.rc-add)').forEach(function(c) {
