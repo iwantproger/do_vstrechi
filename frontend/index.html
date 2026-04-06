@@ -720,8 +720,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
   <div class="page-head">
     <div class="page-title">Встречи</div>
   </div>
-  <!-- FIX: Bug #1 — унифицированный отступ заголовок→контент (≈32px с учётом внутреннего padding таб-пиллов) -->
-  <div class="tab-pills" style="margin-top:20px" id="meet-tabs">
+  <div class="tab-pills" style="margin-top:8px" id="meet-tabs">
     <div class="tab-pill on" id="mtab-confirm" onclick="switchMeetStatus('confirm',this)">Нужно подтвердить</div>
     <div class="tab-pill" id="mtab-all" onclick="switchMeetStatus('all',this)">Все</div>
     <div class="tab-pill" id="mtab-noans" onclick="switchMeetStatus('noans',this)">Нет ответа</div>
@@ -1459,44 +1458,68 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
-const APP_VERSION = '1.0.7';
-/* ИНСТРУКЦИЯ: при каждом деплое с исправлениями — увеличивать последнюю цифру.
-   При значимом обновлении — среднюю. Добавлять запись в CHANGELOG ниже. */
+const APP_VERSION = '1.0.59';
+/* АВТО: APP_VERSION и CHANGELOG обновляются скриптом scripts/update_version.py при каждом деплое.
+   Не редактировать вручную — изменения будут перезаписаны. */
 const CHANGELOG = [
   {
-    version: '1.0.7',
-    date: '5 апреля 2026',
+    version: '1.0.59',
+    date: '6 апреля 2026',
     changes: [
-      '\ud83d\udc1b Исправлена кнопка "Отменить встречу" \u2014 теперь работает',
-      '\ud83d\udc1b Статус "Идёт" корректно отображается в списке встреч',
-      '\ud83d\udc1b Убрана дублирующая кнопка "Назад"',
-      '\u2728 Уведомления: добавлены варианты 5, 15, 30 минут',
-      '\u2728 Профиль: кнопки копирования и поделиться для ссылки',
-      '\u2699\ufe0f Отступы унифицированы на всех экранах',
+    '✨ Просмотр задачи по клику + кнопка «Скопировать всё»',
+    '🐛 Баги гостевого flow бронирования — UI, цвета, успех, уведомления',
+    '⚙️ Ui: переименовать сервис в «Do Встречи!» в заголовках админки',
+    '🐛 Mask header, native tg share, unified status styles',
+    '🐛 Desktop max-width, chip editing UX, share button, smooth blur',
+    '🐛 Telegram Login Widget auth — HMAC mismatch + CSP connect-src',
+    '🐛 Отступы экранов, blur хедера, long-press чипы, иконка подсказки',
+    '🐛 CSP unsafe-eval + Chart.js cdn fix'
     ]
   },
   {
-    version: '1.0.6',
+    version: '1.0.59',
     date: '5 апреля 2026',
     changes: [
-      '\ud83d\udc1b Убраны зелёные точки в навбаре',
-      '\ud83d\udc1b Исправлена анимация переходов между экранами',
-      '\ud83d\udc1b Убрана синяя кнопка Telegram поверх интерфейса',
-      '\u2728 Главный экран переделан по дизайну v3',
-      '\u2728 Добавлен профиль с разделом интеграций',
-      '\u2728 Встречи: статус "Нет ответа" и кнопка "Написать"',
-      '\u2728 Статус "Идёт" с иконкой камеры для текущих встреч',
+    '✨ Версия приложения с changelog sheet',
+    '✨ Профиль — link-card с иконками, timezone sheet, reminder chips',
+    '🐛 Адаптивные insets — убрать лишний отступ в обычном режиме Telegram',
+    '🐛 Унифицировать отступ 32px между заголовком и первым блоком на всех экранах',
+    '🚀 Re-trigger deploy',
+    '🐛 PWA-иконка — залить белый фон цветом #0D1A16 для iOS',
+    '🐛 Убрать дублирующуюся кнопку Назад — только нативная Telegram BackButton',
+    '✨ Пауза/активация расписания — полная реализация'
     ]
   },
   {
-    version: '1.0.5',
+    version: '1.0.26',
     date: '4 апреля 2026',
     changes: [
-      '\ud83d\ude80 Первый рабочий релиз Mini App',
-      '\u2728 Создание расписаний через бота',
-      '\u2728 Бронирование встреч клиентами по ссылке',
-      '\u2728 Ссылки Jitsi Meet генерируются автоматически',
-      '\u2728 Подтверждение и отмена встреч',
+    '✨ Полный редизайн v3 — новый фронтенд, аутентификация, безопасность',
+    '🐛 Исправить docker-compose.yml — отступ nginx, дублирующийся certbot, лишний блок volumes',
+    '📚 Обновить README для публичного репозитория, убрать реальные секреты из .env.example',
+    '📚 Добавить CLAUDE.md и техническую документацию проекта',
+    '⚙️ Design: обновить навбар — иконка камеры и AI-пилюля'
+    ]
+  },
+  {
+    version: '1.0.15',
+    date: '1 апреля 2026',
+    changes: [
+    '⚙️ Полный редизайн мини-приложения и улучшения бота'
+    ]
+  },
+  {
+    version: '1.0.15',
+    date: '31 марта 2026',
+    changes: [
+    '🐛 Актуальный nginx.conf с SSL и исправленный index.html',
+    '🐛 Таймаут деплоя и reset --hard',
+    '🐛 Обновлён MINI_APP_URL на dovstrechiapp.ru',
+    '⚙️ Актуализация кнопок Telegram бота: добавить WebApp-кнопки',
+    '🧪 Проверка автодеплоя',
+    '🐛 Убран Railway URL, починена кнопка Забронировать',
+    '🐛 Правильная структура monorepo',
+    '⚙️ Rename init.sql to database/init.sql'
     ]
   }
 ];
@@ -1698,6 +1721,13 @@ function back() {
   prevEl.classList.remove('prev');
   prevEl.classList.add('active');
   state.currentScreen = prev;
+
+  /* FIX: обновить данные при возврате на таб-экраны */
+  if (state.user) {
+    if (prev === 's-schedules') loadSchedules();
+    else if (prev === 's-meetings') renderMeetingsList(); /* re-render from already-updated state */
+    else if (prev === 's-home') loadHome();
+  }
 
   const isTab = TAB_SCREENS.includes(prev);
   if (isTab) showNavbar(); else hideNavbar();
@@ -2171,6 +2201,14 @@ async function loadMeetings() {
   var { data, error } = await apiFetch('GET', '/api/bookings?role=organizer');
   if (error) { showToast('Ошибка загрузки встреч', 'error'); return; }
   if (data) state.bookings = data;
+
+  /* FIX: умный дефолтный таб — confirm если есть pending, иначе all */
+  var hasPending = (state.bookings || []).some(function(b) { return getMeetingStatus(b) === 'pending'; });
+  _meetFilter = hasPending ? 'confirm' : 'all';
+  document.querySelectorAll('[id^=mtab-]').forEach(function(t) { t.classList.remove('on'); });
+  var defTabEl = document.getElementById(_meetFilter === 'confirm' ? 'mtab-confirm' : 'mtab-all');
+  if (defTabEl) defTabEl.classList.add('on');
+
   renderMeetingsList();
 }
 
@@ -2200,7 +2238,9 @@ function toggleGroupMenu(btn) {
   if (menu.style.display === 'none') {
     const r = btn.getBoundingClientRect();
     menu.style.top = (r.bottom + 4) + 'px';
-    menu.style.left = r.left + 'px';
+    /* FIX: align dropdown to right edge of button so it doesn't overflow screen */
+    menu.style.left = 'auto';
+    menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
     menu.style.display = 'block';
   } else {
     menu.style.display = 'none';
