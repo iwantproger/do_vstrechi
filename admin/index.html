@@ -6,6 +6,8 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Admin - До встречи</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
 <style>
 /* ═══════════════════════════════════════════════════
    RESET
@@ -297,6 +299,620 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ═══════════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════════ */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.page-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.last-updated {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+.metric-card:hover { transform: translateY(-2px); }
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.metric-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.metric-card.danger .metric-value { color: var(--danger); }
+.metric-card.warning .metric-value { color: var(--warning); }
+.metric-card.success .metric-value { color: var(--success); }
+
+/* Chart Cards */
+.chart-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+.chart-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px 0;
+}
+.chart-card.full-width { width: 100%; }
+.chart-container { position: relative; height: 280px; }
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.chart-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px 0;
+  font-size: 14px;
+}
+
+/* Loading skeleton */
+.metric-value.loading {
+  background: linear-gradient(90deg, var(--border) 25%, #f1f5f9 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  width: 60px;
+  height: 32px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Notification toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  color: #FFF;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.toast.visible { opacity: 1; transform: translateY(0); }
+.toast.error { background: var(--danger); }
+.toast.success { background: var(--success); }
+
+/* Dashboard responsive */
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .charts-row { grid-template-columns: 1fr; }
+  .metric-card { padding: 14px; }
+  .metric-icon { width: 40px; height: 40px; font-size: 18px; }
+  .metric-value { font-size: 22px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+@media (max-width: 480px) {
+  .metrics-grid { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════
+   LOGS PAGE
+═══════════════════════════════════════════════════ */
+.log-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.stat-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.stat-badge:hover { opacity: 0.8; }
+.stat-badge.info { background: #E0F2FE; color: #0369A1; }
+.stat-badge.warn { background: #FEF3C7; color: #92400E; }
+.stat-badge.error { background: #FEE2E2; color: #991B1B; }
+.stat-badge.critical { background: #FCE7F3; color: #9D174D; }
+.stat-users { font-size: 13px; color: var(--text-muted); margin-left: auto; cursor: default; }
+
+.log-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.log-filters select,
+.log-filters input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  color: var(--text);
+  min-width: 130px;
+}
+.log-filters .search-input {
+  flex: 1;
+  min-width: 180px;
+}
+.log-filters .search-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+}
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px;
+  font-family: 'Inter', sans-serif;
+}
+.btn-text:hover { color: var(--danger); }
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.btn-icon:hover { background: var(--border); }
+
+.log-table-wrap {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.log-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+}
+.log-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.log-table tbody tr:hover { background: #F8FAFC; }
+.log-table .severity-icon { text-align: center; }
+.log-table .user-id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--primary);
+  cursor: pointer;
+}
+.log-table .user-id:hover { text-decoration: underline; }
+.log-table .metadata-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.log-table .metadata-cell:hover { white-space: normal; word-break: break-all; }
+.log-table .time-cell { white-space: nowrap; font-size: 12px; color: var(--text-muted); }
+.log-table tr.sev-error { background: #FEF2F2; }
+.log-table tr.sev-critical { background: #FDF2F8; }
+.log-table tr.sev-warn { background: #FFFBEB; }
+
+.log-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.log-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+.log-pagination button {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+}
+.log-pagination button.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.log-pagination button:hover:not(.active) { background: #F1F5F9; }
+.log-pagination .page-info {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 12px;
+}
+
+@media (max-width: 768px) {
+  .log-filters { flex-direction: column; }
+  .log-filters select,
+  .log-filters input[type="date"],
+  .log-filters .search-input { width: 100%; min-width: unset; }
+  .log-table { font-size: 12px; }
+  .log-table th, .log-table td { padding: 8px 10px; }
+  .log-table .metadata-cell { max-width: 150px; }
+}
+
+/* ═══════════════��══════════════════════════��════════
+   KANBAN
+════════════���══════════════════════════════════════ */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  min-height: 400px;
+}
+.kanban-column {
+  background: #F1F5F9;
+  border-radius: var(--radius);
+  padding: 12px;
+  min-height: 300px;
+}
+.kanban-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.kanban-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.kanban-count {
+  background: var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.kanban-cards { min-height: 200px; }
+
+.task-card {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.15s;
+  border-left: 3px solid transparent;
+}
+.task-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.task-card:active { cursor: grabbing; }
+.task-card.sortable-ghost { opacity: 0.4; background: var(--primary-light); }
+.task-card.sortable-drag { box-shadow: 0 8px 24px rgba(0,0,0,0.15); transform: rotate(3deg); }
+
+.task-card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; line-height: 1.3; }
+.task-card-desc {
+  font-size: 12px; color: var(--text-muted); margin-bottom: 8px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.task-card-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.task-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+.task-tag.security { background: #FEE2E2; color: #991B1B; }
+.task-tag.backend { background: #E0E7FF; color: #3730A3; }
+.task-tag.frontend { background: #D1FAE5; color: #065F46; }
+.task-tag.bot { background: #F3E8FF; color: #6B21A8; }
+.task-tag.devops { background: #FEF3C7; color: #92400E; }
+.task-tag.bugfix { background: #FCE7F3; color: #9D174D; }
+.task-tag.feature { background: #CCFBF1; color: #0F766E; }
+.task-tag.ui { background: #E0F2FE; color: #0369A1; }
+
+.task-card-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  opacity: 0; transition: opacity 0.15s;
+}
+.task-card:hover .task-card-actions { opacity: 1; }
+.task-card-actions button {
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; padding: 2px 6px; border-radius: 4px;
+}
+.task-card-actions button:hover { background: var(--border); }
+.task-card-source { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.task-card[data-source="git_commit"] { border-left-color: #10B981; }
+.task-card[data-source="ai_generated"] { border-left-color: #8B5CF6; }
+.task-card[data-source="github_issue"] { border-left-color: #F59E0B; }
+.task-card[data-source="manual"] { border-left-color: var(--primary); }
+
+/* ═══════════════════════════════════════════════════
+   MODAL
+════════════════════��═════════════════════════════�� */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.modal-content {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-content.small { max-width: 400px; }
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 24px 0;
+}
+.modal-header h2 { font-size: 18px; font-weight: 700; margin: 0; color: var(--text); }
+.modal-body { padding: 20px 24px; }
+.modal-body label {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--text); margin-bottom: 6px; margin-top: 14px;
+}
+.modal-body label:first-child { margin-top: 0; }
+.modal-body input[type="text"],
+.modal-body textarea,
+.modal-body select {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; font-family: 'Inter', sans-serif;
+  color: var(--text); resize: vertical;
+}
+.modal-body input:focus,
+.modal-body textarea:focus,
+.modal-body select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
+}
+.modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 24px 20px;
+}
+
+.btn-primary {
+  background: var(--primary); color: #fff; border: none;
+  padding: 10px 20px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary {
+  background: #fff; color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 20px; border-radius: 8px;
+  font-size: 14px; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-secondary:hover { background: #F8FAFC; }
+.btn-danger {
+  background: var(--danger); color: #fff; border: none;
+  padding: 10px 20px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.btn-danger:hover { background: #DC2626; }
+
+.tags-input { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tags-list { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag-chip {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 12px; background: #E2E8F0;
+}
+.tag-chip button {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--text-muted); padding: 0 2px;
+}
+
+@media (max-width: 768px) {
+  .kanban-board { grid-template-columns: 1fr; gap: 12px; }
+  .kanban-column { min-height: 150px; }
+  .modal-content { max-width: 100%; }
+  .modal-row { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════════════ */
+.settings-section {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.settings-section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 16px 0;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.info-item {
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+.info-item .label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.info-item .value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.info-item .value.mono {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 14px;
+}
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-row .label { font-size: 13px; color: var(--text-muted); }
+.settings-row .value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  text-align: right;
+  max-width: 60%;
+  word-break: break-all;
+}
+.audit-mini-list {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.audit-mini-item {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.audit-mini-item:last-child { border-bottom: none; }
+.audit-mini-item .time {
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+.audit-mini-item .action {
+  font-weight: 500;
+  color: var(--text);
+  min-width: 100px;
+}
+.maintenance-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.maintenance-row label { font-size: 13px; color: var(--text-muted); }
+.maintenance-row select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: Inter, sans-serif;
+}
+.btn-warning {
+  background: var(--warning);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: Inter, sans-serif;
+}
+.btn-warning:hover { background: #D97706; }
+.btn-outline-danger {
+  background: white;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: Inter, sans-serif;
+}
+.btn-outline-danger:hover { background: #FEF2F2; }
+
+@media (max-width: 768px) {
+  .info-grid { grid-template-columns: repeat(2, 1fr); }
+  .maintenance-row { flex-direction: column; align-items: stretch; }
+}
 </style>
 </head>
 <body>
@@ -355,39 +971,346 @@ body {
     <div class="main-content">
       <!-- Dashboard -->
       <div class="page active" id="page-dashboard">
-        <div class="placeholder-card fade-in">
-          <div class="icon">&#x1F4CA;</div>
-          <h3>Дашборд</h3>
-          <p>Метрики и графики будут здесь</p>
+        <div class="page-header">
+          <h2>Дашборд</h2>
+          <span class="last-updated" id="dashboard-updated"></span>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(13,148,136,0.12)">&#x1F465;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-total-users"></div>
+              <div class="metric-label">Всего пользователей</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(16,185,129,0.12)">&#x1F4C8;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-active-users"></div>
+              <div class="metric-label">Активных за 7 дней</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(59,130,246,0.12)">&#x1F4C5;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-total-bookings"></div>
+              <div class="metric-label">Встреч всего</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(139,92,246,0.12)">&#x1F4CC;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-bookings-today"></div>
+              <div class="metric-label">Встречи сегодня</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(245,158,11,0.12)">&#x23F3;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-pending"></div>
+              <div class="metric-label">Ожидают подтверждения</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(239,68,68,0.12)">&#x26A0;&#xFE0F;</div>
+            <div class="metric-body">
+              <div class="metric-value loading" id="m-errors"></div>
+              <div class="metric-label">Ошибки за 24ч</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card full-width">
+          <h3>Бронирования за 30 дней</h3>
+          <div class="chart-container">
+            <canvas id="chart-bookings-trend"></canvas>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card">
+            <h3>Платформы</h3>
+            <canvas id="chart-platforms"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Статистика по дням недели</h3>
+            <canvas id="chart-weekday"></canvas>
+          </div>
         </div>
       </div>
 
       <!-- Logs -->
       <div class="page" id="page-logs">
-        <div class="placeholder-card fade-in">
-          <div class="icon">&#x1F4CB;</div>
-          <h3>Логи</h3>
-          <p>Событийный трекинг будет здесь</p>
+        <div class="page-header">
+          <h2>Логи</h2>
+          <button class="btn-icon" onclick="loadLogs()" title="Обновить">&#x1F504;</button>
         </div>
+
+        <div class="log-stats" id="log-stats">
+          <span class="stat-badge info" onclick="filterBySeverity('info')"><span id="ls-info">&mdash;</span> info</span>
+          <span class="stat-badge warn" onclick="filterBySeverity('warn')"><span id="ls-warn">&mdash;</span> warn</span>
+          <span class="stat-badge error" onclick="filterBySeverity('error')"><span id="ls-error">&mdash;</span> error</span>
+          <span class="stat-badge critical" onclick="filterBySeverity('critical')"><span id="ls-critical">&mdash;</span> critical</span>
+          <span class="stat-users">&#x1F464; <span id="ls-users">&mdash;</span> users</span>
+        </div>
+
+        <div class="log-filters">
+          <select id="log-f-severity" onchange="filterLogs()">
+            <option value="">Все severity</option>
+            <option value="info">&#x2139;&#xFE0F; Info</option>
+            <option value="warn">&#x26A0;&#xFE0F; Warn</option>
+            <option value="error">&#x274C; Error</option>
+            <option value="critical">&#x1F534; Critical</option>
+          </select>
+          <select id="log-f-type" onchange="filterLogs()">
+            <option value="">Все типы</option>
+          </select>
+          <div class="search-input">
+            <input type="text" id="log-f-search" placeholder="Поиск в metadata..." oninput="debounceFilterLogs()">
+          </div>
+          <input type="date" id="log-f-from" onchange="filterLogs()">
+          <input type="date" id="log-f-to" onchange="filterLogs()">
+          <button class="btn-text" onclick="resetLogFilters()">Сбросить</button>
+        </div>
+
+        <div class="log-table-wrap">
+          <table class="log-table" id="log-table">
+            <thead>
+              <tr>
+                <th>Время</th>
+                <th>Тип</th>
+                <th>Sev</th>
+                <th>User</th>
+                <th>Metadata</th>
+              </tr>
+            </thead>
+            <tbody id="log-tbody"></tbody>
+          </table>
+          <div class="log-empty" id="log-empty" style="display:none;">
+            Нет событий по заданным фильтрам
+          </div>
+        </div>
+
+        <div class="log-pagination" id="log-pagination"></div>
       </div>
 
       <!-- Tasks -->
       <div class="page" id="page-tasks">
-        <div class="placeholder-card fade-in">
-          <div class="icon">&#x2705;</div>
-          <h3>Задачи</h3>
-          <p>Kanban-доска будет здесь</p>
+        <div class="page-header">
+          <h2>Задачи</h2>
+          <button class="btn-primary" onclick="openTaskModal()">+ Новая задача</button>
+        </div>
+
+        <div class="kanban-board">
+          <div class="kanban-column" data-status="backlog">
+            <div class="kanban-header">
+              <span class="kanban-title">&#x1F4CB; Backlog</span>
+              <span class="kanban-count" id="count-backlog">0</span>
+            </div>
+            <div class="kanban-cards" id="col-backlog"></div>
+          </div>
+          <div class="kanban-column" data-status="in_progress">
+            <div class="kanban-header">
+              <span class="kanban-title">&#x1F504; В работе</span>
+              <span class="kanban-count" id="count-in_progress">0</span>
+            </div>
+            <div class="kanban-cards" id="col-in_progress"></div>
+          </div>
+          <div class="kanban-column" data-status="done">
+            <div class="kanban-header">
+              <span class="kanban-title">&#x2705; Готово</span>
+              <span class="kanban-count" id="count-done">0</span>
+            </div>
+            <div class="kanban-cards" id="col-done"></div>
+          </div>
         </div>
       </div>
 
       <!-- Settings -->
       <div class="page" id="page-settings">
-        <div class="placeholder-card fade-in">
-          <div class="icon">&#x2699;&#xFE0F;</div>
-          <h3>Настройки</h3>
-          <p>Конфигурация будет здесь</p>
+
+        <!-- System info -->
+        <div class="settings-section">
+          <h3>&#x1F5A5; Система</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="label">Версия</div>
+              <div class="value mono" id="si-version">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Python</div>
+              <div class="value mono" id="si-python">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Uptime</div>
+              <div class="value" id="si-uptime">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">БД pool</div>
+              <div class="value mono" id="si-pool">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Таблиц</div>
+              <div class="value" id="si-tables">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Событий всего</div>
+              <div class="value" id="si-events">&mdash;</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security -->
+        <div class="settings-section">
+          <h3>&#x1F512; Безопасность</h3>
+          <div class="settings-row">
+            <span class="label">IP Allowlist</span>
+            <span class="value" id="si-ip-allowlist">&mdash;</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">CORS Origins</span>
+            <span class="value" id="si-cors">&mdash;</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Rate Limits</span>
+            <span class="value" id="si-rate-limits">&mdash;</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Активные сессии</span>
+            <button class="btn-outline-danger" onclick="invalidateAllSessions()">&#x1F511; Сбросить все сессии</button>
+          </div>
+        </div>
+
+        <!-- Audit log -->
+        <div class="settings-section">
+          <h3>&#x1F4CB; Последние действия</h3>
+          <div class="audit-mini-list" id="audit-mini-list">
+            <div style="color:var(--text-muted);padding:12px;">Загрузка&hellip;</div>
+          </div>
+        </div>
+
+        <!-- Counts -->
+        <div class="settings-section">
+          <h3>&#x1F4CA; Данные</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="label">Пользователей</div>
+              <div class="value" id="si-users">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Расписаний</div>
+              <div class="value" id="si-schedules">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Бронирований</div>
+              <div class="value" id="si-bookings">&mdash;</div>
+            </div>
+            <div class="info-item">
+              <div class="label">Задач</div>
+              <div class="value" id="si-tasks">&mdash;</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Maintenance -->
+        <div class="settings-section">
+          <h3>&#x1F9F9; Обслуживание</h3>
+          <div class="maintenance-row">
+            <label for="cleanup-days">Очистить info-события старше</label>
+            <select id="cleanup-days">
+              <option value="7">7 дней</option>
+              <option value="14">14 дней</option>
+              <option value="30" selected>30 дней</option>
+              <option value="60">60 дней</option>
+              <option value="90">90 дней</option>
+            </select>
+            <button class="btn-warning" onclick="cleanupEvents()">&#x1F9F9; Очистить</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal-overlay" id="task-modal" style="display:none;" onclick="closeTaskModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="task-modal-title">Новая задача</h2>
+      <button class="btn-icon" onclick="closeTaskModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <label>Название *</label>
+      <input type="text" id="task-title" maxlength="200" placeholder="Краткое название задачи">
+
+      <label>Техническое описание</label>
+      <textarea id="task-desc" rows="3" maxlength="5000" placeholder="Markdown: что нужно сделать технически"></textarea>
+
+      <label>Описание простым языком</label>
+      <textarea id="task-desc-plain" rows="2" maxlength="2000" placeholder="Понятное объяснение"></textarea>
+
+      <div class="modal-row">
+        <div>
+          <label>Статус</label>
+          <select id="task-status">
+            <option value="backlog">Backlog</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Готово</option>
+          </select>
+        </div>
+        <div>
+          <label>Источник</label>
+          <select id="task-source">
+            <option value="manual">Manual</option>
+            <option value="git_commit">Git commit</option>
+            <option value="ai_generated">AI generated</option>
+            <option value="github_issue">GitHub issue</option>
+          </select>
         </div>
       </div>
+
+      <label>Теги</label>
+      <div class="tags-input" id="task-tags-container">
+        <div class="tags-list" id="task-tags-list"></div>
+        <select id="task-tag-add" onchange="addTag(this.value); this.value='';">
+          <option value="">+ добавить тег</option>
+          <option value="security">&#x1F512; security</option>
+          <option value="backend">&#x2699;&#xFE0F; backend</option>
+          <option value="frontend">&#x1F3A8; frontend</option>
+          <option value="bot">&#x1F916; bot</option>
+          <option value="devops">&#x1F680; devops</option>
+          <option value="bugfix">&#x1F41B; bugfix</option>
+          <option value="feature">&#x2728; feature</option>
+          <option value="ui">&#x1F5BC; ui</option>
+        </select>
+      </div>
+
+      <label>Ссылка (commit/issue)</label>
+      <input type="text" id="task-source-ref" maxlength="500" placeholder="https://github.com/...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeTaskModal()">Отмена</button>
+      <button class="btn-primary" id="task-save-btn" onclick="saveTask()">&#x1F4BE; Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="task-delete-modal" style="display:none;" onclick="closeDeleteModal(event)">
+  <div class="modal-content small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Удалить задачу?</h2>
+      <button class="btn-icon" onclick="closeDeleteModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <p id="delete-task-name"></p>
+      <p style="color:var(--text-muted);font-size:13px;">Это действие нельзя отменить.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeDeleteModal()">Отмена</button>
+      <button class="btn-danger" onclick="confirmDeleteTask()">&#x1F5D1; Удалить</button>
     </div>
   </div>
 </div>
@@ -470,6 +1393,7 @@ window.onTelegramAuth = onTelegramAuth;
 async function logout() {
   try { await api('POST', '/api/admin/auth/logout'); } catch {}
   sessionData = null;
+  stopDashboardRefresh();
   showLogin();
 }
 
@@ -487,6 +1411,7 @@ function showApp() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.add('visible');
   updateHeaderMeta();
+  startDashboardRefresh();
 
   // Restore page from hash
   const hash = window.location.hash.replace('#', '') || 'dashboard';
@@ -532,6 +1457,12 @@ function navigateTo(page) {
   // Update header
   document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
 
+  // Load page data
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'logs') loadLogs();
+  if (page === 'tasks') loadTasks();
+  if (page === 'settings') loadSettings();
+
   // Close mobile sidebar
   closeSidebar();
 }
@@ -563,6 +1494,731 @@ function closeSidebar() {
 
 document.getElementById('hamburger').addEventListener('click', toggleSidebar);
 document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+/* ═══════════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════════ */
+let chartTrend = null;
+let chartPlatforms = null;
+let chartWeekday = null;
+let dashboardInterval = null;
+
+async function loadDashboard() {
+  showDashboardLoading(true);
+  try {
+    const [summary, trend, platforms] = await Promise.all([
+      api('GET', '/api/admin/dashboard/summary'),
+      api('GET', '/api/admin/dashboard/bookings-trend?days=30'),
+      api('GET', '/api/admin/dashboard/platforms'),
+    ]);
+
+    updateMetric('m-total-users', summary.total_users);
+    updateMetric('m-active-users', summary.active_users_7d);
+    updateMetric('m-total-bookings', summary.total_bookings);
+    updateMetric('m-bookings-today', summary.bookings_today);
+    updateMetric('m-pending', summary.pending_bookings, summary.pending_bookings > 0 ? 'warning' : '');
+    updateMetric('m-errors', summary.errors_24h, summary.errors_24h > 0 ? 'danger' : 'success');
+
+    renderTrendChart(trend);
+    renderPlatformsChart(platforms);
+    renderWeekdayChart(trend);
+
+    const now = new Date();
+    document.getElementById('dashboard-updated').textContent =
+      'Обновлено: ' + now.toLocaleTimeString('ru-RU');
+  } catch (err) {
+    console.error('Dashboard load failed', err);
+    showNotification('Ошибка загрузки дашборда', 'error');
+  } finally {
+    showDashboardLoading(false);
+  }
+}
+
+function updateMetric(elementId, value, modifier) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.textContent = typeof value === 'number' ? value.toLocaleString('ru-RU') : value;
+  el.classList.remove('loading');
+  const card = el.closest('.metric-card');
+  if (card) {
+    card.classList.remove('danger', 'warning', 'success');
+    if (modifier) card.classList.add(modifier);
+  }
+}
+
+function showDashboardLoading(show) {
+  document.querySelectorAll('#page-dashboard .metric-value').forEach(el => {
+    if (show) { el.textContent = ''; el.classList.add('loading'); }
+  });
+}
+
+function renderTrendChart(data) {
+  const ctx = document.getElementById('chart-bookings-trend');
+  if (!ctx) return;
+  if (chartTrend) chartTrend.destroy();
+
+  const labels = data.map(d => {
+    const dt = new Date(d.date);
+    return dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  });
+  const values = data.map(d => d.count);
+
+  chartTrend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Бронирования',
+        data: values,
+        borderColor: '#0D9488',
+        backgroundColor: 'rgba(13,148,136,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          titleFont: { family: 'Inter' },
+          bodyFont: { family: 'Inter' },
+          callbacks: {
+            title: (items) => data[items[0].dataIndex]?.date || '',
+            label: (item) => item.raw + ' бронирований',
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8', maxTicksLimit: 10 }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8', stepSize: 1 },
+          grid: { color: '#F1F5F9' }
+        }
+      }
+    }
+  });
+}
+
+function renderPlatformsChart(data) {
+  const ctx = document.getElementById('chart-platforms');
+  if (!ctx) return;
+  if (chartPlatforms) chartPlatforms.destroy();
+
+  // Remove previous "no data" message if any
+  const prev = ctx.parentElement.querySelector('.chart-empty');
+  if (prev) prev.remove();
+
+  if (!data.length) {
+    const p = document.createElement('p');
+    p.className = 'chart-empty';
+    p.textContent = 'Нет данных';
+    ctx.parentElement.appendChild(p);
+    ctx.style.display = 'none';
+    return;
+  }
+  ctx.style.display = '';
+
+  const colors = { jitsi: '#0D9488', zoom: '#2D8CFF', google_meet: '#00897B', other: '#94A3B8' };
+
+  chartPlatforms = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.platform.charAt(0).toUpperCase() + d.platform.slice(1)),
+      datasets: [{
+        data: data.map(d => d.count),
+        backgroundColor: data.map(d => colors[d.platform] || colors.other),
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 12, family: 'Inter' }, padding: 16, usePointStyle: true }
+        }
+      }
+    }
+  });
+}
+
+function renderWeekdayChart(trendData) {
+  const ctx = document.getElementById('chart-weekday');
+  if (!ctx) return;
+  if (chartWeekday) chartWeekday.destroy();
+
+  const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const counts = new Array(7).fill(0);
+  trendData.forEach(d => {
+    const day = new Date(d.date).getDay(); // 0=Sun
+    const idx = day === 0 ? 6 : day - 1;
+    counts[idx] += d.count;
+  });
+
+  chartWeekday = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weekdays,
+      datasets: [{
+        label: 'Бронирования',
+        data: counts,
+        backgroundColor: counts.map((_, i) => i < 5 ? '#0D9488' : '#94A3B8'),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 12, family: 'Inter' }, color: '#94A3B8' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8', stepSize: 1 },
+          grid: { color: '#F1F5F9' }
+        }
+      }
+    }
+  });
+}
+
+function startDashboardRefresh() {
+  stopDashboardRefresh();
+  dashboardInterval = setInterval(() => {
+    const cur = window.location.hash.replace('#', '') || 'dashboard';
+    if (cur === 'dashboard') loadDashboard();
+  }, 60000);
+}
+
+function stopDashboardRefresh() {
+  if (dashboardInterval) { clearInterval(dashboardInterval); dashboardInterval = null; }
+}
+
+/* Notification toast */
+function showNotification(message, type) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'toast ' + (type || 'error');
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+/* ═══════════════════════════════════════════════════
+   LOGS
+═══════════════════════════════════════════════════ */
+let logsState = { page: 1, perPage: 50, total: 0, filters: {} };
+let logTypesPopulated = false;
+let filterDebounceTimer = null;
+
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function debounceFilterLogs() {
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(() => filterLogs(), 400);
+}
+
+function filterLogs() {
+  logsState.page = 1;
+  logsState.filters = {
+    severity: document.getElementById('log-f-severity')?.value || '',
+    event_type: document.getElementById('log-f-type')?.value || '',
+    search: document.getElementById('log-f-search')?.value || '',
+    date_from: document.getElementById('log-f-from')?.value || '',
+    date_to: document.getElementById('log-f-to')?.value || '',
+  };
+  loadLogs();
+}
+
+function resetLogFilters() {
+  ['log-f-severity','log-f-type','log-f-search','log-f-from','log-f-to']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  logsState.filters = {};
+  logsState.page = 1;
+  loadLogs();
+}
+
+function filterBySeverity(sev) {
+  document.getElementById('log-f-severity').value = sev;
+  filterLogs();
+}
+
+function filterByUser(anonymousId) {
+  const searchInput = document.getElementById('log-f-search');
+  if (searchInput) searchInput.value = anonymousId;
+  logsState.filters.anonymous_id = anonymousId;
+  logsState.filters.search = '';
+  logsState.page = 1;
+  loadLogs();
+}
+
+async function loadLogs() {
+  try {
+    const stats = await api('GET', '/api/admin/logs/stats');
+    document.getElementById('ls-info').textContent = stats.by_severity?.info || 0;
+    document.getElementById('ls-warn').textContent = stats.by_severity?.warn || 0;
+    document.getElementById('ls-error').textContent = stats.by_severity?.error || 0;
+    document.getElementById('ls-critical').textContent = stats.by_severity?.critical || 0;
+    document.getElementById('ls-users').textContent = stats.unique_users || 0;
+
+    // Populate type dropdown once
+    const typeSelect = document.getElementById('log-f-type');
+    if (typeSelect && !logTypesPopulated && stats.by_type) {
+      Object.keys(stats.by_type).sort().forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t + ' (' + stats.by_type[t] + ')';
+        typeSelect.appendChild(opt);
+      });
+      logTypesPopulated = true;
+    }
+
+    // Build query
+    const params = new URLSearchParams();
+    params.set('page', logsState.page);
+    params.set('per_page', logsState.perPage);
+    const f = logsState.filters;
+    if (f.severity) params.set('severity', f.severity);
+    if (f.event_type) params.set('event_type', f.event_type);
+    if (f.search) params.set('search', f.search);
+    if (f.anonymous_id) params.set('anonymous_id', f.anonymous_id);
+    if (f.date_from) params.set('date_from', f.date_from);
+    if (f.date_to) params.set('date_to', f.date_to);
+
+    const data = await api('GET', '/api/admin/logs?' + params.toString());
+    logsState.total = data.total;
+
+    renderLogTable(data.items);
+    renderLogPagination(data.total, data.page, data.per_page);
+  } catch (err) {
+    console.error('Failed to load logs', err);
+    showNotification('Ошибка загрузки логов', 'error');
+  }
+}
+
+function renderLogTable(items) {
+  const tbody = document.getElementById('log-tbody');
+  const empty = document.getElementById('log-empty');
+
+  if (!items.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const sevIcons = { info: '\u2139\uFE0F', warn: '\u26A0\uFE0F', error: '\u274C', critical: '\uD83D\uDD34' };
+
+  tbody.innerHTML = items.map(ev => {
+    const time = new Date(ev.created_at);
+    const timeStr = time.toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    const metaStr = ev.metadata ? JSON.stringify(ev.metadata) : '\u2014';
+    const sevClass = ['error','critical','warn'].includes(ev.severity) ? 'sev-' + ev.severity : '';
+
+    return '<tr class="' + sevClass + '">'
+      + '<td class="time-cell">' + escHtml(timeStr) + '</td>'
+      + '<td>' + escHtml(ev.event_type) + '</td>'
+      + '<td class="severity-icon">' + (sevIcons[ev.severity] || '\u2022') + '</td>'
+      + '<td class="user-id" onclick="filterByUser(\'' + escHtml(ev.anonymous_id) + '\')">' + escHtml(ev.anonymous_id) + '</td>'
+      + '<td class="metadata-cell" title="' + escHtml(metaStr) + '">' + escHtml(metaStr) + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function renderLogPagination(total, page, perPage) {
+  const container = document.getElementById('log-pagination');
+  const totalPages = Math.ceil(total / perPage);
+
+  if (totalPages <= 1) {
+    container.innerHTML = '<span class="page-info">' + total + ' событий</span>';
+    return;
+  }
+
+  let html = '';
+  if (page > 1) html += '<button onclick="goToLogPage(' + (page - 1) + ')">\u25C0</button>';
+
+  const start = Math.max(1, page - 3);
+  const end = Math.min(totalPages, start + 6);
+
+  if (start > 1) html += '<button onclick="goToLogPage(1)">1</button><span>\u2026</span>';
+
+  for (let i = start; i <= end; i++) {
+    html += '<button class="' + (i === page ? 'active' : '') + '" onclick="goToLogPage(' + i + ')">' + i + '</button>';
+  }
+
+  if (end < totalPages) html += '<span>\u2026</span><button onclick="goToLogPage(' + totalPages + ')">' + totalPages + '</button>';
+  if (page < totalPages) html += '<button onclick="goToLogPage(' + (page + 1) + ')">\u25B6</button>';
+
+  html += '<span class="page-info">Показано ' + ((page-1)*perPage+1) + '\u2013' + Math.min(page*perPage, total) + ' из ' + total + '</span>';
+  container.innerHTML = html;
+}
+
+function goToLogPage(p) {
+  logsState.page = p;
+  loadLogs();
+  document.querySelector('.log-table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ═══════════════════════════════════════════════════
+   KANBAN TASKS
+═══════════════════════════════════════════════════ */
+let tasksData = { backlog: [], in_progress: [], done: [] };
+let editingTaskId = null;
+let deletingTaskId = null;
+let currentTags = [];
+let sortableInstances = [];
+
+async function loadTasks() {
+  try {
+    tasksData = await api('GET', '/api/admin/tasks');
+    renderKanban();
+  } catch (err) {
+    console.error('Failed to load tasks', err);
+    showNotification('Ошибка загрузки задач', 'error');
+  }
+}
+
+function renderKanban() {
+  ['backlog', 'in_progress', 'done'].forEach(function(status) {
+    var col = document.getElementById('col-' + status);
+    var count = document.getElementById('count-' + status);
+    var tasks = tasksData[status] || [];
+    count.textContent = tasks.length;
+    col.innerHTML = tasks.map(renderTaskCard).join('');
+  });
+  initSortable();
+}
+
+function renderTaskCard(task) {
+  var tags = (task.tags || []).map(function(t) {
+    return '<span class="task-tag ' + escHtml(t) + '">' + escHtml(t) + '</span>';
+  }).join('');
+  var desc = task.description_plain || task.description || '';
+  var sourceLabel = { manual: '', git_commit: '\uD83D\uDCC2 git', ai_generated: '\uD83E\uDD16 AI', github_issue: '\uD83D\uDC19 issue' };
+  var srcText = sourceLabel[task.source] || '';
+  return '<div class="task-card" data-id="' + escHtml(task.id) + '" data-source="' + escHtml(task.source) + '">'
+    + '<div class="task-card-title">' + escHtml(task.title) + '</div>'
+    + (desc ? '<div class="task-card-desc">' + escHtml(desc) + '</div>' : '')
+    + (tags ? '<div class="task-card-tags">' + tags + '</div>' : '')
+    + (srcText ? '<div class="task-card-source">' + srcText + '</div>' : '')
+    + '<div class="task-card-actions">'
+    + '<button class="task-edit-btn" data-id="' + escHtml(task.id) + '" title="Редактировать">\u270F\uFE0F</button>'
+    + '<button class="task-delete-btn" data-id="' + escHtml(task.id) + '" data-title="' + escHtml(task.title) + '" title="Удалить">\uD83D\uDDD1</button>'
+    + '</div></div>';
+}
+
+function initSortable() {
+  sortableInstances.forEach(function(s) { s.destroy(); });
+  sortableInstances = [];
+
+  ['backlog', 'in_progress', 'done'].forEach(function(status) {
+    var el = document.getElementById('col-' + status);
+    var instance = new Sortable(el, {
+      group: 'kanban',
+      animation: 200,
+      ghostClass: 'sortable-ghost',
+      dragClass: 'sortable-drag',
+      onEnd: async function(evt) {
+        var taskId = evt.item.dataset.id;
+        var newStatus = evt.to.closest('.kanban-column').dataset.status;
+        var oldStatus = evt.from.closest('.kanban-column').dataset.status;
+        var taskIds = Array.from(evt.to.children).map(function(c) { return c.dataset.id; });
+
+        updateKanbanCounts();
+
+        try {
+          if (oldStatus !== newStatus) {
+            await api('PATCH', '/api/admin/tasks/' + taskId, { status: newStatus });
+          }
+          await api('PATCH', '/api/admin/tasks/reorder', { status: newStatus, task_ids: taskIds });
+        } catch (err) {
+          console.error('Reorder failed', err);
+          showNotification('Ошибка сохранения порядка', 'error');
+          loadTasks();
+        }
+      }
+    });
+    sortableInstances.push(instance);
+  });
+}
+
+function updateKanbanCounts() {
+  ['backlog', 'in_progress', 'done'].forEach(function(status) {
+    var col = document.getElementById('col-' + status);
+    var count = document.getElementById('count-' + status);
+    count.textContent = col.children.length;
+  });
+}
+
+/* --- Task modal --- */
+function openTaskModal(taskId) {
+  editingTaskId = taskId || null;
+  currentTags = [];
+
+  var modal = document.getElementById('task-modal');
+  var title = document.getElementById('task-modal-title');
+
+  if (editingTaskId) {
+    title.textContent = 'Редактировать задачу';
+    var task = findTaskById(editingTaskId);
+    if (task) {
+      document.getElementById('task-title').value = task.title || '';
+      document.getElementById('task-desc').value = task.description || '';
+      document.getElementById('task-desc-plain').value = task.description_plain || '';
+      document.getElementById('task-status').value = task.status || 'backlog';
+      document.getElementById('task-source').value = task.source || 'manual';
+      document.getElementById('task-source-ref').value = task.source_ref || '';
+      currentTags = [].concat(task.tags || []);
+    }
+  } else {
+    title.textContent = 'Новая задача';
+    document.getElementById('task-title').value = '';
+    document.getElementById('task-desc').value = '';
+    document.getElementById('task-desc-plain').value = '';
+    document.getElementById('task-status').value = 'backlog';
+    document.getElementById('task-source').value = 'manual';
+    document.getElementById('task-source-ref').value = '';
+  }
+
+  renderTags();
+  modal.style.display = 'flex';
+  document.getElementById('task-title').focus();
+}
+
+function closeTaskModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('task-modal').style.display = 'none';
+  editingTaskId = null;
+}
+
+function editTask(id) { openTaskModal(id); }
+
+function findTaskById(id) {
+  var statuses = ['backlog', 'in_progress', 'done'];
+  for (var i = 0; i < statuses.length; i++) {
+    var arr = tasksData[statuses[i]] || [];
+    for (var j = 0; j < arr.length; j++) {
+      if (arr[j].id === id) return arr[j];
+    }
+  }
+  return null;
+}
+
+function addTag(tag) {
+  if (!tag || currentTags.indexOf(tag) !== -1) return;
+  currentTags.push(tag);
+  renderTags();
+}
+
+function removeTag(tag) {
+  currentTags = currentTags.filter(function(t) { return t !== tag; });
+  renderTags();
+}
+
+function renderTags() {
+  var list = document.getElementById('task-tags-list');
+  list.innerHTML = currentTags.map(function(t) {
+    return '<span class="tag-chip"><span class="task-tag ' + escHtml(t) + '">'
+      + escHtml(t) + '</span><button onclick="removeTag(\'' + escHtml(t) + '\')" type="button">\u2715</button></span>';
+  }).join('');
+}
+
+async function saveTask() {
+  var title = document.getElementById('task-title').value.trim();
+  if (!title) { showNotification('Введите название задачи', 'error'); return; }
+
+  var data = {
+    title: title,
+    description: document.getElementById('task-desc').value.trim() || null,
+    description_plain: document.getElementById('task-desc-plain').value.trim() || null,
+    status: document.getElementById('task-status').value,
+    source: document.getElementById('task-source').value,
+    source_ref: document.getElementById('task-source-ref').value.trim() || null,
+    tags: currentTags,
+  };
+
+  try {
+    if (editingTaskId) {
+      await api('PATCH', '/api/admin/tasks/' + editingTaskId, data);
+      showNotification('Задача обновлена', 'success');
+    } else {
+      await api('POST', '/api/admin/tasks', data);
+      showNotification('Задача создана', 'success');
+    }
+    closeTaskModal();
+    await loadTasks();
+  } catch (err) {
+    console.error('Save task failed', err);
+    showNotification('Ошибка сохранения', 'error');
+  }
+}
+
+/* --- Delete modal --- */
+function promptDeleteTask(id, title) {
+  deletingTaskId = id;
+  document.getElementById('delete-task-name').textContent = '\u00AB' + title + '\u00BB';
+  document.getElementById('task-delete-modal').style.display = 'flex';
+}
+
+function closeDeleteModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('task-delete-modal').style.display = 'none';
+  deletingTaskId = null;
+}
+
+async function confirmDeleteTask() {
+  if (!deletingTaskId) return;
+  try {
+    await api('DELETE', '/api/admin/tasks/' + deletingTaskId);
+    showNotification('Задача удалена', 'success');
+    closeDeleteModal();
+    await loadTasks();
+  } catch (err) {
+    console.error('Delete failed', err);
+    showNotification('Ошибка удаления', 'error');
+  }
+}
+
+/* Escape key closes modals */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeTaskModal();
+    closeDeleteModal();
+  }
+});
+
+/* Kanban card action delegation (edit / delete buttons) */
+document.querySelector('.kanban-board').addEventListener('click', function(e) {
+  var deleteBtn = e.target.closest('.task-delete-btn');
+  if (deleteBtn) {
+    promptDeleteTask(deleteBtn.dataset.id, deleteBtn.dataset.title);
+    return;
+  }
+  var editBtn = e.target.closest('.task-edit-btn');
+  if (editBtn) {
+    editTask(editBtn.dataset.id);
+  }
+});
+
+/* ═══════════════════════════════════════════════════
+   SETTINGS
+═══════════════════════════════════════════════════ */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+async function loadSettings() {
+  try {
+    const [sysInfo, auditLog] = await Promise.all([
+      api('GET', '/api/admin/system/info'),
+      api('GET', '/api/admin/audit-log?per_page=10'),
+    ]);
+    renderSystemInfo(sysInfo);
+    renderAuditMini(auditLog.items || []);
+  } catch (err) {
+    console.error('Settings load failed', err);
+    showNotification('Ошибка загрузки настроек', 'error');
+  }
+}
+
+function renderSystemInfo(info) {
+  const secs = info.uptime_seconds || 0;
+  const days = Math.floor(secs / 86400);
+  const hours = Math.floor((secs % 86400) / 3600);
+  const mins = Math.floor((secs % 3600) / 60);
+  const uptime = days > 0 ? days + 'д ' + hours + 'ч ' + mins + 'м'
+                           : hours + 'ч ' + mins + 'м';
+
+  setText('si-version', info.version || '—');
+  setText('si-python', info.python_version || '—');
+  setText('si-uptime', uptime);
+  setText('si-pool', (info.database?.pool_free || 0) + '/' + (info.database?.pool_size || 0) + ' free');
+  setText('si-tables', info.database?.tables_count ?? '—');
+  setText('si-events', (info.counts?.events_total || 0).toLocaleString('ru-RU'));
+
+  setText('si-ip-allowlist', info.environment?.admin_ip_allowlist || 'не задан');
+  setText('si-cors', (info.environment?.cors_origins || []).join(', '));
+  setText('si-rate-limits', info.environment?.rate_limits || '—');
+
+  setText('si-users', info.counts?.users ?? '—');
+  setText('si-schedules', info.counts?.schedules_active ?? '—');
+  setText('si-bookings', info.counts?.bookings_total ?? '—');
+  setText('si-tasks', info.counts?.tasks_total ?? '—');
+}
+
+function renderAuditMini(items) {
+  const container = document.getElementById('audit-mini-list');
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);padding:12px;">Нет записей</div>';
+    return;
+  }
+  container.innerHTML = items.map(function(a) {
+    const t = new Date(a.created_at);
+    const timeStr = t.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = t.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    return '<div class="audit-mini-item">'
+      + '<span class="time">' + escHtml(dateStr) + ' ' + escHtml(timeStr) + '</span>'
+      + '<span class="action">' + escHtml(a.action) + '</span>'
+      + '<span>' + escHtml(a.ip_address || '') + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+async function invalidateAllSessions() {
+  if (!confirm('Сбросить все сессии кроме текущей?\nПотребуется повторный вход на других устройствах.')) return;
+  try {
+    const result = await api('POST', '/api/admin/sessions/invalidate-all');
+    showNotification('Сброшено сессий: ' + result.invalidated, 'success');
+  } catch (err) {
+    showNotification('Ошибка сброса сессий', 'error');
+  }
+}
+
+async function cleanupEvents() {
+  const days = parseInt(document.getElementById('cleanup-days')?.value || '30', 10);
+  if (!confirm('Удалить info-события старше ' + days + ' дней?\nЭто действие нельзя отменить.')) return;
+  try {
+    const result = await api('POST', '/api/admin/maintenance/cleanup-events', {
+      older_than_days: days,
+      severity: 'info',
+    });
+    showNotification('Удалено событий: ' + result.deleted, 'success');
+    loadSettings();
+  } catch (err) {
+    showNotification('Ошибка очистки', 'error');
+  }
+}
 
 /* ═══════════════════════════════════════════════════
    TELEGRAM WIDGET LOADER

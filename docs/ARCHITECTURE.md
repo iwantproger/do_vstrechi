@@ -321,6 +321,14 @@ Permissions-Policy (camera, microphone, geolocation disabled). `server_tokens of
 |-------|------|----------|
 | GET | `/api/admin/audit-log` | Пагинированный лог действий администратора |
 
+### System & Maintenance
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/admin/system/info` | Версия, uptime, pool stats, счётчики, окружение (без секретов) |
+| POST | `/api/admin/sessions/invalidate-all` | Деактивировать все сессии кроме текущей |
+| POST | `/api/admin/maintenance/cleanup-events` | Удалить info/warn события старше N дней (error/critical защищены) |
+
 ### Event Tracking (публичный)
 
 | Метод | Путь | Auth | Описание |

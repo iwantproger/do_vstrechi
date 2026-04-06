@@ -72,6 +72,11 @@ make logs        # Посмотреть логи
 | `make build` | Пересобрать образы без кеша |
 | `make backup` | Дамп PostgreSQL в файл `backup_YYYYMMDD_HHMMSS.sql` |
 | `make restore FILE=backup_xxx.sql` | Восстановить БД из дампа |
+| `make migrate FILE=004_admin_tables.sql` | Применить конкретную SQL-миграцию |
+| `make migrate-all` | Применить все миграции по порядку |
+| `make admin` | Открыть `/admin/` в браузере |
+| `make health` | Проверить здоровье backend, admin, postgres |
+| `make cleanup` | Очистить старые Docker-образы и тома |
 | `make ssl` | Получить SSL-сертификат Let's Encrypt (первый раз) |
 | `make ssl-renew` | Обновить SSL и перезагрузить nginx |
 | `make psql` | Открыть psql-консоль в контейнере postgres |
@@ -108,6 +113,10 @@ make logs        # Посмотреть логи
 | `POSTGRES_DB` | postgres | Имя базы данных (default: `dovstrechi`) | — |
 | `POSTGRES_USER` | postgres | Пользователь PostgreSQL (default: `dovstrechi`) | — |
 | `POSTGRES_PASSWORD` | postgres | Пароль PostgreSQL | ✅ |
+| `ADMIN_TELEGRAM_ID` | backend | Telegram ID администратора — единственный допустимый для входа в админку | ✅ |
+| `ADMIN_SESSION_TTL_HOURS` | backend | Время жизни admin-сессии в часах (default: 2) | — |
+| `ADMIN_IP_ALLOWLIST` | backend | IP-whitelist для /admin/ через запятую (пусто = любой IP) | — |
+| `ANONYMIZE_SALT` | backend | Соль для SHA256-анонимизации telegram_id в app_events | — |
 
 **Примечание:** `DATABASE_URL` собирается автоматически в `docker-compose.yml` из `POSTGRES_USER`, `POSTGRES_PASSWORD` и `POSTGRES_DB`.
 
@@ -133,6 +142,24 @@ make logs        # Посмотреть логи
 | GET | `/api/bookings/pending-reminders?reminder_type=` | — | Список бронирований для напоминаний (24h/1h) |
 | PATCH | `/api/bookings/{booking_id}/reminder-sent?reminder_type=` | — | Отметить напоминание как отправленное |
 | GET | `/api/stats` | initData | Статистика: кол-во расписаний, бронирований, pending, confirmed, upcoming |
+| POST | `/api/events` | optional | Трекинг событий из Mini App (анонимизированный, пишет в app_events) |
+| POST | `/api/admin/auth/login` | Telegram Login Widget | Вход в админку — HMAC верификация → cookie `admin_session` |
+| POST | `/api/admin/auth/logout` | admin cookie | Деактивация сессии + удаление cookie |
+| GET | `/api/admin/auth/me` | admin cookie | Данные текущей сессии (telegram_id, expires_at) |
+| GET | `/api/admin/dashboard/summary` | admin cookie | 6 метрик: users, active_7d, bookings_today, pending, errors_24h |
+| GET | `/api/admin/dashboard/bookings-trend` | admin cookie | Бронирования по дням за N дней (query: days=30) |
+| GET | `/api/admin/dashboard/platforms` | admin cookie | Распределение расписаний по платформам |
+| GET | `/api/admin/logs` | admin cookie | Пагинированные app_events с фильтрами (severity, event_type, search, date) |
+| GET | `/api/admin/logs/stats` | admin cookie | Агрегация за 24ч: by_severity, by_type, unique_users |
+| GET | `/api/admin/tasks` | admin cookie | Задачи, сгруппированные по статусу (backlog/in_progress/done) |
+| POST | `/api/admin/tasks` | admin cookie | Создать задачу (priority auto-increment) |
+| PATCH | `/api/admin/tasks/reorder` | admin cookie | Переставить задачи в колонке (mass priority update) |
+| PATCH | `/api/admin/tasks/{id}` | admin cookie | Обновить задачу (при смене status — пересчёт priority) |
+| DELETE | `/api/admin/tasks/{id}` | admin cookie | Физическое удаление задачи |
+| GET | `/api/admin/audit-log` | admin cookie | Пагинированный лог admin-действий |
+| GET | `/api/admin/system/info` | admin cookie | Версия, uptime, pool stats, counts, окружение (без секретов) |
+| POST | `/api/admin/sessions/invalidate-all` | admin cookie | Деактивировать все сессии кроме текущей |
+| POST | `/api/admin/maintenance/cleanup-events` | admin cookie | Удалить info/warn события старше N дней |
 
 ## Telegram Bot — команды и handlers
 
@@ -198,7 +225,7 @@ make logs        # Посмотреть логи
 
 ## Схема базы данных
 
-Определена в `database/init.sql`. PostgreSQL 16, расширение `uuid-ossp`.
+Определена в `database/init.sql`. PostgreSQL 16, расширение `uuid-ossp`. Миграции: `database/migrations/*.sql`.
 
 ### Таблицы
 
@@ -207,6 +234,10 @@ make logs        # Посмотреть логи
 | `users` | id (UUID PK), telegram_id (BIGINT UNIQUE), username, first_name, last_name, **timezone** (TEXT, default 'UTC'), created_at, updated_at | Пользователи-организаторы |
 | `schedules` | id (UUID PK), user_id (FK→users CASCADE), title, duration (INT, мин), buffer_time (INT, мин), work_days (INT[]), start_time (TIME), end_time (TIME), location_mode, platform, is_active (BOOL), created_at, updated_at | Расписания для бронирования |
 | `bookings` | id (UUID PK), schedule_id (FK→schedules CASCADE), guest_name, guest_contact, guest_telegram_id, scheduled_time (TIMESTAMPTZ), status (CHECK: pending/confirmed/cancelled/completed), meeting_link, notes, **reminder_24h_sent** (BOOL), **reminder_1h_sent** (BOOL), created_at, updated_at | Бронирования встреч |
+| `admin_sessions` | id (UUID PK), telegram_id (BIGINT), session_token (TEXT UNIQUE), ip_address (INET), user_agent, expires_at (TIMESTAMPTZ), is_active (BOOL) | Admin cookie-сессии |
+| `admin_audit_log` | id (BIGSERIAL PK), action (TEXT CHECK), details (JSONB), ip_address (INET), created_at | Лог всех admin-действий |
+| `app_events` | id (BIGSERIAL PK), event_type (TEXT), anonymous_id (TEXT, 12 chars), session_id, metadata (JSONB), severity (CHECK: info/warn/error/critical), created_at | Аналитика: события приложения с анонимизацией |
+| `admin_tasks` | id (UUID PK), title, description, description_plain, status (CHECK: backlog/in_progress/done), priority (INT), source (CHECK), source_ref, tags (TEXT[]), created_at, updated_at | Kanban-задачи |
 
 ### View
 
@@ -329,6 +360,11 @@ make logs        # Посмотреть логи
 - **Security headers** — HSTS, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
 - **Telegram Login Widget** требует домен, зарегистрированный в BotFather: `/setdomain` → `dovstrechiapp.ru`
 - **Админка** доступна по `/admin/`, rate limit 5 req/s (auth: 3 req/min), cookie-based сессии
+- **Admin cookie path=/api/admin** — cookie не утекает на основной сайт (`/`), отправляется только с `/api/admin/*` запросами
 - **CSP** включает `https://telegram.org` и `https://oauth.telegram.org` для Telegram Login Widget
+- **CSP /admin/** дополнительно включает `https://cdnjs.cloudflare.com` для Chart.js и SortableJS
+- **Structlog JSON-логи** — для просмотра: `docker compose logs backend | python3 -m json.tool` или `jq '.'`
+- **structlog не логирует health** — `StructlogMiddleware` пропускает `/` и `/health` чтобы не засорять логи healthcheck-запросами
+- **app_events anonymous_id** — 12-символьный хеш SHA256(telegram_id:ANONYMIZE_SALT). Нельзя восстановить telegram_id без знания соли
 - **Docker nested bind mounts** — `./admin` монтируется ВНУТРЬ `./frontend` (оба в `/usr/share/nginx/html`). Родительский маунт frontend **без** `:ro`, иначе nginx не запустится. Подробности: `docs/incidents/INC_001_NGINX_GRAY_SCREEN.md`
 - **Frontend gray screen protection** — три слоя: CSS `_force-show` (5s fallback), global error handlers → `.ready`, try/catch на TG SDK init. Не удалять!

@@ -18,7 +18,27 @@ jobs:
           command_timeout: 12m
           script: |
             cd /opt/dovstrechi
+
+            # Pull latest
             git fetch origin
             git reset --hard origin/main
+
+            # Build and deploy
             docker compose build
             docker compose up -d
+
+            # Apply migrations (idempotent — safe to re-run)
+            echo "Applying migrations..."
+            for f in $(ls database/migrations/*.sql | sort); do
+              echo "  → $(basename $f)"
+              docker compose exec -T postgres psql \
+                -U ${POSTGRES_USER:-dovstrechi} \
+                -d ${POSTGRES_DB:-dovstrechi} \
+                -f /docker-entrypoint-initdb.d/migrations/$(basename $f) 2>&1 || true
+            done
+
+            # Health check
+            sleep 5
+            curl -sf http://localhost/health || echo "WARNING: Health check failed"
+
+            echo "Deploy complete"

@@ -94,12 +94,46 @@ docker compose restart nginx
 ```bash
 make up            # запустить все сервисы
 make down          # остановить все сервисы
+make restart       # полный перезапуск с ребилдом
 make logs          # логи всех сервисов
 make logs-backend  # логи backend
 make logs-bot      # логи бота
+make ps            # статус контейнеров
+make health        # проверить здоровье всех сервисов
 make psql          # открыть psql (интерактивная консоль)
 make backup        # сделать дамп БД
-make restart       # полный перезапуск с ребилдом
+make migrate FILE=004_admin_tables.sql  # применить конкретную миграцию
+make migrate-all   # применить все миграции по порядку
+make admin         # открыть админку в браузере
+make cleanup       # очистить старые Docker-образы
+```
+
+## Админ-панель
+
+Внутренняя панель управления доступна по адресу `/admin/`.
+
+### Возможности
+
+- **Дашборд** — метрики пользователей, бронирований, ошибок + графики (Chart.js)
+- **Логи** — просмотр событий с фильтрацией по severity, типу, пользователю, дате
+- **Задачи** — Kanban-доска с drag & drop (Backlog → In Progress → Done)
+- **Настройки** — системная информация, управление сессиями, очистка событий
+
+### Доступ
+
+Только для владельца — через Telegram Login Widget. Задать `ADMIN_TELEGRAM_ID` в `.env`.
+
+### Первая настройка
+
+```bash
+# 1. Задать домен в BotFather: /setdomain → dovstrechiapp.ru
+# 2. Задать ADMIN_TELEGRAM_ID в .env
+# 3. Применить миграцию (создаёт 4 таблицы для админки)
+make migrate FILE=004_admin_tables.sql
+# 4. Пересобрать сервисы
+make restart
+# 5. Открыть
+make admin
 ```
 
 ## API

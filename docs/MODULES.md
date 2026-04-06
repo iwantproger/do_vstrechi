@@ -2,36 +2,47 @@
 
 ## Общая структура
 
-Проект состоит из трёх сервисов, каждый представлен **одним файлом**:
+Проект состоит из четырёх UI-компонентов и трёх сервисов:
 
-| Сервис | Файл | Строк | Назначение |
-|--------|------|-------|-----------|
-| Backend | `backend/main.py` | ~714 | FastAPI app: auth, роуты, модели, БД-запросы, напоминания |
-| Bot | `bot/bot.py` | ~879 | aiogram: handlers, FSM, клавиатуры, HTTP-сервер уведомлений, напоминания |
-| Frontend | `frontend/index.html` | ~3100 | HTML + CSS + JS: SPA Mini App |
+| Файл | Строк | Назначение |
+|------|-------|-----------|
+| `backend/main.py` | ~1785 | FastAPI app: auth (initData + admin sessions), роуты, модели, БД-запросы, structlog, event tracking |
+| `bot/bot.py` | ~879 | aiogram: handlers, FSM, клавиатуры, HTTP-сервер уведомлений, напоминания |
+| `frontend/index.html` | ~3100 | HTML + CSS + JS: SPA Mini App (Telegram) |
+| `admin/index.html` | ~2260 | HTML + CSS + JS: SPA Админ-панель (Dashboard, Logs, Tasks, Settings) |
 
 ---
 
 ## Backend (`backend/main.py`)
 
-### Инициализация и конфигурация (строки 1–145)
+### Инициализация и конфигурация
 
-- **Logging:** `logging.basicConfig`, уровень INFO
-- **Env:** `DATABASE_URL`, `BOT_TOKEN`, `INTERNAL_API_KEY`, `BOT_INTERNAL_URL`, `MINI_APP_URL`
-- **Auth:** `validate_init_data()` (HMAC-SHA256), `get_current_user()`, `get_optional_user()` — строки 37–96
+- **Structlog:** JSON-логи с contextvars (request_id, method, path, duration_ms) — машиночитаемый формат для Docker
+- **Env:** `DATABASE_URL`, `BOT_TOKEN`, `INTERNAL_API_KEY`, `BOT_INTERNAL_URL`, `MINI_APP_URL` + `ADMIN_TELEGRAM_ID`, `ADMIN_SESSION_TTL_HOURS`, `ADMIN_IP_ALLOWLIST`, `ANONYMIZE_SALT`
+- **Auth (Mini App):** `validate_init_data()` — HMAC-SHA256 по Telegram initData. Dependency: `get_current_user()`, `get_optional_user()`
+- **Auth (Admin):** `verify_telegram_login()` — Login Widget HMAC. `create_admin_session()`, `validate_admin_session()`. Dependency: `get_admin_user()`
+- **Middleware:** `StructlogMiddleware` — request context (request_id, метод, путь); логирует только не-health запросы; добавляет `X-Request-ID` в ответ
 - **Connection pool:** `asyncpg.create_pool(min_size=2, max_size=10)` в `lifespan()`
-- **CORS:** whitelist `dovstrechiapp.ru`, methods GET/POST/PATCH/DELETE, headers Content-Type + X-Init-Data
+- **CORS:** whitelist `dovstrechiapp.ru`, methods GET/POST/PATCH/DELETE
 - **App:** `FastAPI(title="До встречи API", version="2.0.0")`
+- **`_start_time`:** глобальная переменная для расчёта uptime
 
-### Pydantic-модели (строки 150–177)
+### Pydantic-модели
 
 | Модель | Назначение |
 |--------|-----------|
-| `UserAuth` | Запрос: POST `/api/users/auth` |
-| `ScheduleCreate` | Запрос: POST `/api/schedules` |
-| `BookingCreate` | Запрос: POST `/api/bookings` |
+| `UserAuth` | POST `/api/users/auth` |
+| `ScheduleCreate` | POST `/api/schedules` |
+| `ScheduleUpdate` | PATCH `/api/schedules/{id}` |
+| `BookingCreate` | POST `/api/bookings` |
+| `TelegramLoginData` | POST `/api/admin/auth/login` — Telegram Login Widget payload |
+| `TaskCreate` | POST `/api/admin/tasks` |
+| `TaskUpdate` | PATCH `/api/admin/tasks/{id}` |
+| `TaskReorder` | PATCH `/api/admin/tasks/reorder` |
+| `AppEvent` | POST `/api/events` — public event tracking |
+| `CleanupRequest` | POST `/api/admin/maintenance/cleanup-events` |
 
-### Утилиты (строки 175–213)
+### Утилиты
 
 | Функция | Описание |
 |---------|----------|
@@ -39,6 +50,13 @@
 | `rows_to_list(rows)` | Список Records → список dict |
 | `generate_meeting_link(platform)` | Генерация Jitsi URL: `https://meet.jit.si/dovstrechi-{uuid[:12]}` |
 | `_notify_bot_new_booking(**kwargs)` | Fire-and-forget POST в бот (httpx) — уведомление о новом бронировании |
+| `_track_event(conn, event_type, telegram_id, metadata, severity)` | Запись в `app_events` с анонимизацией ID; try/except — не ломает запрос |
+| `anonymize_id(telegram_id)` | SHA256(`{id}:{ANONYMIZE_SALT}`)[:12] — необратимая анонимизация |
+| `log_admin_action(action, ip, details, conn)` | INSERT в `admin_audit_log` |
+| `verify_telegram_login(auth_data)` | HMAC-SHA256 верификация Telegram Login Widget данных |
+| `create_admin_session(telegram_id, ip, user_agent, conn)` | Деактивация старых сессий + создание новой + аудит |
+| `validate_admin_session(token, conn)` | Проверка токена: активна, не истекла, принадлежит admin |
+| `_check_login_rate_limit(ip)` | In-memory rate limit: >3 попыток за 5 мин → True |
 
 ### Роуты: Health (строки 216–231)
 
@@ -333,6 +351,70 @@ CreateSchedule (StatesGroup):
 | Ключ | Описание |
 |------|----------|
 | `sb_settings` | JSON: `{notif: bool, '24h': bool, '1h': bool}` — настройки уведомлений |
+
+---
+
+## Admin Panel (`admin/index.html`)
+
+### Архитектура
+
+SPA в одном файле (~2260 строк): CSS Variables + компоненты → HTML-разметка → JavaScript. Зависимости через CDN: Chart.js 4.4.7 (графики), SortableJS 1.15.6 (drag & drop). Навигация: hash-based (`#dashboard`, `#logs`, `#tasks`, `#settings`).
+
+### Экраны
+
+| Экран | Hash | Основные компоненты |
+|-------|------|---------------------|
+| Login | (пусто) | Telegram Login Widget + fallback, error display |
+| Dashboard | `#dashboard` | 6 metric cards с skeleton-loading, line/doughnut/bar Chart.js |
+| Logs | `#logs` | Stats bar (4 severities), 6 фильтров, таблица с pagination |
+| Tasks | `#tasks` | Kanban 3 колонки, drag & drop, create/edit/delete modals |
+| Settings | `#settings` | System info grid, security rows, audit mini-list, maintenance |
+
+### Auth flow
+
+1. При загрузке: `checkSession()` → GET `/api/admin/auth/me`
+2. 401 → показать Login screen + загрузить Telegram Login Widget
+3. Пользователь нажимает "войти через Telegram" → `onTelegramAuth(user)` callback
+4. POST `/api/admin/auth/login` → сервер выставляет cookie `admin_session`
+5. Переход на `#dashboard` + `startDashboardRefresh()` (auto-refresh 60s)
+6. Logout → POST `/api/admin/auth/logout` + `stopDashboardRefresh()`
+
+### Ключевые функции JavaScript
+
+| Функция | Описание |
+|---------|----------|
+| `api(method, path, body)` | Единый fetch helper, `credentials: 'same-origin'`, JSON |
+| `navigateTo(page)` | Переключение страниц + загрузка данных + обновление sidebar |
+| `escHtml(str)` | XSS-защита: `&`, `<`, `>`, `"`, `'` |
+| `showNotification(msg, type)` | Toast уведомление (3 сек, auto-hide) |
+| `loadDashboard()` | Promise.all 3 API-запросов → metrics + 3 charts |
+| `renderTrendChart(data)` | Chart.js line (заливка teal, destroy before recreate) |
+| `renderPlatformsChart(data)` | Chart.js doughnut + "Нет данных" fallback |
+| `renderWeekdayChart(data)` | Chart.js bar (агрегация из trend, Mon-Fri/Sat-Sun раскраска) |
+| `loadLogs()` | Параллельно: stats + paginated logs → renderLogTable + pagination |
+| `filterBySeverity(sev)` | Клик по severity badge → фильтрация |
+| `filterByUser(anonymousId)` | Клик по user_id в таблице → фильтрация по anonymous_id |
+| `debounceFilterLogs()` | Debounce 400ms для search input |
+| `loadTasks()` | GET tasks → renderKanban() |
+| `initSortable()` | SortableJS группа 'kanban', animation 200ms, onEnd → PATCH status/reorder |
+| `renderTaskCard(task)` | XSS-safe HTML с data-атрибутами (не inline onclick) |
+| `openTaskModal(taskId?)` | Создание (empty) или редактирование (prefill) задачи |
+| `saveTask()` | POST (create) / PATCH (update) с Pydantic-совместимым телом |
+| `loadSettings()` | Promise.all: system/info + audit-log → renderSystemInfo + renderAuditMini |
+| `invalidateAllSessions()` | confirm() → POST sessions/invalidate-all |
+| `cleanupEvents()` | confirm() → POST maintenance/cleanup-events |
+
+### Состояние (глобальные переменные)
+
+| Переменная | Тип | Назначение |
+|-----------|-----|-----------|
+| `sessionData` | object | Данные текущей сессии (telegram_id, expires_at) |
+| `logsState` | object | Страница, фильтры, total для логов |
+| `tasksData` | object | `{backlog:[], in_progress:[], done:[]}` |
+| `editingTaskId` / `deletingTaskId` | string\|null | ID задачи в модальном окне |
+| `currentTags` | string[] | Теги редактируемой задачи |
+| `sortableInstances` | Sortable[] | Инстансы SortableJS для очистки при перерендере |
+| `dashboardInterval` | number | ID setInterval для auto-refresh |
 
 ---
 

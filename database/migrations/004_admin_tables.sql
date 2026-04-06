@@ -33,12 +33,34 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
                         'login', 'logout', 'session_check',
                         'view_dashboard', 'view_logs', 'view_analytics',
                         'task_create', 'task_update', 'task_delete',
-                        'settings_change'
+                        'settings_change', 'invalidate_sessions', 'cleanup_events'
                     )),
     details         JSONB,
     ip_address      INET NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Idempotent constraint upgrade (if table already existed with old constraint)
+DO $$
+BEGIN
+    -- Drop old constraint if it doesn't include the new values
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'admin_audit_log_action_check'
+          AND conrelid = 'admin_audit_log'::regclass
+          AND consrc NOT LIKE '%invalidate_sessions%'
+    ) THEN
+        ALTER TABLE admin_audit_log DROP CONSTRAINT admin_audit_log_action_check;
+        ALTER TABLE admin_audit_log ADD CONSTRAINT admin_audit_log_action_check
+            CHECK (action IN (
+                'login', 'logout', 'session_check',
+                'view_dashboard', 'view_logs', 'view_analytics',
+                'task_create', 'task_update', 'task_delete',
+                'settings_change', 'invalidate_sessions', 'cleanup_events'
+            ));
+    END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_created
     ON admin_audit_log (created_at DESC);

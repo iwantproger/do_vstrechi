@@ -119,6 +119,72 @@ Bot (aiogram) ──X-Internal-Key──► Backend (trusted internal network)
 
 ---
 
+## Аудит #2 — 2026-04-06 (точечный — админ-панель)
+
+**Аудитор:** Claude Code (Security Engineer mode)
+**Scope:** Все новые файлы и изменения Фаз 1–3 (admin panel): `backend/main.py` (новые функции/эндпоинты), `admin/index.html`, `nginx/nginx.conf`, `database/migrations/004_admin_tables.sql`
+**Триггер:** Завершение разработки полной функциональности админ-панели
+
+### Найдено
+
+| # | Severity | Категория | Файл | Проблема | Исправление |
+|---|----------|-----------|------|----------|-------------|
+| A2-L1 | LOW | Memory leak | `backend/main.py` | `_session_checked: set[str]` растёт неограниченно — никогда не очищается за всё время жизни процесса | Принятый риск: один admin-пользователь, перезапуск Docker очищает память. Нет реального threat при текущей нагрузке |
+| A2-L2 | LOW | Token в лог | `backend/main.py:1281` | `session_prefix=session_token[:8]` — первые 8 символов session token в structured log | Принятый риск: 8 из 86 URL-safe символов (~6 бит из ~516 бит). Оставшаяся энтропия достаточна. Логи хранятся только на сервере |
+
+Новых уязвимостей категории CRITICAL, HIGH, MEDIUM не найдено.
+
+### Проверено без замечаний
+
+| Категория | Что проверялось | Результат |
+|-----------|----------------|-----------|
+| Auth: Login Widget | `verify_telegram_login()` — SHA256(BOT_TOKEN) → HMAC, сортировка ключей, auth_date < 300s | ✅ Корректно |
+| Auth: cookie | HttpOnly=True, Secure=True, SameSite="strict", path="/api/admin" — cookie не утекает на основной сайт | ✅ |
+| Auth: ADMIN_TELEGRAM_ID | Сравнение как int: `data.id != ADMIN_TELEGRAM_ID` | ✅ |
+| Auth: session token | `secrets.token_urlsafe(64)` — 64 байта = ~516 бит энтропии | ✅ |
+| Auth: инвалидация | При новом логине все старые сессии деактивируются (`is_active = FALSE WHERE telegram_id`) | ✅ |
+| Auth: rate limit | nginx 3r/min + backend `_login_attempts` (3 попытки / 5 мин) — два слоя | ✅ |
+| Auth: generic errors | Все отказы возвращают `"Authentication failed"` без причины | ✅ |
+| SQL: admin/logs | Динамический WHERE через `$idx` placeholders, значения в params list | ✅ |
+| SQL: PATCH tasks | SET clause из Pydantic `model_dump()` — column names не пользовательский ввод | ✅ |
+| SQL: cleanup-events | `$1` (severity), `$2` (days) — параметризовано | ✅ |
+| XSS: admin frontend | `renderLogTable`, `renderTaskCard`, `renderAuditMini` — все поля через `escHtml()` или `textContent` | ✅ |
+| XSS: event delegation | Кнопки task cards используют `data-id`/`data-title` через HTML entities (FIX 4) | ✅ |
+| Data leak: system/info | CORS origins, IP allowlist, rate limits — без BOT_TOKEN, INTERNAL_API_KEY, POSTGRES_PASSWORD | ✅ |
+| Data leak: structlog | `session_prefix=token[:8]`, никаких полных секретов в логах | ✅ |
+| Data leak: error handler | Non-HTTP exceptions → `"Internal server error"`, traceback не возвращается | ✅ |
+| Data leak: analytics | `anonymize_id()` — SHA256(id:salt)[:12], необратимо | ✅ |
+| nginx: /admin/ headers | X-Robots-Tag, HSTS, X-Content-Type-Options, CSP, Referrer-Policy, Permissions-Policy, frame-ancestors 'none' | ✅ |
+| nginx: CSP cdnjs | `script-src` включает `https://cdnjs.cloudflare.com` для Chart.js и SortableJS | ✅ |
+| nginx: Cache-Control | `/admin/` возвращает `no-cache, must-revalidate` | ✅ |
+| Logic: cleanup | `severity` pattern `^(info\|warn)$` — Pydantic отклоняет `error`/`critical` с 422 | ✅ |
+| Logic: invalidate | `session_token != $1` — текущая сессия защищена от инвалидации | ✅ |
+| Logic: admin endpoints | Все 18 `/api/admin/*` эндпоинтов имеют `Depends(get_admin_user)` | ✅ |
+
+### Обновление статуса защиты
+
+| Компонент | Было (Аудит #1) | Стало (Аудит #2) |
+|-----------|-----------------|------------------|
+| Admin Auth | Нет | Telegram Login Widget + cookie sessions (HttpOnly, Secure, SameSite=Strict) |
+| Admin API | Нет | 18 эндпоинтов, все за `Depends(get_admin_user)` |
+| Logging | `logging.basicConfig` | structlog JSON + contextvars (request_id, path, method, duration_ms) |
+| Event tracking | Нет | `app_events` с SHA256-анонимизацией telegram_id |
+| Rate Limits | api: 10r/s, booking: 5r/m | + admin: 5r/s burst=10, admin_auth: 3r/m burst=2 |
+| CSP | `telegram.org` | + `oauth.telegram.org`, `cdnjs.cloudflare.com` |
+| Audit trail | Нет | `admin_audit_log` — все admin-действия (login, logout, view_*, task_*, cleanup) |
+| Cache-Control | Нет на /admin/ | `no-cache, must-revalidate` |
+
+### Обновление открытых рисков
+
+| # | Изменение |
+|---|-----------|
+| R1 | Без изменений — ротация секретов на сервере не подтверждена |
+| R2 | Без изменений — нет RLS, принятый риск |
+| R3 | Без изменений — `unsafe-inline` для style-src, принятый риск |
+| R4 (новый) | LOW — `_session_checked` не очищается. Принятый риск, нет практического impact |
+
+---
+
 ## Чеклист для будущих аудитов
 
 При каждом новом аудите проверять:
@@ -164,4 +230,4 @@ Bot (aiogram) ──X-Internal-Key──► Backend (trusted internal network)
 
 ---
 
-*Последнее обновление: 2026-04-04*
+*Последнее обновление: 2026-04-06*

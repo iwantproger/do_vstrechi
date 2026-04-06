@@ -18,6 +18,12 @@
 | 12 | CORS whitelist (dovstrechiapp.ru) | Безопасность: ограничить origin, methods, headers | allow_origins=["*"] (использовалось ранее, убрано) |
 | 13 | MemoryStorage для FSM | Достаточно для одного инстанса бота, нет зависимости от Redis | Redis storage (нужен при масштабировании) |
 | 14 | Docker Compose 3.9 | Стандарт оркестрации для single-server deployment | Kubernetes (overkill), bare-metal |
+| 15 | Telegram Login Widget для аутентификации в админке | Нет отдельной базы паролей, 2FA встроен в Telegram, один владелец — нет смысла в отдельном auth-сервисе | Email+password+2FA (нужен хеш паролей), Passkeys (сложная настройка), VPN-only (неудобен) |
+| 16 | Cookie sessions вместо JWT для admin | Server-side invalidation при logout/компрометации, нет refresh token логики, `path=/api/admin` изолирует от основного сайта | JWT (stateless — нельзя инвалидировать без блэклиста), sessionStorage (утечка при XSS) |
+| 17 | Structlog + JSON-логи | Machine-readable формат для Docker log aggregation, structured context через contextvars (request_id), легко парсить `docker logs | python -m json.tool` | Стандартный logging (text), ELK/Loki stack (overkill для VPS) |
+| 18 | Chart.js + SortableJS через CDN | Нет npm/build step, нет Node.js зависимости, CDN-кеширование, Chart.js 4.4.7 (~200KB) и SortableJS (~30KB) — приемлемо | Recharts (требует React), D3 (overkill), локальные бандлы (нужен Webpack/Vite) |
+| 19 | Event tracking в PostgreSQL (app_events) | Единая БД, SQL-аналитика, простая схема, нет внешних зависимостей | Elasticsearch (overkill), ClickHouse (отдельный сервис), Mixpanel/Amplitude (зарубежные, нарушают 152-ФЗ) |
+| 20 | Анонимизация telegram_id через SHA256+salt | Необратимо — нельзя восстановить telegram_id из лога, консистентно — один пользователь всегда один anonymous_id, privacy-first | UUID random (нет consistency для аналитики), reversible encoding (раскрывает данные при утечке соли) |
 
 ## Известные технические ограничения
 
@@ -56,16 +62,17 @@
 | ~~Высокий~~ | ~~Нет валидации Telegram InitData~~ | ~~`backend/main.py`~~ | ~~HMAC-подпись~~ | ✅ Решено |
 | ~~Высокий~~ | ~~CORS allow_origins=["*"]~~ | ~~`backend/main.py`~~ | ~~Whitelist~~ | ✅ Решено |
 | ~~Высокий~~ | ~~Секреты в .env.example~~ | ~~`.env.example`~~ | ~~Плейсхолдеры~~ | ✅ Решено |
-| Средний | Всё в одном файле (backend) | `backend/main.py` (714 строк) | Разделить на routers/, schemas/, db/ | Открыт |
+| Средний | Всё в одном файле (backend) | `backend/main.py` (~1785 строк) | Разделить на routers/, schemas/, db/ | Открыт |
 | Средний | Всё в одном файле (bot) | `bot/bot.py` (879 строк) | Разделить на handlers/, keyboards/, states.py | Открыт |
 | Средний | Всё в одном файле (frontend) | `frontend/index.html` (~3100 строк) | Вынести JS в отдельные файлы | Открыт |
+| Средний | Всё в одном файле (admin) | `admin/index.html` (~2260 строк) | Вынести JS/CSS в отдельные файлы, добавить сборку | Открыт |
 | ~~Средний~~ | ~~Нет миграций~~ | ~~`database/init.sql`~~ | ~~Ручные миграции~~ | ✅ Частично (ручные SQL-файлы в `database/migrations/`) |
 | Средний | Нет тестов | весь проект | Добавить pytest (backend), pytest-aiogram (bot) | Открыт |
 | ~~Средний~~ | ~~Нет таймзон~~ | ~~`backend/main.py`~~ | ~~ZoneInfo~~ | ✅ Решено (users.timezone + viewer_tz) |
 | Средний | generate_meeting_link игнорирует platform | `backend/main.py:188-193` | Генерировать разные ссылки по platform | Открыт |
 | Низкий | Нет пагинации | GET `/api/bookings`, GET `/api/schedules` | Добавить `limit`/`offset` query params | Открыт |
 | ~~Низкий~~ | ~~Нет rate limiting~~ | ~~весь backend~~ | ~~nginx rate limiting~~ | ✅ Частично (nginx, не backend) |
-| Низкий | Нет логирования запросов | `backend/main.py` | Добавить access log middleware | Открыт |
+| ~~Низкий~~ | ~~Нет логирования запросов~~ | ~~`backend/main.py`~~ | ~~Добавить access log middleware~~ | ✅ Решено (StructlogMiddleware) |
 | Низкий | skip_updates=True при старте бота | `bot/bot.py:866` | Рассмотреть обработку пропущенных сообщений | Открыт |
 
 ## Задокументированные workarounds
