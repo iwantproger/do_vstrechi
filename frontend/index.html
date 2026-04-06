@@ -3846,7 +3846,7 @@ function detectTimezone() {
   catch(e) { return 'Europe/Moscow'; }
 }
 
-function loadProfile() {
+async function loadProfile() {
   var u = state.user || tg?.initDataUnsafe?.user;
   if (!u) return;
 
@@ -3858,12 +3858,29 @@ function loadProfile() {
   if (nm) nm.textContent = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
   if (sub) sub.textContent = u.username ? '@' + u.username : 'ID: ' + (u.telegram_id || u.id);
 
-  /* profile link */
-  var slug = u.username || (u.telegram_id || u.id);
-  var linkUrl = location.origin + '/u/' + slug;
+  /* profile link — ссылка на дефолтное/первое расписание через Direct Link */
   var linkSubEl = document.getElementById('profile-link-sub');
-  if (linkSubEl) linkSubEl.textContent = linkUrl.replace(/^https?:\/\//, '');
-  state._profileLink = linkUrl;
+  if (linkSubEl) linkSubEl.textContent = '...';
+  state._profileLink = null;
+  state._profileTgUrl = null;
+
+  if (!state.schedules || !state.schedules.length) {
+    var { data: schData } = await apiFetch('GET', '/api/schedules');
+    if (schData) state.schedules = schData;
+  }
+  var defaultSched = (state.schedules || []).find(function(s) { return s.is_default; })
+                  || (state.schedules || [])[0];
+  if (defaultSched) {
+    state._profileLink = getScheduleUrl(defaultSched.id);
+    state._profileTgUrl = getScheduleTelegramUrl(defaultSched.id);
+    state._profileSchedTitle = defaultSched.title;
+    if (linkSubEl) linkSubEl.textContent = state._profileLink.replace(/^https?:\/\//, '');
+  } else {
+    state._profileLink = 'https://t.me/do_vstrechi_bot';
+    state._profileTgUrl = 'https://t.me/do_vstrechi_bot';
+    state._profileSchedTitle = null;
+    if (linkSubEl) linkSubEl.textContent = 'Создайте расписание для получения ссылки';
+  }
 
   /* timezone */
   var tz = detectTimezone();
@@ -4128,24 +4145,34 @@ function shareProfileLink() {
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 }
 
-/* FIX: Bug #7 — одна кнопка «Поделиться» с Web Share API + fallback */
+/* FIX: профиль — шаринг через Direct Link (t.me/app?startapp=UUID), не /u/slug */
 async function shareMyLink() {
-  var url = state._profileLink;
-  if (!url) return;
+  /* Если ссылка ещё не загружена — ждём загрузки профиля */
+  if (!state._profileTgUrl) {
+    await loadProfile();
+  }
+  var tgUrl = state._profileTgUrl || 'https://t.me/do_vstrechi_bot';
+  var webUrl = state._profileLink || tgUrl;
+  var title = state._profileSchedTitle || 'встречу';
+  var text = '📅 Запишись ко мне — ' + title;
+
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'До встречи', text: 'Запишись ко мне на встречу:', url: url });
+      await navigator.share({ title: 'До встречи', text: text, url: tgUrl });
       if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-    } catch(e) { /* пользователь отменил — ничего не делаем */ }
+    } catch(e) { /* пользователь отменил */ }
     return;
   }
-  /* Fallback: Telegram share или clipboard */
+  /* Fallback: Telegram share через openTelegramLink */
   if (tg?.openTelegramLink) {
-    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url));
+    var shareUrl = 'https://t.me/share/url'
+      + '?url=' + encodeURIComponent(tgUrl)
+      + '&text=' + encodeURIComponent(text);
+    tg.openTelegramLink(shareUrl);
     if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
   } else {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(tgUrl);
       showToast('Ссылка скопирована ✓', 'success');
     } catch(e) {
       showToast('Не удалось скопировать');
