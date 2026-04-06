@@ -316,6 +316,11 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .chip:active{transform:scale(.95)}
 .chip.on{background:var(--ad);color:var(--a);border-color:rgba(0,229,168,.25)}
 .chip-day{width:40px;height:40px;padding:0;border-radius:var(--r1);font-size:12px;justify-content:center}
+.rc-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;border-radius:50%;background:rgba(255,255,255,.25);font-size:11px;font-weight:800;line-height:1;cursor:pointer;transition:background .15s;flex-shrink:0}
+.rc-x:active{background:rgba(255,255,255,.5)}
+.reminder-chip:not(.on) .rc-x{background:rgba(0,0,0,.15)}
+.rc-add{border:1.5px dashed var(--b2)!important;background:transparent!important;color:var(--t2)!important;gap:4px}
+.rc-add:active{background:var(--s2)!important}
 
 /* ── Toggle row ── */
 .tog-row{
@@ -1349,6 +1354,30 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div id="changelog-body" style="padding:0 16px 4px;max-height:60vh;overflow-y:auto;scrollbar-width:none"></div>
     <div style="padding:8px 16px 8px">
       <button class="btn btn-secondary" style="width:100%" onclick="closeSheet('sheet-changelog')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     CUSTOM REMINDER SHEET
+════════════════════════════════ -->
+<div class="overlay" id="sheet-custom-reminder" onclick="closeSheet('sheet-custom-reminder')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Своё напоминание</div>
+    <div class="sheet-sub">За сколько минут до встречи напомнить</div>
+    <div style="padding:0 16px 16px">
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Минут до встречи</div>
+        <input class="inp" id="custom-reminder-inp" type="number" min="1" max="10080" value="45" placeholder="45" style="width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="chip" onclick="document.getElementById('custom-reminder-inp').value=45">45 мин</div>
+        <div class="chip" onclick="document.getElementById('custom-reminder-inp').value=120">2 ч</div>
+        <div class="chip" onclick="document.getElementById('custom-reminder-inp').value=180">3 ч</div>
+        <div class="chip" onclick="document.getElementById('custom-reminder-inp').value=2880">2 дня</div>
+      </div>
+      <button class="btn btn-primary" onclick="submitCustomReminder()" style="width:100%">Добавить</button>
     </div>
   </div>
 </div>
@@ -3367,8 +3396,33 @@ function openMeetingLink() {
    PROFILE (s-profile)
 ═══════════════════════════════════════════ */
 function getNotifSettings() {
-  try { return JSON.parse(localStorage.getItem('sb_settings') || '{"notif":true,"reminder":"60"}'); }
-  catch(e) { return { notif: true, reminder: '60' }; }
+  try {
+    var s = JSON.parse(localStorage.getItem('sb_settings') || '{}');
+    /* Миграция старого формата (reminder: '60') → новый (reminders: ['60']) */
+    if (s.reminder !== undefined && !s.reminders) {
+      s.reminders = (s.reminder === 'off') ? [] : [s.reminder];
+      delete s.reminder;
+      try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+    }
+    if (!s.reminders) s.reminders = ['60'];
+    if (!s.customReminders) s.customReminders = [];
+    if (s.notif === undefined) s.notif = true;
+    return s;
+  } catch(e) { return { notif: true, reminders: ['60'], customReminders: [] }; }
+}
+
+function formatReminderMinutes(mins) {
+  mins = parseInt(mins);
+  if (isNaN(mins) || mins <= 0) return '0 мин';
+  if (mins < 60) return mins + ' мин';
+  if (mins === 60) return '1 ч';
+  if (mins < 1440) {
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return h + ' ч' + (m ? ' ' + m + ' м' : '');
+  }
+  if (mins === 1440) return '1 дн';
+  var d = Math.floor(mins / 1440), rest = mins % 1440;
+  return d + ' дн' + (rest ? ' ' + formatReminderMinutes(rest) : '');
 }
 
 function detectTimezone() {
@@ -3409,20 +3463,39 @@ function loadProfile() {
   var togEl = document.getElementById('tog-notif');
   if (togEl) { if (s.notif) togEl.classList.add('on'); else togEl.classList.remove('on'); }
 
+  renderReminderChips();
+}
+
+function renderReminderChips() {
   var chipsEl = document.getElementById('reminder-chips');
-  if (chipsEl) {
-    var opts = [
-      { val: '1440', label: '24 ч' },
-      { val: '60',   label: '1 ч' },
-      { val: '30',   label: '30 мин' },
-      { val: '15',   label: '15 мин' },
-      { val: '5',    label: '5 мин' },
-      { val: 'off',  label: 'Никогда' }
-    ];
-    chipsEl.innerHTML = opts.map(function(opt) {
-      return '<div class="chip reminder-chip' + (s.reminder === opt.val ? ' on' : '') + '" onclick="setReminderTime(\'' + opt.val + '\',this)">' + opt.label + '</div>';
-    }).join('');
-  }
+  if (!chipsEl) return;
+  var s = getNotifSettings();
+  var selected = s.reminders || [];
+  var defaultOpts = [
+    { val: '1440', label: '24 ч' },
+    { val: '60',   label: '1 ч' },
+    { val: '30',   label: '30 мин' },
+    { val: '15',   label: '15 мин' },
+    { val: '5',    label: '5 мин' },
+  ];
+  var customOpts = (s.customReminders || []).map(function(v) {
+    return { val: String(v), label: formatReminderMinutes(v), custom: true };
+  });
+  var allOpts = defaultOpts.concat(customOpts);
+  var html = allOpts.map(function(opt) {
+    var isOn = selected.indexOf(opt.val) >= 0;
+    return '<div class="chip reminder-chip' + (isOn ? ' on' : '') + '"'
+      + ' data-val="' + opt.val + '"'
+      + (opt.custom ? ' data-custom="true"' : '')
+      + ' onclick="toggleReminderChip(\'' + opt.val + '\',this)">'
+      + escHtml(opt.label)
+      + (opt.custom ? '<span class="rc-x" onclick="event.stopPropagation();removeCustomReminder(\'' + opt.val + '\')">×</span>' : '')
+      + '</div>';
+  }).join('');
+  html += '<div class="chip reminder-chip rc-add" onclick="openAddCustomReminder()">'
+    + '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    + ' Своё</div>';
+  chipsEl.innerHTML = html;
 }
 
 function showTimezoneInfo() {
@@ -3461,15 +3534,70 @@ function toggleNotifMain(el) {
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-function setReminderTime(val, el) {
-  document.querySelectorAll('.reminder-chip').forEach(function(c) { c.classList.remove('on'); });
-  el.classList.add('on');
+function toggleReminderChip(val, el) {
+  el.classList.toggle('on');
+  var selected = [];
+  document.querySelectorAll('.reminder-chip.on:not(.rc-add)').forEach(function(c) {
+    var v = c.getAttribute('data-val');
+    if (v) selected.push(v);
+  });
   var s = getNotifSettings();
-  s.reminder = val;
+  s.reminders = selected;
   try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
-  var labels = { '1440': '24 ч', '60': '1 ч', '30': '30 мин', '15': '15 мин', '5': '5 мин', 'off': 'никогда' };
-  showToast('Напоминание: ' + (labels[val] || val), 'success');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  if (selected.length === 0) {
+    showToast('Напоминания отключены');
+  } else {
+    var labels = selected.map(function(v) { return formatReminderMinutes(parseInt(v)); });
+    showToast('Напоминание: ' + labels.join(', '));
+  }
+}
+
+function openAddCustomReminder() {
+  var inp = document.getElementById('custom-reminder-inp');
+  if (inp) inp.value = 45;
+  showSheet('sheet-custom-reminder');
+}
+
+function submitCustomReminder() {
+  var val = parseInt(document.getElementById('custom-reminder-inp').value);
+  closeSheet('sheet-custom-reminder');
+  if (val && val > 0) addCustomReminder(val);
+}
+
+function addCustomReminder(minutes) {
+  minutes = parseInt(minutes);
+  if (!minutes || minutes < 1) { showToast('Введите число от 1'); return; }
+  if (minutes > 10080) { showToast('Максимум 7 дней (10080 мин)'); return; }
+  var standard = [1440, 60, 30, 15, 5];
+  if (standard.indexOf(minutes) >= 0) {
+    showToast('Это стандартное значение — выберите из списка');
+    return;
+  }
+  var s = getNotifSettings();
+  if (s.customReminders.indexOf(minutes) >= 0) {
+    showToast('Такое напоминание уже есть');
+    return;
+  }
+  s.customReminders.push(minutes);
+  s.customReminders.sort(function(a, b) { return b - a; });
+  var valStr = String(minutes);
+  if (s.reminders.indexOf(valStr) < 0) s.reminders.push(valStr);
+  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  renderReminderChips();
+  showToast('Напоминание за ' + formatReminderMinutes(minutes) + ' добавлено');
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+}
+
+function removeCustomReminder(val) {
+  val = String(val);
+  var s = getNotifSettings();
+  s.customReminders = s.customReminders.filter(function(v) { return String(v) !== val; });
+  s.reminders = s.reminders.filter(function(v) { return v !== val; });
+  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  renderReminderChips();
+  showToast('Напоминание удалено');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 }
 
 function copyProfileLink() {
