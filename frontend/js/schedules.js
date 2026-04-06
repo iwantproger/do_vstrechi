@@ -1,0 +1,687 @@
+/* ═══════════════════════════════════════════
+   SCHEDULES LIST (s-schedules)
+═══════════════════════════════════════════ */
+async function loadSchedules() {
+  var list = document.getElementById('schedules-list');
+  if (!list) return;
+  var { data, error } = await apiFetch('GET', '/api/schedules');
+  if (error) { showToast('Ошибка загрузки расписаний', 'error'); return; }
+  if (data) state.schedules = data;
+  if (!state.schedules || !state.schedules.length) {
+    list.innerHTML = renderEmpty('Нет расписаний', 'Создайте первое расписание, чтобы клиенты могли записываться');
+    return;
+  }
+  var html = '';
+  state.schedules.forEach(function(s) { html += renderLinkCard(s); });
+  list.innerHTML = html;
+}
+
+function formatWorkDays(days) {
+  if (!days || !days.length) return '';
+  var sorted = days.slice().sort(function(a, b) { return a - b; });
+  /* check if consecutive */
+  var isConsec = true;
+  for (var i = 1; i < sorted.length; i++) {
+    if (sorted[i] !== sorted[i - 1] + 1) { isConsec = false; break; }
+  }
+  if (isConsec && sorted.length > 2) {
+    return DAYS[sorted[0]] + '–' + DAYS[sorted[sorted.length - 1]];
+  }
+  return sorted.map(function(d) { return DAYS[d] || ''; }).join(', ');
+}
+
+function fmtTimeStr(t) {
+  if (!t) return '';
+  if (typeof t === 'string') return t.slice(0, 5);
+  return '';
+}
+
+function getScheduleUrl(id) {
+  return location.origin + location.pathname + '?schedule_id=' + id;
+}
+
+function getScheduleTelegramUrl(id) {
+  return 'https://t.me/do_vstrechi_bot/app?startapp=' + id;
+}
+
+function renderLinkCard(s) {
+  var title = escHtml(s.title || '');
+  var desc = s.description ? escHtml(s.description) : '';
+  var dur = sliderLabel(s.duration || 60);
+  var daysStr = formatWorkDays(s.work_days || []);
+  var timeStr = fmtTimeStr(s.start_time) + '–' + fmtTimeStr(s.end_time);
+  var platName = PLAT_NAMES[s.platform] || s.platform || '';
+  var isActive = s.is_active !== false;
+  var opacity = isActive ? '' : ';opacity:.65';
+  var url = getScheduleUrl(s.id);
+
+  var html = '<div class="link-card" onclick="openScheduleView(\'' + s.id + '\')" style="padding:14px 16px' + opacity + '">';
+  /* FIX: Bug #11 — статус в едином стиле, без подложки */
+  /* row 1: title + статус */
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (desc ? '6' : '10') + 'px">'
+    + '<div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>'
+    + '<span style="flex-shrink:0">' + scheduleStatusHtml(isActive) + '</span>'
+  + '</div>';
+  /* row 2: description (if any) */
+  if (desc) html += '<div style="font-size:12px;color:var(--t2);margin-bottom:10px">' + desc + '</div>';
+  /* row 3: pills + buttons */
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'
+    + '<div style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0">'
+      + '<span class="lc-pill">' + escHtml(dur) + '</span>'
+      + (daysStr ? '<span class="lc-pill">' + escHtml(daysStr) + '</span>' : '')
+      + '<span class="lc-pill">' + escHtml(timeStr) + '</span>'
+      + (platName ? '<span class="lc-pill">' + escHtml(platName) + '</span>' : '')
+    + '</div>'
+    + '<div style="flex-shrink:0">'
+      + '<button class="lc-btn lc-share" onclick="event.stopPropagation();openShareSheet(\'' + s.id + '\')" style="height:32px;padding:0 12px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Поделиться</button>'
+    + '</div>'
+  + '</div>';
+  html += '</div>';
+  return html;
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE DETAIL (s-link-detail)
+═══════════════════════════════════════════ */
+var _schedDirty = false;
+var _editScheduleId = null;
+
+function openScheduleDetail(id) {
+  var s = (state.schedules || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  _editScheduleId = id;
+  _schedDirty = false;
+
+  /* title in header */
+  var titleEl = document.getElementById('link-detail-title');
+  if (titleEl) titleEl.textContent = escHtml(s.title || 'Расписание');
+
+  /* name + desc */
+  var nameInp = document.getElementById('sl-name-inp');
+  if (nameInp) nameInp.value = s.title || '';
+  var descInp = document.getElementById('sl-desc-inp');
+  if (descInp) descInp.value = s.description || '';
+
+  /* duration slider */
+  var durInp = document.getElementById('sl-dur');
+  if (durInp) {
+    durInp.value = s.duration || 60;
+    updateSliderSmart(durInp, 'sl-dur-val');
+  }
+
+  /* buffer slider */
+  var bufInp = document.getElementById('sl-buf');
+  if (bufInp) {
+    bufInp.value = s.buffer_time || 0;
+    updateSliderSmart(bufInp, 'sl-buf-val');
+  }
+
+  /* advance slider */
+  var advInp = document.getElementById('sl-advance');
+  if (advInp) {
+    advInp.value = s.min_booking_advance || 0;
+    updateAdvanceLabel('sl-advance', 'sl-advance-val');
+  }
+
+  /* work days */
+  var daysEl = document.getElementById('sl-days');
+  if (daysEl) {
+    var chips = daysEl.querySelectorAll('.chip-day');
+    var wd = s.work_days || [];
+    chips.forEach(function(c, i) {
+      if (wd.indexOf(i) >= 0) c.classList.add('on');
+      else c.classList.remove('on');
+    });
+  }
+
+  /* start/end time */
+  var startInp = document.getElementById('sl-start');
+  if (startInp) startInp.value = fmtTimeStr(s.start_time) || '09:00';
+  var endInp = document.getElementById('sl-end');
+  if (endInp) endInp.value = fmtTimeStr(s.end_time) || '18:00';
+
+  /* platform chips */
+  var platCont = document.getElementById('sl-platforms');
+  if (platCont) {
+    platCont.querySelectorAll('.chip').forEach(function(c) {
+      var plat = c.getAttribute('data-plat');
+      if (plat === s.platform) c.classList.add('on');
+      else c.classList.remove('on');
+    });
+  }
+  var linkWrap = document.getElementById('sl-link-wrap');
+  if (linkWrap) linkWrap.style.display = (s.platform === 'other' || s.platform === 'zoom' || s.platform === 'google_meet') ? '' : 'none';
+  var linkInp = document.getElementById('sl-link-inp');
+  if (linkInp) linkInp.value = '';
+
+  /* manual confirm toggle — stub, API doesn't have this field yet */
+  var togEl = document.getElementById('sl-manual-tog');
+  if (togEl) togEl.classList.remove('on');
+
+  /* pause button label */
+  updatePauseBtn(s.is_active !== false);
+
+  /* reset save button */
+  resetSaveBtn();
+
+  showScreen('s-link-detail');
+}
+
+function updatePauseBtn(isActive) {
+  var btn = document.getElementById('sl-pause-btn');
+  var lbl = document.getElementById('sl-pause-label');
+  /* also update sheet-link-menu pause row */
+  var sheetLbl = document.getElementById('sheet-pause-label');
+  if (sheetLbl) sheetLbl.textContent = isActive ? 'Поставить на паузу' : 'Включить';
+  if (!btn) return;
+  if (isActive) {
+    lbl.textContent = 'Поставить на паузу';
+    btn.style.background = 'var(--ams)';
+    btn.style.color = 'var(--amber)';
+    btn.style.borderColor = 'rgba(245,166,35,.2)';
+  } else {
+    lbl.textContent = 'Включить';
+    btn.style.background = 'var(--gs)';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'rgba(45,212,160,.2)';
+  }
+}
+
+function markScheduleDirty() {
+  if (_schedDirty) return;
+  _schedDirty = true;
+  var btn = document.getElementById('sl-save-btn');
+  if (btn) { btn.className = 'btn btn-primary'; }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function resetSaveBtn() {
+  _schedDirty = false;
+  var btn = document.getElementById('sl-save-btn');
+  if (btn) { btn.className = 'btn btn-disabled'; }
+}
+
+function collectScheduleForm() {
+  var nameVal = (document.getElementById('sl-name-inp') || {}).value || '';
+  var descVal = (document.getElementById('sl-desc-inp') || {}).value || '';
+  var dur = parseInt((document.getElementById('sl-dur') || {}).value) || 60;
+  var buf = parseInt((document.getElementById('sl-buf') || {}).value) || 0;
+  var startVal = (document.getElementById('sl-start') || {}).value || '09:00';
+  var endVal = (document.getElementById('sl-end') || {}).value || '18:00';
+
+  /* work days */
+  var days = [];
+  var daysEl = document.getElementById('sl-days');
+  if (daysEl) {
+    daysEl.querySelectorAll('.chip-day').forEach(function(c, i) {
+      if (c.classList.contains('on')) days.push(i);
+    });
+  }
+
+  /* platform */
+  var plat = 'jitsi';
+  var platCont = document.getElementById('sl-platforms');
+  if (platCont) {
+    var sel = platCont.querySelector('.chip.on');
+    if (sel) plat = sel.getAttribute('data-plat') || 'jitsi';
+  }
+
+  var advance = parseInt((document.getElementById('sl-advance') || {}).value) || 0;
+
+  return {
+    title: nameVal,
+    description: descVal || null,
+    duration: dur,
+    buffer_time: buf,
+    work_days: days,
+    start_time: startVal,
+    end_time: endVal,
+    platform: plat,
+    min_booking_advance: advance,
+  };
+}
+
+async function saveScheduleChanges() {
+  if (!_schedDirty || !_editScheduleId) return;
+  var form = collectScheduleForm();
+  if (!form.title || form.title.length < 1) {
+    showToast('Введите название');
+    return;
+  }
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  var { data, error } = await apiFetch('PATCH', '/api/schedules/' + _editScheduleId, form);
+  if (error) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast('Не удалось сохранить');
+    return;
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  showToast('Сохранено');
+  resetSaveBtn();
+
+  /* update local state */
+  var idx = state.schedules.findIndex(function(x) { return x.id === _editScheduleId; });
+  if (idx >= 0) {
+    Object.assign(state.schedules[idx], form);
+    if (data) Object.assign(state.schedules[idx], data);
+  }
+}
+
+async function toggleSchedulePause() {
+  if (!_editScheduleId) return;
+  var s = (state.schedules || []).find(function(x) { return x.id === _editScheduleId; });
+  if (!s) return;
+  var currentlyActive = s.is_active !== false;
+  var newActive = !currentlyActive;
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+  var { data, error } = await apiFetch('PATCH', '/api/schedules/' + _editScheduleId, {
+    is_active: newActive
+  });
+  if (error) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast('Не удалось ' + (newActive ? 'активировать' : 'приостановить'), 'error');
+    return;
+  }
+
+  s.is_active = newActive;
+  updatePauseBtn(newActive);
+
+  /* update s-schedule-view статус и кнопка паузы */
+  var svBadge = document.getElementById('sv-status-badge');
+  if (svBadge) svBadge.innerHTML = scheduleStatusHtml(newActive);
+  var svPauseLabel = document.getElementById('sv-pause-label');
+  var svPauseBtn = document.getElementById('sv-pause-btn');
+  if (svPauseLabel && svPauseBtn) {
+    if (newActive) {
+      svPauseLabel.textContent = 'Приостановить';
+      svPauseBtn.style.background = 'var(--ams)';
+      svPauseBtn.style.color = 'var(--amber)';
+    } else {
+      svPauseLabel.textContent = 'Включить';
+      svPauseBtn.style.background = 'var(--gs)';
+      svPauseBtn.style.color = 'var(--green)';
+    }
+  }
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  showToast(newActive ? 'Расписание активировано' : 'Расписание на паузе', 'success');
+}
+
+function scheduleBack() {
+  if (_schedDirty) {
+    /* just go back — user chose not to save */
+    _schedDirty = false;
+  }
+  goBack();
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE VIEW (read-only, s-schedule-view)
+═══════════════════════════════════════════ */
+function openScheduleView(id) {
+  var s = (state.schedules || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  _editScheduleId = id;
+
+  var el;
+  el = document.getElementById('sv-title'); if (el) el.textContent = s.title || 'Расписание';
+  el = document.getElementById('sv-name'); if (el) el.textContent = s.title || '';
+  el = document.getElementById('sv-desc'); if (el) el.textContent = s.description || '—';
+  el = document.getElementById('sv-desc-row'); if (el) el.style.display = s.description ? '' : 'none';
+  el = document.getElementById('sv-duration'); if (el) el.textContent = sliderLabel(s.duration || 60);
+  el = document.getElementById('sv-buffer'); if (el) el.textContent = s.buffer_time ? sliderLabel(s.buffer_time) : 'Нет';
+  el = document.getElementById('sv-days'); if (el) el.textContent = formatWorkDays(s.work_days || []);
+  el = document.getElementById('sv-time'); if (el) el.textContent = fmtTimeStr(s.start_time) + ' – ' + fmtTimeStr(s.end_time);
+  el = document.getElementById('sv-platform'); if (el) el.textContent = PLAT_NAMES[s.platform] || s.platform || '';
+
+  /* advance row */
+  var advRow = document.getElementById('sv-advance-row');
+  var advVal = document.getElementById('sv-advance');
+  if (advRow && advVal) {
+    var adv = s.min_booking_advance || 0;
+    if (adv > 0) {
+      advRow.style.display = '';
+      advVal.textContent = advanceLabel(adv);
+    } else {
+      advRow.style.display = 'none';
+    }
+  }
+
+  var isActive = s.is_active !== false;
+  var badgeEl = document.getElementById('sv-status-badge');
+  if (badgeEl) badgeEl.innerHTML = scheduleStatusHtml(isActive);
+  var svPauseLabel = document.getElementById('sv-pause-label');
+  var svPauseBtn = document.getElementById('sv-pause-btn');
+  if (svPauseLabel && svPauseBtn) {
+    if (isActive) {
+      svPauseLabel.textContent = 'Приостановить';
+      svPauseBtn.style.background = 'var(--ams)';
+      svPauseBtn.style.color = 'var(--amber)';
+    } else {
+      svPauseLabel.textContent = 'Включить';
+      svPauseBtn.style.background = 'var(--gs)';
+      svPauseBtn.style.color = 'var(--green)';
+    }
+  }
+
+  showScreen('s-schedule-view');
+}
+
+function editCurrentSchedule() {
+  if (_editScheduleId) openScheduleDetail(_editScheduleId);
+}
+
+function previewAsGuest() {
+  var scheduleId = _editScheduleId;
+  if (!scheduleId) return;
+  state._previewMode = true;
+  state._previewReturnScreen = 's-schedule-view';
+  showScreen('s-calendar');
+  loadCalendar(scheduleId);
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+/* ═══════════════════════════════════════════
+   ADVANCE LABEL HELPER
+═══════════════════════════════════════════ */
+function advanceLabel(mins) {
+  mins = parseInt(mins);
+  if (!mins || mins <= 0) return 'Нет';
+  if (mins < 60) return mins + ' мин';
+  if (mins === 60) return '1 ч';
+  if (mins < 1440) {
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return h + ' ч' + (m ? ' ' + m + ' мин' : '');
+  }
+  if (mins === 1440) return '1 дн';
+  var d = Math.floor(mins / 1440);
+  return d + ' дн';
+}
+
+function updateAdvanceLabel(inputId, labelId) {
+  var val = parseInt((document.getElementById(inputId) || {}).value) || 0;
+  var labelEl = document.getElementById(labelId);
+  if (!labelEl) return;
+  labelEl.textContent = advanceLabel(val);
+  var inp = document.getElementById(inputId);
+  if (inp) {
+    var pct = ((val - inp.min) / (inp.max - inp.min)) * 100;
+    inp.style.background = 'linear-gradient(to right,var(--a) ' + pct + '%,var(--s3) ' + pct + '%)';
+  }
+}
+
+function pickPlatEdit(el) {
+  var cont = el.parentElement;
+  if (!cont) return;
+  cont.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('on'); });
+  el.classList.add('on');
+  var plat = el.getAttribute('data-plat');
+  var linkWrap = document.getElementById('sl-link-wrap');
+  if (linkWrap) linkWrap.style.display = (plat === 'other' || plat === 'zoom' || plat === 'google_meet') ? '' : 'none';
+  markScheduleDirty();
+}
+
+/* ═══════════════════════════════════════════
+   SLIDER SMART + IEO INTEGRATION
+═══════════════════════════════════════════ */
+function updateSliderSmart(inp, valId) {
+  var v = parseInt(inp.value);
+  var el = document.getElementById(valId);
+  if (el) el.textContent = sliderLabel(v);
+  var pct = ((v - inp.min) / (inp.max - inp.min)) * 100;
+  inp.style.background = 'linear-gradient(to right,var(--a) ' + pct + '%,var(--s3) ' + pct + '%)';
+}
+
+var _ieoSliderId = null;
+var _ieoLabelId = null;
+
+function openSliderEdit(sliderId, labelId, min, max, unit, title) {
+  _ieoSliderId = sliderId;
+  _ieoLabelId = labelId;
+  var inp = document.getElementById(sliderId);
+  var val = inp ? parseInt(inp.value) : 0;
+  showIeo(title, val, unit);
+}
+
+/* ═══════════════════════════════════════════
+   SHARE / COPY / DELETE ACTIONS
+═══════════════════════════════════════════ */
+function openShareSheet(schedId) {
+  var id = schedId || _editScheduleId;
+  if (!id) { showSheet('sheet-share'); return; }
+  state._shareScheduleId = id;
+  var url = getScheduleUrl(id);
+  state._shareUrl = url;
+  var el = document.getElementById('sheet-share-url');
+  if (el) el.textContent = url.replace(/^https?:\/\//, '');
+  showSheet('sheet-share');
+}
+
+/* FIX: Bug #10 — шаринг через нативный Telegram без перехода в браузер */
+function shareTelegram() {
+  var schedId = _editScheduleId || state._shareScheduleId || '';
+  var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
+  closeSheet('sheet-share');
+  if (!url) return;
+
+  /* Красивый текст: название расписания + ссылка */
+  var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
+  var title = schedule ? schedule.title : 'встречу';
+  var text = '📅 Запишись ко мне — ' + title;
+
+  var shareUrl = 'https://t.me/share/url'
+    + '?url=' + encodeURIComponent(url)
+    + '&text=' + encodeURIComponent(text);
+
+  /* tg.openTelegramLink() открывает t.me ссылки нативно, без браузера */
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function copyShareLink() {
+  if (state._shareUrl) copyText(state._shareUrl);
+  closeSheet('sheet-share');
+  showToast('Ссылка скопирована');
+}
+
+function copyScheduleLink(id) {
+  var url = getScheduleUrl(id || _editScheduleId);
+  copyText(url);
+  showToast('Ссылка скопирована');
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+}
+
+function pauseSchedule() {
+  toggleSchedulePause();
+}
+
+function openDeleteConfirm() {
+  state.pendingDeleteId = _editScheduleId;
+  var titleEl = document.getElementById('sheet-cancel-title');
+  var subEl = document.getElementById('sheet-cancel-sub');
+  var actEl = document.getElementById('sheet-cancel-action');
+  if (titleEl) titleEl.textContent = 'Удалить расписание?';
+  if (subEl) subEl.textContent = 'Расписание будет деактивировано. Существующие встречи сохранятся.';
+  if (actEl) actEl.textContent = 'Удалить';
+  state._deleteMode = true;
+  showSheet('sheet-cancel');
+}
+
+async function confirmDeleteSchedule() {
+  var id = state.pendingDeleteId;
+  if (!id) return;
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  var { error } = await apiFetch('DELETE', '/api/schedules/' + id);
+  closeSheet('sheet-cancel');
+  state._deleteMode = false;
+  if (error) {
+    showToast('Не удалось удалить');
+    return;
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  showToast('Расписание удалено');
+  state.schedules = state.schedules.filter(function(x) { return x.id !== id; });
+  state.pendingDeleteId = null;
+  goBack();
+}
+
+/* ═══════════════════════════════════════════
+   CREATE SCHEDULE (s-new-link)
+═══════════════════════════════════════════ */
+function startCreate() { openNewSchedule(); }
+
+function openNewSchedule() {
+  /* reset all fields to defaults */
+  var el;
+  el = document.getElementById('nw-name-inp'); if (el) el.value = '';
+  el = document.getElementById('nw-desc-inp'); if (el) el.value = '';
+
+  /* duration 60 */
+  var durInp = document.getElementById('nw-dur');
+  if (durInp) { durInp.value = 60; updateSliderSmart(durInp, 'nw-dur-val'); }
+
+  /* buffer 0 */
+  var bufInp = document.getElementById('nw-buf');
+  if (bufInp) { bufInp.value = 0; updateSliderSmart(bufInp, 'nw-buf-val'); }
+
+  /* advance 0 */
+  var advInp = document.getElementById('nw-advance');
+  if (advInp) { advInp.value = 0; updateAdvanceLabel('nw-advance', 'nw-advance-val'); }
+
+  /* Пн–Пт on, Сб Вс off */
+  var daysEl = document.getElementById('nw-days');
+  if (daysEl) {
+    daysEl.querySelectorAll('.chip-day').forEach(function(c, i) {
+      if (i < 5) c.classList.add('on'); else c.classList.remove('on');
+    });
+  }
+
+  /* time 10:00-18:00 */
+  el = document.getElementById('nw-start'); if (el) el.value = '10:00';
+  el = document.getElementById('nw-end'); if (el) el.value = '18:00';
+
+  /* platform: jitsi selected */
+  var platCont = document.getElementById('nw-platforms');
+  if (platCont) {
+    platCont.querySelectorAll('.chip').forEach(function(c) {
+      if (c.getAttribute('data-plat') === 'jitsi') c.classList.add('on');
+      else c.classList.remove('on');
+    });
+  }
+  el = document.getElementById('nw-link-wrap'); if (el) el.style.display = 'none';
+  el = document.getElementById('nw-link-inp'); if (el) el.value = '';
+
+  /* manual toggle off */
+  el = document.getElementById('nw-manual-tog'); if (el) el.classList.remove('on');
+
+  /* reset button */
+  var btn = document.getElementById('nw-submit-btn');
+  if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Создать расписание'; }
+
+  showScreen('s-new-link');
+}
+
+function cancelCreate() {
+  goBack();
+}
+
+function getFormScheduleData() {
+  var nameVal = (document.getElementById('nw-name-inp') || {}).value || '';
+  var descVal = (document.getElementById('nw-desc-inp') || {}).value || '';
+  var dur = parseInt((document.getElementById('nw-dur') || {}).value) || 60;
+  var buf = parseInt((document.getElementById('nw-buf') || {}).value) || 0;
+  var startVal = (document.getElementById('nw-start') || {}).value || '10:00';
+  var endVal = (document.getElementById('nw-end') || {}).value || '18:00';
+
+  var days = [];
+  var daysEl = document.getElementById('nw-days');
+  if (daysEl) {
+    daysEl.querySelectorAll('.chip-day').forEach(function(c, i) {
+      if (c.classList.contains('on')) days.push(i);
+    });
+  }
+
+  var plat = 'jitsi';
+  var platCont = document.getElementById('nw-platforms');
+  if (platCont) {
+    var sel = platCont.querySelector('.chip.on');
+    if (sel) plat = sel.getAttribute('data-plat') || 'jitsi';
+  }
+
+  var advance = parseInt((document.getElementById('nw-advance') || {}).value) || 0;
+
+  return {
+    title: nameVal,
+    description: descVal || null,
+    duration: dur,
+    buffer_time: buf,
+    work_days: days,
+    start_time: startVal,
+    end_time: endVal,
+    location_mode: 'fixed',
+    platform: plat,
+    min_booking_advance: advance,
+  };
+}
+
+function pickPlatNew(el) {
+  var cont = document.getElementById('nw-platforms');
+  if (cont) cont.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('on'); });
+  el.classList.add('on');
+  var plat = el.getAttribute('data-plat');
+  var wrap = document.getElementById('nw-link-wrap');
+  if (wrap) wrap.style.display = (plat !== 'jitsi') ? '' : 'none';
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+async function submitNewSchedule() {
+  var form = getFormScheduleData();
+
+  /* validate */
+  if (!form.title || form.title.trim().length < 1) {
+    showToast('Введите название');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    return;
+  }
+  if (form.work_days.length === 0) {
+    showToast('Выберите хотя бы один день');
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    return;
+  }
+
+  /* loading state */
+  var btn = document.getElementById('nw-submit-btn');
+  if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Создание…'; }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+  var { data, error } = await apiFetch('POST', '/api/schedules', form);
+
+  /* restore button */
+  if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Создать расписание'; }
+
+  if (error) {
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast('Не удалось создать: ' + error);
+    return;
+  }
+
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  showToast('Расписание создано ✓', 'success');
+
+  /* add to local state */
+  if (data) {
+    if (!state.schedules) state.schedules = [];
+    state.schedules.unshift(data);
+  }
+
+  goBack();
+  loadSchedules();
+}
+
