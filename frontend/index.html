@@ -73,6 +73,14 @@ body{font-family:var(--font);color:var(--t1)}
 #app.ready{opacity:1}
 @keyframes _force-show{to{opacity:1}}
 #app{animation:_force-show 0s 5s forwards}
+/* FIX: Bug #5 — десктоп: ограничить ширину как мобилка */
+#app{max-width:430px;margin-left:auto;margin-right:auto}
+@media(min-width:431px){
+  #app{border-left:1px solid var(--b1);border-right:1px solid var(--b1);box-shadow:0 0 80px rgba(0,0,0,.5)}
+  .overlay,.ieo,.tg-header-blur{max-width:430px;left:50%;right:auto;transform:translateX(-50%)}
+  .toast{max-width:398px;left:50%;right:auto;transform:translateX(-50%) translateY(20px)}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+}
 
 /* ═══════════════════════════════════════════════════
    3. SCREENS SYSTEM
@@ -323,11 +331,16 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .reminder-chip:not(.on) .rc-x{background:rgba(0,0,0,.15)}
 .rc-add{border:1.5px dashed var(--b2)!important;background:transparent!important;color:var(--t2)!important;gap:4px}
 .rc-add:active{background:var(--s2)!important}
-/* FIX: Bug #3 — покачивание чипов в режиме редактирования */
-@keyframes chip-wiggle{0%{transform:rotate(-1deg)}100%{transform:rotate(1deg)}}
-#reminder-chips.chips-editing .reminder-chip:not(.rc-add){animation:chip-wiggle .25s ease-in-out infinite alternate}
-/* FIX: Bug #2 — блюр-оверлей верхней зоны Telegram при скролле */
-.tg-header-blur{position:fixed;top:0;left:0;right:0;height:calc(var(--tg-header) + 8px);background:linear-gradient(to bottom,var(--bg) 55%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:25;pointer-events:none}
+/* FIX: Bug #7 — кнопка «Поделиться» в блоке «Моя ссылка» */
+.btn-share-link{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:32px;background:var(--s3);color:var(--t1);border:1px solid var(--b1);border-radius:var(--rf);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn-share-link:active{transform:scale(.97);background:var(--s4)}
+/* FIX: Bug #3/6b — покачивание только у кастомных (removable) чипов */
+@keyframes chip-wiggle{0%{transform:rotate(-1.5deg)}100%{transform:rotate(1.5deg)}}
+#reminder-chips.chips-editing .reminder-chip.removable{animation:chip-wiggle .25s ease-in-out infinite alternate}
+/* FIX: Bug #6a — запретить выделение текста при long-press */
+#reminder-chips,#reminder-chips *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* FIX: Bug #2 / Bug #8 — плавный blur-оверлей верхней зоны Telegram */
+.tg-header-blur{position:fixed;top:0;left:0;right:0;height:calc(var(--tg-header) + 28px);background:linear-gradient(to bottom,var(--bg) 0%,rgba(10,14,13,.88) 38%,rgba(10,14,13,.55) 62%,rgba(10,14,13,.25) 80%,transparent 100%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);-webkit-mask-image:linear-gradient(to bottom,black 52%,transparent 100%);mask-image:linear-gradient(to bottom,black 52%,transparent 100%);z-index:25;pointer-events:none}
 /* FIX: Bug #4 — иконка подсказки для секции напоминаний */
 .info-hint{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;cursor:pointer;opacity:.6;transition:opacity .15s;vertical-align:middle;margin-left:4px}
 .info-hint:active{opacity:1}
@@ -897,17 +910,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
     <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden">
       <div style="padding:14px 16px 12px">
         <div style="font-size:13px;color:var(--t2);word-break:break-all;margin-bottom:12px" id="profile-link-sub">—</div>
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:11px;color:var(--t3)">Ссылка для записи</span>
-          <div style="display:flex;gap:6px">
-            <button onclick="copyProfileLink()" class="lc-btn lc-copy" title="Скопировать">
-              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
-            <button onclick="shareProfileLink()" class="lc-btn lc-share" title="Поделиться">
-              <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            </button>
-          </div>
-        </div>
+        <!-- FIX: Bug #7 — одна кнопка «Поделиться» вместо двух -->
+        <button class="btn-share-link" onclick="shareMyLink()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Поделиться
+        </button>
       </div>
     </div>
   </div>
@@ -3743,12 +3750,12 @@ function renderReminderChips() {
   var allOpts = defaultOpts.concat(customOpts);
   var html = allOpts.map(function(opt) {
     var isOn = selected.indexOf(opt.val) >= 0;
-    return '<div class="chip reminder-chip' + (isOn ? ' on' : '') + '"'
+    return '<div class="chip reminder-chip' + (isOn ? ' on' : '') + (opt.custom ? ' removable' : '') + '"'
       + ' data-val="' + opt.val + '"'
       + (opt.custom ? ' data-custom="true"' : '')
       + ' onclick="toggleReminderChip(\'' + opt.val + '\',this)">'
       + escHtml(opt.label)
-      /* FIX: Bug #3 — rc-x у custom чипов; display управляется через CSS .chips-editing */
+      /* FIX: Bug #3/6b — rc-x и класс .removable только у кастомных чипов */
       + (opt.custom ? '<span class="rc-x" onclick="event.stopPropagation();removeCustomReminder(\'' + opt.val + '\')">×</span>' : '')
       + '</div>';
   }).join('');
@@ -3764,12 +3771,14 @@ function renderReminderChips() {
   }
 }
 
-/* FIX: Bug #3 — long-press 500ms для активации режима редактирования чипов */
+/* FIX: Bug #3/6 — long-press 500ms для активации режима редактирования чипов */
 function attachReminderChipLongPress(container) {
   var timer = null;
   function startPress(e) {
+    /* FIX: Bug #6a — preventDefault предотвращает выделение текста и контекстное меню */
     var chip = e.target.closest && e.target.closest('.reminder-chip:not(.rc-add)');
     if (!chip) return;
+    if (e.cancelable) e.preventDefault();
     timer = setTimeout(function() {
       timer = null;
       container.classList.add('chips-editing');
@@ -3779,7 +3788,8 @@ function attachReminderChipLongPress(container) {
   function cancelPress() {
     if (timer) { clearTimeout(timer); timer = null; }
   }
-  container.addEventListener('touchstart', startPress, { passive: true });
+  /* passive:false чтобы preventDefault работал */
+  container.addEventListener('touchstart', startPress, { passive: false });
   container.addEventListener('touchend', cancelPress);
   container.addEventListener('touchcancel', cancelPress);
   container.addEventListener('touchmove', cancelPress, { passive: true });
@@ -3929,6 +3939,32 @@ function shareProfileLink() {
     showToast('Ссылка скопирована ✓', 'success');
   }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+}
+
+/* FIX: Bug #7 — одна кнопка «Поделиться» с Web Share API + fallback */
+async function shareMyLink() {
+  var url = state._profileLink;
+  if (!url) return;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'До встречи', text: 'Запишись ко мне на встречу:', url: url });
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    } catch(e) { /* пользователь отменил — ничего не делаем */ }
+    return;
+  }
+  /* Fallback: Telegram share или clipboard */
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url));
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  } else {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Ссылка скопирована ✓', 'success');
+    } catch(e) {
+      showToast('Не удалось скопировать');
+    }
+    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  }
 }
 
 /* ═══════════════════════════════════════════
