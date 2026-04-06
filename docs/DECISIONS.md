@@ -100,6 +100,25 @@
 
 **Решение при масштабировании:** перейти на `RedisStorage` из aiogram, добавить Redis в docker-compose.
 
+### Вложенные bind mounts в docker-compose (INC-001)
+
+**Проблема:** коммит `6eb6181` добавил `./admin:/usr/share/nginx/html/admin:ro` внутрь уже существующего `./frontend:/usr/share/nginx/html:ro`. Docker не может создать mountpoint внутри read-only overlayfs — nginx перестал запускаться, **9 часов полного даунтайма**.
+
+**Решение:** убран `:ro` с родительского маунта (`./frontend:/usr/share/nginx/html`). Дочерний admin остаётся `:ro`.
+
+**Правило:** никогда не ставить `:ro` на родительский bind mount, если внутрь него вложен другой. Полный разбор: `docs/incidents/INC_001_NGINX_GRAY_SCREEN.md`.
+
+### Frontend gray screen protection (INC-001)
+
+**Проблема:** `#app` начинает с `opacity:0` и становится видимым только после `classList.add('ready')` в JS. Если JS падает — приложение навсегда остаётся прозрачным (серый экран).
+
+**Решение:** три слоя защиты:
+1. CSS `@keyframes _force-show` — автопоказ через 5 секунд без JS
+2. Global `error`/`unhandledrejection` handlers → добавляют `.ready`
+3. Весь TG SDK init обёрнут в try/catch
+
+**Правило:** не удалять эти механизмы. Любой новый код инициализации, блокирующий видимость, должен быть обёрнут в try/catch.
+
 ### ~~Отсутствие push-уведомлений~~ ✅ Решено
 
 **Было:** организатор не получал push при новом бронировании.

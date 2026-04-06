@@ -39,7 +39,9 @@ do_vstrechi/
 │   ├── DATA_MODELS.md      # ER-диаграммы, схема БД, Pydantic-модели
 │   ├── MODULES.md          # Описание модулей и функций
 │   ├── DECISIONS.md        # Архитектурные решения, техдолг
-│   └── SECURITY.md         # Аудит безопасности
+│   ├── SECURITY.md         # Аудит безопасности
+│   └── incidents/          # Разборы инцидентов (postmortem)
+│       └── INC_001_NGINX_GRAY_SCREEN.md
 ├── .github/workflows/
 │   └── deploy.yml          # CI/CD: автодеплой на VPS при push в main
 ├── docker-compose.yml      # Оркестрация всех сервисов
@@ -239,6 +241,9 @@ make logs        # Посмотреть логи
 - **SQL** — только параметризованные запросы (`$1, $2`), **никогда** f-строки
 - **XSS** — весь пользовательский ввод проходит через `escHtml()` перед вставкой в DOM
 - **Security audit log** — при любом изменении, связанном с безопасностью, обновлять `docs/SECURITY.md`
+- **Docker volumes: вложенные bind mounts** — если один bind mount вложен в другой (например `admin` внутри `frontend`), родительский маунт **НЕ** должен быть `:ro`. Docker не может создать mountpoint внутри read-only overlayfs. См. `docs/incidents/INC_001_NGINX_GRAY_SCREEN.md`
+- **Frontend: блокирующая инициализация** — любой код, управляющий видимостью приложения (opacity, .ready, display), должен быть обёрнут в try/catch + иметь CSS fallback. Серый экран = P0 инцидент
+- **docker-compose.yml: после изменения volumes** — обязательно проверить `docker compose up -d` локально и убедиться что ВСЕ контейнеры в статусе Up. `docker compose ps` должен показывать все 4 сервиса (postgres, backend, bot, nginx)
 
 ### Запрещено
 - Хардкодить токены, пароли, ключи
@@ -249,6 +254,8 @@ make logs        # Посмотреть логи
 - Принимать `telegram_id` из query params или тела запроса для авторизации
 - Использовать `innerHTML` с непроверенными данными без `escHtml()`
 - Добавлять `allow_origins=["*"]` в CORS
+- **Ставить `:ro` на родительский bind mount, если внутрь него вложен другой mount** — это сломает контейнер (INC-001, 9 часов даунтайма). Безопасные паттерны см. в `docs/incidents/INC_001_NGINX_GRAY_SCREEN.md`
+- **Удалять или модифицировать защитные обёртки фронтенда** — global error handlers, CSS `@keyframes _force-show`, try/catch вокруг TG SDK init. Эти механизмы предотвращают серый экран
 
 ## Как добавить новый API-эндпоинт
 
@@ -323,3 +330,5 @@ make logs        # Посмотреть логи
 - **Telegram Login Widget** требует домен, зарегистрированный в BotFather: `/setdomain` → `dovstrechiapp.ru`
 - **Админка** доступна по `/admin/`, rate limit 5 req/s (auth: 3 req/min), cookie-based сессии
 - **CSP** включает `https://telegram.org` и `https://oauth.telegram.org` для Telegram Login Widget
+- **Docker nested bind mounts** — `./admin` монтируется ВНУТРЬ `./frontend` (оба в `/usr/share/nginx/html`). Родительский маунт frontend **без** `:ro`, иначе nginx не запустится. Подробности: `docs/incidents/INC_001_NGINX_GRAY_SCREEN.md`
+- **Frontend gray screen protection** — три слоя: CSS `_force-show` (5s fallback), global error handlers → `.ready`, try/catch на TG SDK init. Не удалять!
