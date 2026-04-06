@@ -657,7 +657,7 @@ body {
   padding: 14px;
   margin-bottom: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  cursor: grab;
+  cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
   border-left: 3px solid transparent;
 }
@@ -698,6 +698,52 @@ body {
 .task-card[data-source="ai_generated"] { border-left-color: #8B5CF6; }
 .task-card[data-source="github_issue"] { border-left-color: #F59E0B; }
 .task-card[data-source="manual"] { border-left-color: var(--primary); }
+
+/* ═══════════════════════════════════════════════════
+   TASK VIEW MODAL
+══════════════════════════════════════════════════ */
+.modal-content.task-view { max-width: 600px; }
+.task-view .modal-body { user-select: text; -webkit-user-select: text; }
+
+.tv-meta {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  padding: 14px; background: var(--bg); border-radius: 8px; margin-bottom: 16px;
+}
+.tv-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.tv-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+.tv-badge {
+  display: inline-flex; align-items: center; font-size: 13px; font-weight: 500;
+  padding: 2px 10px; border-radius: 12px; width: fit-content;
+}
+.tv-badge.backlog { background: #E2E8F0; color: #475569; }
+.tv-badge.in_progress { background: #DBEAFE; color: #1E40AF; }
+.tv-badge.done { background: #D1FAE5; color: #065F46; }
+.tv-section { margin-bottom: 16px; }
+.tv-section-title {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.tv-content {
+  font-size: 14px; line-height: 1.7; color: var(--text);
+  white-space: pre-wrap; word-break: break-word; padding: 4px 0;
+}
+.tv-content code {
+  background: var(--bg); padding: 2px 6px; border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+}
+.tv-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tv-link { color: var(--primary); font-size: 13px; word-break: break-all; text-decoration: none; }
+.tv-link:hover { text-decoration: underline; }
+.btn-copy {
+  background: var(--primary); color: white; border: none;
+  padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: Inter, sans-serif;
+  display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s;
+}
+.btn-copy:hover { background: var(--primary-dark); }
+.btn-copy.copied { background: var(--success); }
+@media (max-width: 768px) { .modal-content.task-view { max-width: 100%; } }
 
 /* ═══════════════════════════════════════════════════
    MODAL
@@ -1235,6 +1281,57 @@ body {
 </div>
 
 <!-- Task Modal -->
+<!-- ═══════════════ TASK VIEW MODAL ═══════════════ -->
+<div class="modal-overlay" id="task-view-modal" style="display:none;" onclick="closeViewModal(event)">
+  <div class="modal-content task-view" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="tv-title"></h2>
+      <button class="btn-icon" onclick="closeViewModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="tv-meta">
+        <div class="tv-meta-item">
+          <span class="tv-label">Статус</span>
+          <span class="tv-badge" id="tv-status"></span>
+        </div>
+        <div class="tv-meta-item">
+          <span class="tv-label">Источник</span>
+          <span id="tv-source"></span>
+        </div>
+        <div class="tv-meta-item">
+          <span class="tv-label">Создана</span>
+          <span id="tv-created"></span>
+        </div>
+        <div class="tv-meta-item">
+          <span class="tv-label">Обновлена</span>
+          <span id="tv-updated"></span>
+        </div>
+      </div>
+      <div class="tv-section" id="tv-desc-section">
+        <div class="tv-section-title">Техническое описание</div>
+        <div class="tv-content" id="tv-desc"></div>
+      </div>
+      <div class="tv-section" id="tv-plain-section">
+        <div class="tv-section-title">Описание простым языком</div>
+        <div class="tv-content" id="tv-plain"></div>
+      </div>
+      <div class="tv-section" id="tv-tags-section">
+        <div class="tv-section-title">Теги</div>
+        <div class="tv-tags" id="tv-tags"></div>
+      </div>
+      <div class="tv-section" id="tv-ref-section">
+        <div class="tv-section-title">Источник</div>
+        <span class="tv-link" id="tv-ref"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-copy" id="btn-copy-task" onclick="copyTaskToClipboard()">&#x1F4CB; Скопировать всё</button>
+      <button class="btn-secondary" id="tv-edit-btn">&#x270F;&#xFE0F; Редактировать</button>
+      <button class="btn-secondary" onclick="closeViewModal()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="task-modal" style="display:none;" onclick="closeTaskModal(event)">
   <div class="modal-content" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -1934,8 +2031,8 @@ function renderTaskCard(task) {
     + (tags ? '<div class="task-card-tags">' + tags + '</div>' : '')
     + (srcText ? '<div class="task-card-source">' + srcText + '</div>' : '')
     + '<div class="task-card-actions">'
-    + '<button class="task-edit-btn" data-id="' + escHtml(task.id) + '" title="Редактировать">\u270F\uFE0F</button>'
-    + '<button class="task-delete-btn" data-id="' + escHtml(task.id) + '" data-title="' + escHtml(task.title) + '" title="Удалить">\uD83D\uDDD1</button>'
+    + '<button class="task-edit-btn" data-id="' + escHtml(task.id) + '" title="Редактировать" onclick="event.stopPropagation()">\u270F\uFE0F</button>'
+    + '<button class="task-delete-btn" data-id="' + escHtml(task.id) + '" data-title="' + escHtml(task.title) + '" title="Удалить" onclick="event.stopPropagation()">\uD83D\uDDD1</button>'
     + '</div></div>';
 }
 
@@ -2114,12 +2211,13 @@ async function confirmDeleteTask() {
 /* Escape key closes modals */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    closeViewModal();
     closeTaskModal();
     closeDeleteModal();
   }
 });
 
-/* Kanban card action delegation (edit / delete buttons) */
+/* Kanban card action delegation (view / edit / delete) */
 document.querySelector('.kanban-board').addEventListener('click', function(e) {
   var deleteBtn = e.target.closest('.task-delete-btn');
   if (deleteBtn) {
@@ -2129,8 +2227,143 @@ document.querySelector('.kanban-board').addEventListener('click', function(e) {
   var editBtn = e.target.closest('.task-edit-btn');
   if (editBtn) {
     editTask(editBtn.dataset.id);
+    return;
+  }
+  var card = e.target.closest('.task-card');
+  if (card) {
+    viewTask(card.dataset.id);
   }
 });
+
+/* ═══════════════════════════════════════════════════
+   TASK VIEW
+═══════════════════════════════════════════════════ */
+var viewingTaskId = null;
+
+function viewTask(id) {
+  var task = findTaskById(id);
+  if (!task) return;
+  viewingTaskId = id;
+
+  var statusLabels = { backlog: '📋 Backlog', in_progress: '🔄 В работе', done: '✅ Готово' };
+  var sourceLabels = { manual: 'Manual', git_commit: 'Git commit', ai_generated: 'AI generated', github_issue: 'GitHub issue' };
+
+  document.getElementById('tv-title').textContent = task.title;
+
+  var statusEl = document.getElementById('tv-status');
+  statusEl.textContent = statusLabels[task.status] || task.status;
+  statusEl.className = 'tv-badge ' + (task.status || '');
+
+  document.getElementById('tv-source').textContent = sourceLabels[task.source] || task.source || '—';
+
+  document.getElementById('tv-created').textContent = task.created_at
+    ? new Date(task.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
+  document.getElementById('tv-updated').textContent = task.updated_at
+    ? new Date(task.updated_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
+
+  var descSection = document.getElementById('tv-desc-section');
+  var descEl = document.getElementById('tv-desc');
+  if (task.description) {
+    descSection.style.display = 'block';
+    descEl.innerHTML = formatTaskDescription(task.description);
+  } else {
+    descSection.style.display = 'none';
+  }
+
+  var plainSection = document.getElementById('tv-plain-section');
+  var plainEl = document.getElementById('tv-plain');
+  if (task.description_plain && task.description_plain !== task.description) {
+    plainSection.style.display = 'block';
+    plainEl.textContent = task.description_plain;
+  } else {
+    plainSection.style.display = 'none';
+  }
+
+  var tagsSection = document.getElementById('tv-tags-section');
+  var tagsEl = document.getElementById('tv-tags');
+  if (task.tags && task.tags.length) {
+    tagsSection.style.display = 'block';
+    tagsEl.innerHTML = task.tags.map(function(t) {
+      return '<span class="task-tag ' + escHtml(t) + '">' + escHtml(t) + '</span>';
+    }).join('');
+  } else {
+    tagsSection.style.display = 'none';
+  }
+
+  var refSection = document.getElementById('tv-ref-section');
+  var refEl = document.getElementById('tv-ref');
+  if (task.source_ref) {
+    refSection.style.display = 'block';
+    refEl.textContent = task.source_ref;
+  } else {
+    refSection.style.display = 'none';
+  }
+
+  document.getElementById('tv-edit-btn').onclick = function() {
+    closeViewModal();
+    editTask(id);
+  };
+
+  document.getElementById('task-view-modal').style.display = 'flex';
+}
+
+function formatTaskDescription(text) {
+  var safe = escHtml(text);
+  safe = safe.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  safe = safe.replace(/\n/g, '<br>');
+  return safe;
+}
+
+function closeViewModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('task-view-modal').style.display = 'none';
+  viewingTaskId = null;
+}
+
+async function copyTaskToClipboard() {
+  var task = findTaskById(viewingTaskId);
+  if (!task) return;
+
+  var statusLabels = { backlog: 'Backlog', in_progress: 'В работе', done: 'Готово' };
+  var sourceLabels = { manual: 'Manual', git_commit: 'Git commit', ai_generated: 'AI generated', github_issue: 'GitHub issue' };
+
+  var text = '# ' + task.title + '\n\n';
+  text += 'Статус: ' + (statusLabels[task.status] || task.status) + '\n';
+  text += 'Источник: ' + (sourceLabels[task.source] || task.source || 'manual') + '\n';
+  if (task.tags && task.tags.length) text += 'Теги: ' + task.tags.join(', ') + '\n';
+  if (task.created_at) text += 'Создана: ' + new Date(task.created_at).toLocaleString('ru-RU') + '\n';
+  text += '\n';
+
+  if (task.description) text += '## Техническое описание\n\n' + task.description + '\n\n';
+  if (task.description_plain && task.description_plain !== task.description) {
+    text += '## Описание простым языком\n\n' + task.description_plain + '\n\n';
+  }
+  if (task.source_ref) text += '## Источник\n' + task.source_ref + '\n';
+
+  var btn = document.getElementById('btn-copy-task');
+  var origHTML = btn.innerHTML;
+
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+
+  btn.innerHTML = '&#x2705; Скопировано!';
+  btn.classList.add('copied');
+  setTimeout(function() {
+    btn.innerHTML = origHTML;
+    btn.classList.remove('copied');
+  }, 2000);
+}
 
 /* ═══════════════════════════════════════════════════
    SETTINGS
