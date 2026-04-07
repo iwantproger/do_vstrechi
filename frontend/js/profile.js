@@ -96,6 +96,11 @@ async function loadProfile() {
   if (togRem) { if (s.reminder_notif) togRem.classList.add('on'); else togRem.classList.remove('on'); }
 
   renderReminderChips();
+  var chipsEl = document.getElementById('reminder-chips');
+  if (chipsEl) {
+    chipsEl.style.opacity = s.reminder_notif ? '' : '0.4';
+    chipsEl.style.pointerEvents = s.reminder_notif ? '' : 'none';
+  }
 }
 
 function renderReminderChips() {
@@ -248,6 +253,11 @@ function toggleReminderNotif(el) {
   try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
   showToast(s.reminder_notif ? 'Напоминания включены' : 'Напоминания отключены');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  var chipsEl = document.getElementById('reminder-chips');
+  if (chipsEl) {
+    chipsEl.style.opacity = s.reminder_notif ? '' : '0.4';
+    chipsEl.style.pointerEvents = s.reminder_notif ? '' : 'none';
+  }
 }
 
 function toggleReminderChip(val, el) {

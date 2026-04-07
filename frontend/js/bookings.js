@@ -131,8 +131,7 @@ function renderHeroCard(m, now) {
 }
 
 function isGuestBooking(m) {
-  var myId = state.user && (state.user.telegram_id || state.user.id);
-  return myId && m.organizer_telegram_id && String(m.organizer_telegram_id) !== String(myId);
+  return m.my_role === 'guest';
 }
 
 function renderMeetingCard(m) {
@@ -263,7 +262,7 @@ function renderMeetingsList() {
   /* filter */
   var filtered = meetings.filter(function(m) {
     if (_meetFilter === 'confirm') return m._ds === 'pending';
-    if (_meetFilter === 'all')     return m._ds === 'pending' || m._ds === 'confirmed' || m._ds === 'ongoing';
+    if (_meetFilter === 'all')     return m._ds === 'pending' || m._ds === 'confirmed' || m._ds === 'ongoing' || m._ds === 'noans';
     if (_meetFilter === 'noans')   return m._ds === 'noans';
     if (_meetFilter === 'ok')      return m._ds === 'confirmed' || m._ds === 'ongoing';
     if (_meetFilter === 'archive') return m._ds === 'completed' || m._ds === 'cancelled';

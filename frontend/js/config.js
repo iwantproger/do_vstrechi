@@ -130,3 +130,9 @@ const CHANGELOG = [
   },
 ];
 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const MONTHS_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const DAYS       = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const DAYS_FULL  = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const PLAT_NAMES = { jitsi: 'Jitsi Meet', zoom: 'Zoom', google_meet: 'Google Meet', other: 'Своя ссылка' };
+const TAB_SCREENS = ['s-home', 's-meetings', 's-schedules', 's-profile'];
