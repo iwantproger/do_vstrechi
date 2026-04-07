@@ -633,7 +633,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 /* ── Toast ── */
 .toast{
   position:fixed;
-  top:calc(var(--tg-header) + 12px);
+  top:calc(var(--tg-header) + 16px);
   left:50%;transform:translateX(-50%) translateY(-10px);
   width:calc(100% - 32px);max-width:340px;
   background:rgba(18,25,24,.97);color:var(--t1);border:1px solid var(--b2);
