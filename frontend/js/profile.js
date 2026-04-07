@@ -144,32 +144,27 @@ function renderReminderChips() {
   }
 }
 
-/* FIX: Bug #3/6 — long-press 500ms для активации режима редактирования чипов */
+/* FIX: long-press 500ms для активации режима редактирования чипов */
+var _chipEditJustActivated = false; /* флаг: пропустить первый click после активации */
 function attachReminderChipLongPress(container) {
   var timer = null;
-  var longPressFired = false;
   function startPress(e) {
     var chip = e.target.closest && e.target.closest('.reminder-chip:not(.rc-add)');
     if (!chip) return;
-    longPressFired = false;
     timer = setTimeout(function() {
       timer = null;
-      longPressFired = true;
+      _chipEditJustActivated = true;
       container.classList.add('chips-editing');
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      /* сбросить флаг через 400ms — если click не пришёл, значит preventDefault сработал */
+      setTimeout(function() { _chipEditJustActivated = false; }, 400);
     }, 500);
   }
-  function cancelPress(e) {
+  function cancelPress() {
     if (timer) { clearTimeout(timer); timer = null; }
-    /* FIX: после long-press блокируем click, чтобы не триггерить toggle */
-    if (longPressFired && e.type === 'touchend') {
-      e.preventDefault();
-      longPressFired = false;
-    }
   }
-  /* passive:false на touchend чтобы preventDefault работал после long-press */
   container.addEventListener('touchstart', startPress, { passive: true });
-  container.addEventListener('touchend', cancelPress, { passive: false });
+  container.addEventListener('touchend', cancelPress);
   container.addEventListener('touchcancel', cancelPress);
   container.addEventListener('touchmove', cancelPress, { passive: true });
   /* mouse fallback для dev-режима */
@@ -267,7 +262,12 @@ function toggleReminderNotif(el) {
 }
 
 function toggleReminderChip(val, el) {
-  /* FIX: Bug #3 — в режиме редактирования клик по чипу просто выходит из режима */
+  /* FIX: пропустить click, который пришёл сразу после активации editing (long-press) */
+  if (_chipEditJustActivated) {
+    _chipEditJustActivated = false;
+    return;
+  }
+  /* В режиме редактирования клик по чипу выходит из режима */
   var container = document.getElementById('reminder-chips');
   if (container && container.classList.contains('chips-editing')) {
     container.classList.remove('chips-editing');
