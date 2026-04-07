@@ -1,6 +1,20 @@
 /* ═══════════════════════════════════════════
    SCHEDULES LIST (s-schedules)
 ═══════════════════════════════════════════ */
+/* FIX: localStorage хранит ID удалённых расписаний (DELETE ≠ пауза) */
+function _getDeletedIds() {
+  try { return JSON.parse(localStorage.getItem('deleted_schedules') || '[]'); } catch(e) { return []; }
+}
+function _markDeleted(id) {
+  var ids = _getDeletedIds();
+  if (ids.indexOf(id) === -1) ids.push(id);
+  try { localStorage.setItem('deleted_schedules', JSON.stringify(ids)); } catch(e) {}
+}
+function _unmarkDeleted(id) {
+  var ids = _getDeletedIds().filter(function(x) { return x !== id; });
+  try { localStorage.setItem('deleted_schedules', JSON.stringify(ids)); } catch(e) {}
+}
+
 async function loadSchedules() {
   var list = document.getElementById('schedules-list');
   if (!list) return;
@@ -11,9 +25,36 @@ async function loadSchedules() {
     list.innerHTML = renderEmpty('Нет расписаний', 'Создайте первое расписание, чтобы клиенты могли записываться');
     return;
   }
+
+  var deletedIds = _getDeletedIds();
+  var visible = [];
+  var archived = [];
+  state.schedules.forEach(function(s) {
+    if (deletedIds.indexOf(s.id) !== -1) archived.push(s);
+    else visible.push(s);
+  });
+
   var html = '';
-  state.schedules.forEach(function(s) { html += renderLinkCard(s); });
+  if (!visible.length && !archived.length) {
+    list.innerHTML = renderEmpty('Нет расписаний', 'Создайте первое расписание, чтобы клиенты могли записываться');
+    return;
+  }
+  visible.forEach(function(s) { html += renderLinkCard(s); });
+  if (archived.length) {
+    html += '<div style="margin:24px 16px 0"><button onclick="toggleScheduleArchive()" style="display:flex;align-items:center;gap:6px;width:100%;background:none;border:1px solid var(--b1);border-radius:12px;padding:10px 16px;font-family:var(--font);font-size:13px;font-weight:600;color:var(--t2);cursor:pointer">'
+      + '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>'
+      + 'Архив (' + archived.length + ')</button></div>';
+    html += '<div id="schedule-archive" style="display:none;margin-top:8px">';
+    archived.forEach(function(s) { html += renderLinkCard(s, true); });
+    html += '</div>';
+  }
   list.innerHTML = html;
+}
+
+function toggleScheduleArchive() {
+  var el = document.getElementById('schedule-archive');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
 function formatWorkDays(days) {
@@ -44,7 +85,7 @@ function getScheduleTelegramUrl(id) {
   return 'https://t.me/do_vstrechi_bot/app?startapp=' + id;
 }
 
-function renderLinkCard(s) {
+function renderLinkCard(s, isArchived) {
   var title = escHtml(s.title || '');
   var desc = s.description ? escHtml(s.description) : '';
   var dur = sliderLabel(s.duration || 60);
@@ -52,15 +93,13 @@ function renderLinkCard(s) {
   var timeStr = fmtTimeStr(s.start_time) + '–' + fmtTimeStr(s.end_time);
   var platName = PLAT_NAMES[s.platform] || s.platform || '';
   var isActive = s.is_active !== false;
-  var opacity = isActive ? '' : ';opacity:.65';
-  var url = getScheduleUrl(s.id);
+  var opacity = (isArchived || !isActive) ? ';opacity:.55' : '';
 
   var html = '<div class="link-card" onclick="openScheduleView(\'' + s.id + '\')" style="padding:14px 16px' + opacity + '">';
-  /* FIX: Bug #11 — статус в едином стиле, без подложки */
   /* row 1: title + статус */
   html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:' + (desc ? '6' : '10') + 'px">'
     + '<div class="lc-name" style="font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + title + '</div>'
-    + '<span style="flex-shrink:0">' + scheduleStatusHtml(isActive) + '</span>'
+    + '<span style="flex-shrink:0">' + (isArchived ? scheduleArchivedHtml() : scheduleStatusHtml(isActive)) + '</span>'
   + '</div>';
   /* row 2: description (if any) */
   if (desc) html += '<div style="font-size:12px;color:var(--t2);margin-bottom:10px">' + desc + '</div>';
@@ -72,12 +111,31 @@ function renderLinkCard(s) {
       + '<span class="lc-pill">' + escHtml(timeStr) + '</span>'
       + (platName ? '<span class="lc-pill">' + escHtml(platName) + '</span>' : '')
     + '</div>'
-    + '<div style="flex-shrink:0">'
-      + '<button class="lc-btn lc-share" onclick="event.stopPropagation();openShareSheet(\'' + s.id + '\')" style="height:32px;padding:0 12px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Поделиться</button>'
-    + '</div>'
+    + (isArchived
+      ? '<button class="lc-btn" onclick="event.stopPropagation();restoreSchedule(\'' + s.id + '\')" style="height:32px;padding:0 12px;font-size:12px;font-weight:700;color:var(--green);background:var(--gs)">Восстановить</button>'
+      : '<div style="flex-shrink:0">'
+        + '<button class="lc-btn lc-share" onclick="event.stopPropagation();openShareSheet(\'' + s.id + '\')" style="height:32px;padding:0 12px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Поделиться</button>'
+      + '</div>')
   + '</div>';
   html += '</div>';
   return html;
+}
+
+/* Бейдж «Удалено» для архивных карточек */
+function scheduleArchivedHtml() {
+  return '<div class="mst mst-cancelled"><svg viewBox="0 0 24 24"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><span class="mst-label">Удалено</span></div>';
+}
+
+/* Восстановить расписание из архива */
+async function restoreSchedule(id) {
+  var { error } = await apiFetch('PATCH', '/api/schedules/' + id, { is_active: true });
+  if (error) { showToast('Не удалось восстановить', 'error'); return; }
+  _unmarkDeleted(id);
+  var s = (state.schedules || []).find(function(x) { return x.id === id; });
+  if (s) s.is_active = true;
+  loadSchedules();
+  showToast('Расписание восстановлено', 'success');
+  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 }
 
 /* ═══════════════════════════════════════════
@@ -525,9 +583,12 @@ async function confirmDeleteSchedule() {
     showToast('Не удалось удалить');
     return;
   }
+  /* FIX: пометить как удалённое в localStorage + обновить state */
+  _markDeleted(id);
+  var s = (state.schedules || []).find(function(x) { return x.id === id; });
+  if (s) s.is_active = false;
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   showToast('Расписание удалено');
-  state.schedules = state.schedules.filter(function(x) { return x.id !== id; });
   state.pendingDeleteId = null;
   goBack();
 }
