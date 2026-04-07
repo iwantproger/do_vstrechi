@@ -321,9 +321,15 @@ function renderMeetingsList() {
 /* ═══════════════════════════════════════════
    MEET DETAIL + NO-ANSWER
 ═══════════════════════════════════════════ */
-function openMeetDetail(id) {
-  const m = (state.bookings || []).find(function(b) { return b.id === id; });
-  if (!m) return;
+async function openMeetDetail(id) {
+  var m = (state.bookings || []).find(function(b) { return b.id === id; });
+
+  /* FIX: если встречи нет в state (deep link / гость) — загрузить из API */
+  if (!m) {
+    var { data, error } = await apiFetch('GET', '/api/bookings/' + id);
+    if (error || !data) { showToast('Встреча не найдена', 'error'); return; }
+    m = data;
+  }
 
   var dStatus = getMeetingStatus(m);
 

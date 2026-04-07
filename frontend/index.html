@@ -858,7 +858,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupProfile();
     await loadHome();
     /* open booking detail after data is loaded */
-    openMeetDetail(bookingId);
+    await openMeetDetail(bookingId);
   } else {
     var scheduleId = urlParams.get('schedule_id') || startParam || null;
     if (scheduleId) {
