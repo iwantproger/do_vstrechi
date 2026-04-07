@@ -57,7 +57,7 @@ async def list_schedules(
         """
         SELECT s.* FROM schedules s
         JOIN users u ON u.id = s.user_id
-        WHERE u.telegram_id = $1 AND s.is_default = FALSE
+        WHERE u.telegram_id = $1 AND s.is_default = FALSE AND s.is_active = TRUE
         ORDER BY s.created_at DESC
         """,
         telegram_id
