@@ -50,6 +50,8 @@ desktop.ini
 *.swp
 *.swo
 .claude/
+!.claude/commands/
+!.claude/agent-memory/
 
 # ===== Frontend =====
 node_modules/

@@ -13,23 +13,60 @@
 ```
 do_vstrechi/
 ├── backend/                # FastAPI-приложение (API + БД)
-│   ├── main.py             # Весь backend в одном файле (роуты, модели, БД, auth)
+│   ├── main.py             # ~140 строк: app, lifespan, middleware, healthcheck
+│   ├── config.py           # Переменные окружения
+│   ├── database.py         # Connection pool asyncpg + dependency db()
+│   ├── auth.py             # Telegram initData validation + admin session auth
+│   ├── schemas.py          # Pydantic-модели запросов/ответов
+│   ├── utils.py            # row_to_dict, generate_meeting_link, _notify_bot
+│   ├── routers/            # API-эндпоинты по модулям
+│   │   ├── users.py        # /api/users/*
+│   │   ├── schedules.py    # /api/schedules/*, /api/available-slots/*
+│   │   ├── bookings.py     # /api/bookings/*
+│   │   ├── meetings.py     # /api/meetings/quick
+│   │   ├── stats.py        # /api/stats
+│   │   └── admin.py        # /api/admin/*, /api/events
 │   ├── requirements.txt    # Python-зависимости backend
 │   └── Dockerfile
 ├── bot/                    # Telegram-бот на aiogram 3.x
-│   ├── bot.py              # Бот + внутренний HTTP-сервер уведомлений (:8080)
+│   ├── bot.py              # ~70 строк: Bot init, router includes, lifespan
+│   ├── config.py           # BOT_TOKEN, BACKEND_API_URL, INTERNAL_API_KEY
+│   ├── api.py              # HTTP helper (auto X-Internal-Key)
+│   ├── states.py           # CreateSchedule FSM StatesGroup
+│   ├── keyboards.py        # Все клавиатуры (Reply + Inline)
+│   ├── formatters.py       # format_dt, STATUS_EMOJI, format_booking
+│   ├── handlers/           # Обработчики команд и callback
+│   │   ├── start.py        # /start, /help, deep link notify_*
+│   │   ├── navigation.py   # main_menu, my_schedules, my_bookings, stats
+│   │   ├── schedules.py    # Детали, шаринг, удаление расписания
+│   │   ├── bookings.py     # Детали, подтверждение, отмена
+│   │   └── create.py       # FSM: создание расписания
+│   ├── services/           # Фоновые сервисы
+│   │   ├── notifications.py # aiohttp сервер :8080, handle_new_booking
+│   │   └── reminders.py    # reminder_loop, send_reminder
 │   ├── requirements.txt    # Python-зависимости бота
 │   └── Dockerfile
 ├── frontend/               # Telegram Mini App (SPA)
-│   └── index.html          # Весь фронтенд в одном файле (HTML + CSS + JS)
+│   ├── index.html          # HTML-разметка
+│   ├── css/style.css       # Все стили
+│   └── js/                 # JS-модули
+│       ├── api.js, state.js, config.js, utils.js, nav.js
+│       ├── bookings.js, schedules.js, calendar.js
+│       ├── quickadd.js, profile.js
 ├── admin/                  # Админ-панель (SPA)
-│   └── index.html          # Весь фронтенд админки (HTML + CSS + JS)
+│   ├── index.html          # HTML-разметка
+│   ├── css/admin.css       # Все стили
+│   └── js/                 # JS-модули
+│       ├── config.js, auth.js, dashboard.js
+│       ├── logs.js, tasks.js, settings.js
 ├── database/               # Инициализация и миграции БД
 │   ├── init.sql            # Схема: таблицы, индексы, триггеры, view
 │   └── migrations/         # Инкрементальные SQL-миграции
 │       ├── 002_add_timezone.sql
 │       ├── 003_add_reminder_flags.sql
-│       └── 004_admin_tables.sql
+│       ├── 004_admin_tables.sql
+│       ├── 004_quick_add_meeting.sql
+│       └── 005_min_booking_advance.sql
 ├── nginx/                  # Reverse proxy
 │   ├── nginx.conf          # Конфиг: SSL, rate limiting, security headers
 │   └── Dockerfile
@@ -122,7 +159,7 @@ make logs        # Посмотреть логи
 
 ## API Backend — все эндпоинты
 
-Все роуты определены в `backend/main.py`. Версия API: **2.0.0**.
+Роуты определены в `backend/routers/`. Версия API: **2.0.0**.
 
 | Метод | Путь | Auth | Описание |
 |-------|------|------|----------|
@@ -137,6 +174,8 @@ make logs        # Посмотреть логи
 | GET | `/api/available-slots/{schedule_id}?date=&viewer_tz=` | — | Свободные слоты на дату (с учётом таймзон) |
 | POST | `/api/bookings` | optional | Создать бронирование (автогенерация Jitsi-ссылки + push организатору) |
 | GET | `/api/bookings?role=` | initData | Список бронирований (role: organizer / guest / all) |
+| GET | `/api/bookings/{booking_id}` | optional | Детали бронирования + my_role (organizer/guest/viewer) |
+| POST | `/api/meetings/quick` | initData | Создать встречу вручную (личная или в расписание) |
 | PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить бронирование (только организатор) |
 | PATCH | `/api/bookings/{booking_id}/cancel` | initData | Отменить бронирование (организатор или гость) |
 | GET | `/api/bookings/pending-reminders?reminder_type=` | — | Список бронирований для напоминаний (24h/1h) |
@@ -163,7 +202,7 @@ make logs        # Посмотреть логи
 
 ## Telegram Bot — команды и handlers
 
-Весь код бота в `bot/bot.py`.
+Код бота в `bot/handlers/` (команды, callbacks), `bot/services/` (уведомления, напоминания).
 
 ### Команды
 
@@ -211,6 +250,12 @@ make logs        # Посмотреть логи
 | `confirm_{id}` | Подтвердить встречу |
 | `cancel_{id}` | Отменить встречу |
 
+### Deep Link: настройка напоминаний
+
+| Ссылка | Обработчик | Действие |
+|--------|-----------|----------|
+| `/start notify_{booking_id}` | `start.py` | Кнопки выбора напоминания: за 30 мин, за 15 мин, не напоминать |
+
 ### FSM: создание расписания (CreateSchedule)
 
 | Состояние | Ввод | Следующее |
@@ -232,8 +277,8 @@ make logs        # Посмотреть логи
 | Таблица | Ключевые поля | Назначение |
 |---------|--------------|-----------|
 | `users` | id (UUID PK), telegram_id (BIGINT UNIQUE), username, first_name, last_name, **timezone** (TEXT, default 'UTC'), created_at, updated_at | Пользователи-организаторы |
-| `schedules` | id (UUID PK), user_id (FK→users CASCADE), title, duration (INT, мин), buffer_time (INT, мин), work_days (INT[]), start_time (TIME), end_time (TIME), location_mode, platform, is_active (BOOL), created_at, updated_at | Расписания для бронирования |
-| `bookings` | id (UUID PK), schedule_id (FK→schedules CASCADE), guest_name, guest_contact, guest_telegram_id, scheduled_time (TIMESTAMPTZ), status (CHECK: pending/confirmed/cancelled/completed), meeting_link, notes, **reminder_24h_sent** (BOOL), **reminder_1h_sent** (BOOL), created_at, updated_at | Бронирования встреч |
+| `schedules` | id (UUID PK), user_id (FK→users CASCADE), title, duration (INT, мин), buffer_time (INT, мин), work_days (INT[]), start_time (TIME), end_time (TIME), location_mode, platform, is_active (BOOL), **is_default** (BOOL, скрытое расписание для личных встреч), **min_booking_advance** (INT, мин, default 0), created_at, updated_at | Расписания для бронирования |
+| `bookings` | id (UUID PK), schedule_id (FK→schedules CASCADE), guest_name, guest_contact, guest_telegram_id, scheduled_time (TIMESTAMPTZ), status (CHECK: pending/confirmed/cancelled/completed), meeting_link, notes, **reminder_24h_sent** (BOOL), **reminder_1h_sent** (BOOL), **title** (TEXT, для ручных встреч), **end_time** (TIMESTAMPTZ, для ручных встреч), **is_manual** (BOOL), **created_by** (BIGINT), created_at, updated_at | Бронирования встреч |
 | `admin_sessions` | id (UUID PK), telegram_id (BIGINT), session_token (TEXT UNIQUE), ip_address (INET), user_agent, expires_at (TIMESTAMPTZ), is_active (BOOL) | Admin cookie-сессии |
 | `admin_audit_log` | id (BIGSERIAL PK), action (TEXT CHECK), details (JSONB), ip_address (INET), created_at | Лог всех admin-действий |
 | `app_events` | id (BIGSERIAL PK), event_type (TEXT), anonymous_id (TEXT, 12 chars), session_id, metadata (JSONB), severity (CHECK: info/warn/error/critical), created_at | Аналитика: события приложения с анонимизацией |
@@ -290,25 +335,27 @@ make logs        # Посмотреть логи
 
 ## Как добавить новый API-эндпоинт
 
-Сейчас весь backend — один файл `backend/main.py`. Новые эндпоинты добавляются туда же:
+Backend разделён на модули в `backend/routers/`. Новые эндпоинты добавляются в подходящий файл роутера (или создаётся новый):
 
-1. Определить Pydantic-модель (если нужна) с `Field(min_length=, max_length=)` — рядом с существующими
-2. Добавить роут-функцию с декоратором `@app.get/post/patch/delete`
-3. **Если эндпоинт требует авторизации** — добавить `auth_user: dict = Depends(get_current_user)` и извлекать `telegram_id = auth_user["id"]`
+1. Определить Pydantic-модель (если нужна) в `backend/schemas.py` с `Field(min_length=, max_length=)`
+2. Добавить роут-функцию в `backend/routers/<модуль>.py` с декоратором `@router.get/post/patch/delete`
+3. **Если эндпоинт требует авторизации** — добавить `auth_user: dict = Depends(get_current_user)` (импорт из `backend.auth`) и извлекать `telegram_id = auth_user["id"]`
 4. Если эндпоинт публичный (гостевой доступ) — использовать `Depends(get_optional_user)` или без auth
-5. Использовать dependency `conn = Depends(db)` для доступа к asyncpg-соединению
+5. Использовать dependency `conn = Depends(db)` для доступа к asyncpg-соединению (импорт из `backend.database`)
 6. SQL — только `$1, $2` параметры, никогда f-строки
-7. Для конвертации результатов из asyncpg: `row_to_dict(row)` / `rows_to_list(rows)`
+7. Для конвертации результатов из asyncpg: `row_to_dict(row)` / `rows_to_list(rows)` из `backend.utils`
+8. Если новый роутер — подключить в `backend/main.py` через `app.include_router()`
 
 ## Как добавить новый handler бота
 
-Весь бот — один файл `bot/bot.py`. Новые handlers добавляются туда же:
+Бот разделён на модули. Handlers в `bot/handlers/`, фоновые сервисы в `bot/services/`:
 
-1. Написать async-функцию handler
-2. Зарегистрировать через `dp.message.register()` или `dp.callback_query.register()`
-3. Если нужен FSM — добавить состояния в класс `CreateSchedule` (или создать новый `StatesGroup`)
-4. Для API-вызовов использовать хелпер `api(method, path, **kwargs)`
-5. Для клавиатур — `InlineKeyboardBuilder` из aiogram
+1. Написать async-функцию handler в подходящем файле `bot/handlers/<модуль>.py`
+2. Зарегистрировать через `router.message()`, `router.callback_query()` (используется `Router` из aiogram)
+3. Если нужен FSM — добавить состояния в `bot/states.py` в класс `CreateSchedule` (или создать новый `StatesGroup`)
+4. Для API-вызовов использовать хелпер `api(method, path, **kwargs)` из `bot.api`
+5. Для клавиатур — `InlineKeyboardBuilder` из aiogram, готовые клавиатуры в `bot/keyboards.py`
+6. Если новый файл handler — подключить router в `bot/bot.py` через `dp.include_router()`
 
 ## Инфраструктура
 
@@ -345,6 +392,9 @@ make logs        # Посмотреть логи
 - **Trailing slash** в URL вызывает двойной слеш — убирать `/` в конце `MINI_APP_URL`
 - **Бот работает polling'ом** (не webhook) — `dp.start_polling(bot)` + aiohttp-сервер на :8080 для приёма уведомлений от backend
 - **CORS** ограничен whitelist'ом (`dovstrechiapp.ru`) — менять в `backend/main.py` переменную `allow_origins`
+- **Пауза vs удаление расписания** — оба действия ставят `is_active=FALSE` на backend. Фронтенд отличает их через localStorage (`deleted_schedules`): удалённые не показываются, приостановленные — с opacity 0.55
+- **Быстрое добавление встречи** — `POST /api/meetings/quick` автосоздаёт скрытое расписание (`is_default=TRUE`) если `schedule_id` не передан. Такие расписания не отображаются в списке расписаний организатора
+- **min_booking_advance** — минимальное время бронирования заранее (в минутах), default 0. Слоты ближе этого порога к текущему времени отфильтровываются в `/api/available-slots`
 - **Аутентификация** двухканальная: Mini App через `X-Init-Data` (HMAC-SHA256), бот через `X-Internal-Key`
 - **Security audit log** ведётся в `docs/SECURITY.md` — обновлять при каждом изменении безопасности
 - **Миграции** — ручные SQL-файлы в `database/migrations/`, применяются через `docker-compose exec postgres psql`
