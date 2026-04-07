@@ -26,6 +26,9 @@
 | 18 | Chart.js + SortableJS через CDN | Нет npm/build step, нет Node.js зависимости, CDN-кеширование, Chart.js 4.4.7 (~200KB) и SortableJS (~30KB) — приемлемо | Recharts (требует React), D3 (overkill), локальные бандлы (нужен Webpack/Vite) |
 | 19 | Event tracking в PostgreSQL (app_events) | Единая БД, SQL-аналитика, простая схема, нет внешних зависимостей | Elasticsearch (overkill), ClickHouse (отдельный сервис), Mixpanel/Amplitude (зарубежные, нарушают 152-ФЗ) |
 | 20 | Анонимизация telegram_id через SHA256+salt | Необратимо — нельзя восстановить telegram_id из лога, консистентно — один пользователь всегда один anonymous_id, privacy-first | UUID random (нет consistency для аналитики), reversible encoding (раскрывает данные при утечке соли) |
+| 23 | Beta-First Deployment | Все изменения проходят через beta прежде чем попасть в prod. Снижает риск регрессий для реальных пользователей. Код: dev → beta → (подтверждение) → main → prod | Прямой деплой в prod при push в main |
+| 24 | Production deploy только по запросу | Деплой в prod требует явной команды + 2 подтверждения + health-check beta. `make deploy` защищён вводом слова "production" | Автодеплой main → prod без подтверждения |
+| 25 | Git worktrees для окружений | main → /opt/dovstrechi (prod), dev → /opt/dovstrechi-beta (worktree). Изоляция на уровне файловой системы — nginx bind mounts не затронуты при обновлении beta | Одна директория + переключение веток (опасно из-за bind mounts, см. INC-001) |
 
 ## Известные технические ограничения
 

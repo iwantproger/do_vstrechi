@@ -8,6 +8,15 @@ Telegram Mini App для записи на встречи — аналог Calen
 
 «До встречи» позволяет любому пользователю Telegram настроить своё расписание доступности и принимать бронирования от других. Не нужно устанавливать сторонние приложения — всё происходит прямо в чате. Проект разворачивается на собственном VPS, данные хранятся на вашем сервере.
 
+## Деплой
+
+| Окружение | URL | Ветка | Деплой |
+|-----------|-----|-------|--------|
+| **Beta** | [beta.dovstrechiapp.ru](https://beta.dovstrechiapp.ru) | `dev` | Автоматически при push |
+| **Production** | [dovstrechiapp.ru](https://dovstrechiapp.ru) | `main` | Только через процедуру |
+
+> Подробнее: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Правила для агентов: [docs/AGENTS.md](docs/AGENTS.md)
+
 ## Возможности
 
 - Создание расписания доступности (дни недели, временные слоты)
@@ -155,16 +164,16 @@ make admin
 
 ## CI/CD
 
-Проект поддерживает автодеплой через GitHub Actions.  
-Добавь секреты в **Settings → Secrets and variables → Actions**:
+Проект использует GitHub Actions с двумя workflow:
 
-| Секрет        | Значение                          |
-|---------------|-----------------------------------|
-| `VPS_HOST`    | IP-адрес вашего VPS               |
-| `VPS_USER`    | SSH-пользователь (например, root) |
-| `VPS_SSH_KEY` | Приватный SSH-ключ                |
+| Workflow | Триггер | Окружение |
+|----------|---------|-----------|
+| `deploy-beta.yml` | push в `dev` | beta.dovstrechiapp.ru |
+| `deploy-prod.yml` | push в `main` | dovstrechiapp.ru |
 
-При каждом `git push` в `main` → автоматический деплой на VPS.
+**Beta** деплоится автоматически. **Production** — только через процедуру (см. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
+
+GitHub Secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
 
 ## Структура проекта
 

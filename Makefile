@@ -1,4 +1,4 @@
-.PHONY: up down restart logs ps build backup restore migrate migrate-all admin health cleanup ssl ssl-renew psql help
+.PHONY: up down restart deploy logs ps build backup restore migrate migrate-all admin health cleanup ssl ssl-renew psql help
 .PHONY: beta-up beta-down beta-restart beta-logs beta-ps beta-build beta-deploy beta-migrate beta-migrate-all beta-psql beta-health
 .PHONY: status ssl-beta
 
@@ -22,6 +22,34 @@ restart:
 	docker compose down
 	docker compose build --no-cache
 	docker compose up -d
+
+## Деплой в PRODUCTION (с подтверждением + health-check beta)
+deploy:
+	@echo ""
+	@echo "  ════════════════════════════════════════════"
+	@echo "   ДЕПЛОЙ В PRODUCTION"
+	@echo "   Домен: dovstrechiapp.ru"
+	@echo "   Реальные пользователи будут затронуты"
+	@echo "  ════════════════════════════════════════════"
+	@echo ""
+	@read -p "Введи 'production' для подтверждения: " confirm; \
+	if [ "$$confirm" != "production" ]; then \
+		echo "Отменено. Деплой не выполнен."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Проверяем beta перед деплоем..."
+	@curl -sf https://beta.dovstrechiapp.ru/health > /dev/null 2>&1 || \
+		(echo "Beta unhealthy! Исправь проблемы на beta перед деплоем в prod." && exit 1)
+	@echo "Beta healthy. Начинаем деплой в production..."
+	git pull origin main
+	docker compose build --no-cache
+	docker compose up -d --force-recreate
+	@echo "Ждём запуска..."
+	@sleep 8
+	@curl -sf https://dovstrechiapp.ru/health > /dev/null 2>&1 && \
+		echo "Production healthy!" || \
+		echo "Production health-check FAILED!"
 
 ## Логи всех сервисов
 logs:
