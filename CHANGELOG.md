@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [2.1.0] — 08.04.2026
+
 ### Added
 - Beta-окружение (beta.dovstrechiapp.ru)
 - Разделение prod и beta баз данных (dovstrechi / dovstrechi_beta)
@@ -19,6 +23,13 @@
 - docs/DEPLOYMENT.md — правила деплоя (beta-first)
 - docs/AGENTS.md — правила для AI-агентов
 - docs/BETA_SETUP.md — инструкция первого запуска beta
+
+### Changed
+- Makefile: команда `deploy` требует ввод "production" + health-check beta
+- README.md: таблица окружений, обновлён CI/CD раздел
+
+### Infrastructure
+- docs/DECISIONS.md: решения #23-25 (beta-first, prod-on-demand, worktrees)
 
 ---
 
