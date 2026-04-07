@@ -1,4 +1,4 @@
-name: Deploy to Timeweb VPS
+name: Deploy → Production
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to dovstrechiapp.ru
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -18,6 +19,9 @@ jobs:
           command_timeout: 12m
           script: |
             cd /opt/dovstrechi
+
+            # Ensure shared network for beta connectivity
+            docker network create dovstrechi_shared 2>/dev/null || true
 
             # Pull latest
             git fetch origin
@@ -44,4 +48,5 @@ jobs:
             sleep 5
             curl -sf http://localhost/health || echo "WARNING: Health check failed"
 
-            echo "Deploy complete"
+            echo "=== Prod deploy complete ==="
+            docker compose ps

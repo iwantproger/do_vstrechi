@@ -49,6 +49,7 @@ services:
         condition: service_healthy
     networks:
       - internal
+      - shared
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -94,12 +95,16 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./frontend:/usr/share/nginx/html
       - ./admin:/usr/share/nginx/html/admin:ro
+      # Beta frontend (из git worktree; Docker создаст пустые dirs если worktree ещё нет)
+      - ${BETA_DIR:-/opt/dovstrechi-beta}/frontend:/usr/share/nginx/html-beta
+      - ${BETA_DIR:-/opt/dovstrechi-beta}/admin:/usr/share/nginx/html-beta/admin:ro
       - certbot_www:/var/www/certbot:ro
       - certbot_certs:/etc/letsencrypt:ro
     depends_on:
       - backend
     networks:
       - internal
+      - shared
 
   # ─────────────────────────────────────────────
   # Certbot — SSL Let's Encrypt (запускать вручную)
@@ -121,3 +126,6 @@ volumes:
 networks:
   internal:
     driver: bridge
+  shared:
+    external: true
+    name: dovstrechi_shared

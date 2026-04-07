@@ -1,4 +1,13 @@
 .PHONY: up down restart logs ps build backup restore migrate migrate-all admin health cleanup ssl ssl-renew psql help
+.PHONY: beta-up beta-down beta-restart beta-logs beta-ps beta-build beta-deploy beta-migrate beta-migrate-all beta-psql beta-health
+.PHONY: status ssl-beta
+
+# Короткая переменная для beta compose
+BETA_COMPOSE = docker compose -f docker-compose.beta.yml --env-file .env.beta --project-name dovstrechi-beta
+
+# ═══════════════════════════════════════════════════════════
+# PROD
+# ═══════════════════════════════════════════════════════════
 
 ## Запустить все сервисы
 up:
@@ -97,7 +106,117 @@ ssl-renew:
 psql:
 	docker compose exec postgres psql -U $${POSTGRES_USER:-dovstrechi} $${POSTGRES_DB:-dovstrechi}
 
+# ═══════════════════════════════════════════════════════════
+# BETA
+# ═══════════════════════════════════════════════════════════
+
+## Запустить beta-окружение
+beta-up:
+	$(BETA_COMPOSE) up -d
+
+## Остановить beta-окружение
+beta-down:
+	$(BETA_COMPOSE) down
+
+## Перезапустить beta (с ребилдом)
+beta-restart:
+	$(BETA_COMPOSE) down
+	$(BETA_COMPOSE) build --no-cache
+	$(BETA_COMPOSE) up -d
+
+## Логи beta-сервисов
+beta-logs:
+	$(BETA_COMPOSE) logs -f
+
+## Статус beta-контейнеров
+beta-ps:
+	$(BETA_COMPOSE) ps
+
+## Пересобрать beta-образы
+beta-build:
+	$(BETA_COMPOSE) build --no-cache
+
+## Деплой beta (pull dev + build + up)
+beta-deploy:
+	@echo "=== Updating beta worktree ==="
+	cd /opt/dovstrechi && git fetch origin
+	cd /opt/dovstrechi-beta && git reset --hard origin/dev
+	@echo "=== Building and deploying beta ==="
+	$(BETA_COMPOSE) build
+	$(BETA_COMPOSE) up -d
+	@echo "=== Reloading nginx ==="
+	docker exec dovstrechi_nginx nginx -s reload
+	@echo "✓ Beta deploy complete"
+	$(BETA_COMPOSE) ps
+
+## Применить миграцию в beta (make beta-migrate FILE=004_admin_tables.sql)
+beta-migrate:
+	docker exec -i dovstrechi_postgres_beta psql -U $${POSTGRES_USER:-dovstrechi} \
+		-d $${POSTGRES_DB:-dovstrechi_beta} \
+		-f /docker-entrypoint-initdb.d/migrations/$(FILE)
+	@echo "✓ Beta migration $(FILE) applied"
+
+## Применить все миграции в beta
+beta-migrate-all:
+	@for f in $$(ls /opt/dovstrechi-beta/database/migrations/*.sql 2>/dev/null | sort); do \
+		echo "Applying $$(basename $$f) to beta..."; \
+		docker exec -i dovstrechi_postgres_beta psql -U $${POSTGRES_USER:-dovstrechi} \
+			-d $${POSTGRES_DB:-dovstrechi_beta} \
+			-f /docker-entrypoint-initdb.d/migrations/$$(basename $$f); \
+	done
+	@echo "✓ All beta migrations applied"
+
+## Открыть psql beta
+beta-psql:
+	docker exec -it dovstrechi_postgres_beta psql -U $${POSTGRES_USER:-dovstrechi} $${POSTGRES_DB:-dovstrechi_beta}
+
+## Проверить здоровье beta
+beta-health:
+	@echo "=== Beta Backend ==="
+	@curl -sf https://beta.dovstrechiapp.ru/health | python3 -m json.tool 2>/dev/null || echo "  ERR: Beta backend down"
+	@echo "=== Beta Postgres ==="
+	@docker exec dovstrechi_postgres_beta pg_isready -U $${POSTGRES_USER:-dovstrechi} 2>/dev/null && echo "  OK: Ready" || echo "  ERR: Not ready"
+
+# ═══════════════════════════════════════════════════════════
+# ОБЩИЕ
+# ═══════════════════════════════════════════════════════════
+
+## Статус обоих окружений
+status:
+	@echo "╔══════════════════════════════════════╗"
+	@echo "║            PROD                      ║"
+	@echo "╚══════════════════════════════════════╝"
+	@docker compose ps
+	@echo ""
+	@echo "╔══════════════════════════════════════╗"
+	@echo "║            BETA                      ║"
+	@echo "╚══════════════════════════════════════╝"
+	@$(BETA_COMPOSE) ps 2>/dev/null || echo "  Beta не запущена"
+
+## Расширить SSL на beta домен
+ssl-beta:
+	docker compose run --rm certbot certonly --webroot \
+		--webroot-path=/var/www/certbot \
+		--expand \
+		-d dovstrechiapp.ru \
+		-d www.dovstrechiapp.ru \
+		-d beta.dovstrechiapp.ru \
+		--email YOUR_EMAIL@example.com \
+		--agree-tos --no-eff-email
+	docker compose exec nginx nginx -s reload
+	@echo "✓ SSL expanded for beta.dovstrechiapp.ru"
+
 help:
 	@echo "Доступные команды:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-15s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  PROD:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v beta | grep -v status | grep -v ssl-beta | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-18s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  BETA:"
+	@grep -E '^beta-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-18s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "  ОБЩИЕ:"
+	@echo "  make status            Статус обоих окружений"
+	@echo "  make ssl-beta          Расширить SSL на beta домен"

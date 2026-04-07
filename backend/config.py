@@ -13,11 +13,14 @@ ADMIN_SESSION_TTL_HOURS = int(os.environ.get("ADMIN_SESSION_TTL_HOURS", "2"))
 ADMIN_IP_ALLOWLIST = os.environ.get("ADMIN_IP_ALLOWLIST", "").strip()
 ANONYMIZE_SALT = os.environ.get("ANONYMIZE_SALT", "do-vstrechi-2026")
 
-CORS_ORIGINS = [
-    "https://dovstrechiapp.ru",
-    "https://www.dovstrechiapp.ru",
-    *([] if not MINI_APP_URL else [MINI_APP_URL]),
-]
+_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
+CORS_ORIGINS = (
+    [o.strip() for o in _allowed_origins.split(",") if o.strip()]
+    if _allowed_origins
+    else ["https://dovstrechiapp.ru", "https://www.dovstrechiapp.ru"]
+)
+if MINI_APP_URL and MINI_APP_URL not in CORS_ORIGINS:
+    CORS_ORIGINS.append(MINI_APP_URL)
 
 APP_START_TIME = _time.time()
 APP_VERSION = "2.0.0"

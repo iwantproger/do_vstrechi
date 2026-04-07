@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.beta.example
 __pycache__/
 *.pyc
 *.pyo

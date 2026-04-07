@@ -1,0 +1,70 @@
+name: Deploy → Beta
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  deploy:
+    name: Deploy to beta.dovstrechiapp.ru
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 12m
+          script: |
+            set -e
+            cd /opt/dovstrechi
+
+            # Ensure shared network exists
+            docker network create dovstrechi_shared 2>/dev/null || true
+
+            # Fetch latest from all branches
+            git fetch origin
+
+            # Create or update worktree (prod repo stays on main!)
+            if [ ! -d /opt/dovstrechi-beta ]; then
+              echo "=== Creating beta worktree ==="
+              git worktree add /opt/dovstrechi-beta dev
+            else
+              echo "=== Updating beta worktree ==="
+              cd /opt/dovstrechi-beta
+              git checkout dev 2>/dev/null || true
+              git reset --hard origin/dev
+            fi
+
+            # Build and deploy beta (compose file in main repo, code from worktree)
+            cd /opt/dovstrechi
+            echo "=== Building beta services ==="
+            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+              --project-name dovstrechi-beta build
+
+            echo "=== Starting beta services ==="
+            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+              --project-name dovstrechi-beta up -d
+
+            # Apply beta migrations (idempotent)
+            echo "=== Applying beta migrations ==="
+            for f in $(ls /opt/dovstrechi-beta/database/migrations/*.sql 2>/dev/null | sort); do
+              echo "  → $(basename $f)"
+              docker exec dovstrechi_postgres_beta psql \
+                -U ${POSTGRES_USER:-dovstrechi} \
+                -d dovstrechi_beta \
+                -f /docker-entrypoint-initdb.d/migrations/$(basename $f) 2>&1 || true
+            done
+
+            # Reload nginx to pick up beta backend DNS
+            docker exec dovstrechi_nginx nginx -s reload
+
+            # Health check
+            sleep 5
+            curl -sf https://beta.dovstrechiapp.ru/health || echo "WARNING: Beta health check failed"
+
+            echo "=== Beta deploy complete ==="
+            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+              --project-name dovstrechi-beta ps
