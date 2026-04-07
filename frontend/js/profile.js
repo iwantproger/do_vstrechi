@@ -147,23 +147,29 @@ function renderReminderChips() {
 /* FIX: Bug #3/6 — long-press 500ms для активации режима редактирования чипов */
 function attachReminderChipLongPress(container) {
   var timer = null;
+  var longPressFired = false;
   function startPress(e) {
-    /* FIX: Bug #6a — preventDefault предотвращает выделение текста и контекстное меню */
     var chip = e.target.closest && e.target.closest('.reminder-chip:not(.rc-add)');
     if (!chip) return;
-    if (e.cancelable) e.preventDefault();
+    longPressFired = false;
     timer = setTimeout(function() {
       timer = null;
+      longPressFired = true;
       container.classList.add('chips-editing');
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
     }, 500);
   }
-  function cancelPress() {
+  function cancelPress(e) {
     if (timer) { clearTimeout(timer); timer = null; }
+    /* FIX: после long-press блокируем click, чтобы не триггерить toggle */
+    if (longPressFired && e.type === 'touchend') {
+      e.preventDefault();
+      longPressFired = false;
+    }
   }
-  /* passive:false чтобы preventDefault работал */
-  container.addEventListener('touchstart', startPress, { passive: false });
-  container.addEventListener('touchend', cancelPress);
+  /* passive:false на touchend чтобы preventDefault работал после long-press */
+  container.addEventListener('touchstart', startPress, { passive: true });
+  container.addEventListener('touchend', cancelPress, { passive: false });
   container.addEventListener('touchcancel', cancelPress);
   container.addEventListener('touchmove', cancelPress, { passive: true });
   /* mouse fallback для dev-режима */
