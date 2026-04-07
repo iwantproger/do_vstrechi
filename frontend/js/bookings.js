@@ -40,9 +40,14 @@ async function loadHome() {
 
   const now = new Date();
   const todayStr = formatDate(now);
-  const todayMeetings = (state.bookings || [])
+  /* FIX: разделить на будущие и прошедшие для корректного отображения */
+  const allToday = (state.bookings || [])
     .filter(b => formatDate(new Date(b.scheduled_time)) === todayStr && b.status !== 'cancelled')
     .sort((a, b) => new Date(a.scheduled_time) - new Date(b.scheduled_time));
+  const todayMeetings = allToday.filter(function(b) {
+    var ds = getMeetingStatus(b);
+    return ds !== 'completed' && ds !== 'noans';
+  });
 
   /* subtitle */
   const sub = document.getElementById('home-subtitle');
