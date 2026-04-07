@@ -29,12 +29,16 @@ graph LR
 
 ## Компоненты
 
-### Bot (`bot/bot.py`)
+### Bot (`bot/`)
 
 **Назначение:** Telegram-интерфейс для организатора — создание расписаний, управление
 бронированиями, просмотр статистики. Единая точка входа для пользователей.
 
 **Технологии:** aiogram 3.6.0, aiohttp 3.9.5, Python 3.12
+
+**Модули:** `bot.py` (инициализация), `handlers/` (команды, callbacks, FSM),
+`services/` (notifications.py — aiohttp сервер :8080, reminders.py — фоновые напоминания),
+`keyboards.py`, `formatters.py`, `states.py`, `api.py`, `config.py`
 
 **Команды бота:**
 
@@ -70,12 +74,16 @@ fire-and-forget POST при создании бронирования. Бот у
 **ReplyKeyboard:** при `/start` бот устанавливает постоянную нижнюю панель (4 кнопки:
 Создать расписание, Мои расписания, Мои встречи, Помощь).
 
-### Backend API (`backend/main.py`)
+### Backend API (`backend/`)
 
 **Назначение:** REST API — единственный компонент с доступом к БД. Обрабатывает
 CRUD расписаний и бронирований, рассчитывает свободные слоты, генерирует ссылки на встречи.
 
 **Технологии:** FastAPI 0.111.0, asyncpg 0.29.0, pydantic 2.7.1, Python 3.12
+
+**Модули:** `main.py` (app, lifespan, middleware), `routers/` (users, schedules, bookings,
+meetings, stats, admin), `auth.py` (initData HMAC + admin sessions), `database.py` (pool),
+`schemas.py` (Pydantic-модели), `utils.py` (row_to_dict, generate_meeting_link, _notify_bot), `config.py`
 
 **Все эндпоинты:**
 
@@ -92,6 +100,8 @@ CRUD расписаний и бронирований, рассчитывает 
 | GET | `/api/available-slots/{schedule_id}` | — | Свободные слоты на дату | query: date, viewer_tz |
 | POST | `/api/bookings` | optional | Создать бронирование + push | body: `BookingCreate` |
 | GET | `/api/bookings` | initData | Список бронирований | query: role (organizer/guest/all) |
+| GET | `/api/bookings/{booking_id}` | optional | Детали бронирования + my_role | path: booking_id |
+| POST | `/api/meetings/quick` | initData | Создать встречу вручную (личная или в расписание) | body: `QuickMeetingCreate` |
 | PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить | path: booking_id |
 | PATCH | `/api/bookings/{booking_id}/cancel` | initData | Отменить | path: booking_id |
 | GET | `/api/bookings/pending-reminders` | — | Бронирования для напоминаний | query: reminder_type (24h/1h) |
@@ -108,10 +118,14 @@ CRUD расписаний и бронирований, рассчитывает 
 **Connection pool:** asyncpg, min_size=2, max_size=10. Создаётся при старте через lifespan,
 закрывается при остановке. Dependency `db()` выдаёт соединение из пула на каждый запрос.
 
-### Frontend Mini App (`frontend/index.html`)
+### Frontend Mini App (`frontend/`)
 
 **Назначение:** SPA для гостей (бронирование) и организаторов (просмотр встреч, расписаний).
 Открывается внутри Telegram как Mini App или по прямой ссылке.
+
+**Модули:** `index.html` (разметка), `css/style.css` (все стили),
+`js/` — api.js, state.js, config.js, utils.js, nav.js, bookings.js, schedules.js,
+calendar.js, quickadd.js, profile.js
 
 **Telegram WebApp SDK — используемые методы:**
 
@@ -200,6 +214,8 @@ erDiagram
         TEXT location_mode
         TEXT platform
         BOOLEAN is_active
+        BOOLEAN is_default
+        INTEGER min_booking_advance
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -216,6 +232,10 @@ erDiagram
         TEXT notes
         BOOLEAN reminder_24h_sent
         BOOLEAN reminder_1h_sent
+        TEXT title
+        TIMESTAMPTZ end_time
+        BOOLEAN is_manual
+        BIGINT created_by
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -337,7 +357,8 @@ Permissions-Policy (camera, microphone, geolocation disabled). `server_tokens of
 
 ### Admin Panel (Frontend)
 
-**Расположение:** `admin/index.html` — SPA, раздаётся nginx с `/admin/`.
+**Расположение:** `admin/` — SPA, раздаётся nginx с `/admin/`. Модули: `index.html` (разметка),
+`css/admin.css` (стили), `js/` — config.js, auth.js, dashboard.js, logs.js, tasks.js, settings.js.
 
 **Auth flow:**
 1. Пользователь открывает `/admin/` → JS проверяет `GET /api/admin/auth/me`
