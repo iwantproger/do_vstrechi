@@ -315,11 +315,29 @@ class CalDAVCalendarProvider(CalendarProvider):
         event: BookingExternalEvent,
         etag: str | None = None,
     ) -> str | None:
-        """Обновить событие по UID. Возвращает новый etag или None."""
+        """Обновить событие по UID. Возвращает новый etag или None.
+
+        Пробует прямой URL ({calendar_url}/{uid}.ics) как для delete_event.
+        """
         def _update():
             new_ics = _build_ics(event, uid=external_event_id)
             client = self._get_client(account_data)
             cal = self._get_calendar(client, calendar_id)
+
+            # Первая попытка: прямой URL
+            event_url = calendar_id.rstrip("/") + "/" + external_event_id + ".ics"
+            try:
+                ev_obj = caldav.CalendarObjectResource(client=client, url=event_url)
+                ev_obj.data = new_ics
+                ev_obj.save()
+                return None
+            except caldav_error.NotFoundError:
+                log.info("caldav_update_not_found_skip", uid=external_event_id)
+                return None
+            except Exception:
+                pass  # Fallback: поиск через REPORT
+
+            # Fallback: event_by_uid
             try:
                 ev_obj = cal.event_by_uid(external_event_id)
             except caldav_error.NotFoundError:
@@ -341,16 +359,34 @@ class CalDAVCalendarProvider(CalendarProvider):
         calendar_id: str,
         external_event_id: str,
     ) -> bool:
-        """Удалить событие по UID. Возвращает True (в т.ч. если уже удалено)."""
+        """Удалить событие по UID. Возвращает True (в т.ч. если уже удалено).
+
+        Сначала пробует прямой URL ({calendar_url}/{uid}.ics) — быстрее и надёжнее
+        для серверов, которые не поддерживают calendar-query REPORT (Apple iCloud).
+        Fallback — event_by_uid через REPORT.
+        """
         def _delete():
             client = self._get_client(account_data)
             cal = self._get_calendar(client, calendar_id)
+
+            # Первая попытка: прямой URL по UID (не требует REPORT)
+            event_url = calendar_id.rstrip("/") + "/" + external_event_id + ".ics"
+            try:
+                ev_obj = caldav.CalendarObjectResource(client=client, url=event_url)
+                ev_obj.delete()
+                return True
+            except caldav_error.NotFoundError:
+                return True  # Уже удалено
+            except Exception:
+                pass  # Fallback: поиск через REPORT
+
+            # Fallback: event_by_uid через REPORT
             try:
                 ev_obj = cal.event_by_uid(external_event_id)
                 ev_obj.delete()
                 return True
             except caldav_error.NotFoundError:
-                return True  # Уже удалено
+                return True
             except Exception as e:
                 log.warning("caldav_delete_error",
                             uid=external_event_id, error=str(e))
