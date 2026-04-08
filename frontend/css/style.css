@@ -736,3 +736,19 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .provider-btn.disabled{opacity:.45;pointer-events:none}
 .provider-btn .badge{font-size:10px;font-weight:700;color:var(--amber);background:var(--ams);padding:2px 8px;border-radius:999px;margin-left:auto}
 .btn-sm{padding:8px 16px;border-radius:var(--r2);font-size:13px;font-weight:600;background:var(--s3);color:var(--t1);border:1px solid var(--b2);cursor:pointer}
+
+/* ── Schedule Calendar Config (sv-cal-config) ── */
+.sc-cal-list{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r3);overflow:hidden}
+.sc-cal-row{display:flex;align-items:center;padding:11px 14px;gap:10px;min-height:44px}
+.sc-cal-row+.sc-cal-row{border-top:1px solid var(--b1)}
+.sc-cal-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sc-cal-info{flex:1;min-width:0}
+.sc-cal-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-cal-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sc-cal-label{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--t3);cursor:pointer;min-height:44px;padding:0 2px;-webkit-tap-highlight-color:transparent}
+.sc-cal-label input[type=checkbox],.sc-cal-label input[type=radio]{width:16px;height:16px;accent-color:var(--a);cursor:pointer;flex-shrink:0}
+.sc-cal-cta{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r3);padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.sc-cal-cta:active{background:var(--s2)}
+.sc-cal-cta-icon{width:38px;height:38px;border-radius:10px;background:rgba(0,229,168,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sc-cal-cta-title{font-size:14px;font-weight:700;color:var(--t1);margin-bottom:2px}
+.sc-cal-cta-sub{font-size:12px;color:var(--t2)}

@@ -431,6 +431,7 @@ function openScheduleView(id) {
   }
 
   showScreen('s-schedule-view');
+  loadScheduleCalConfig(id);
 }
 
 function editCurrentSchedule() {
@@ -799,5 +800,144 @@ async function submitNewSchedule() {
 
   goBack();
   loadSchedules();
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE CALENDAR CONFIG (sv-cal-config)
+═══════════════════════════════════════════ */
+var _schedCalSaveTimer = null;
+
+async function loadScheduleCalConfig(scheduleId) {
+  var container = document.getElementById('sv-cal-config');
+  if (!container) return;
+
+  /* parallel fetch: accounts + current rules */
+  var results = await Promise.all([
+    apiFetch('GET', '/api/calendar/accounts'),
+    apiFetch('GET', '/api/calendar/schedules/' + scheduleId + '/calendar-config'),
+  ]);
+  var accounts = (results[0].data || []).filter(function(a) {
+    return a.status === 'active' || a.status === 'active';
+  });
+  var rules = (results[1].data && results[1].data.rules) ? results[1].data.rules : [];
+
+  /* flatten connections from all active accounts */
+  var connections = [];
+  accounts.forEach(function(acc) {
+    (acc.calendars || []).forEach(function(c) {
+      connections.push({
+        id: c.id,
+        calendar_name: c.calendar_name,
+        calendar_color: c.calendar_color || '#888',
+        provider: acc.provider,
+      });
+    });
+  });
+
+  container.innerHTML = renderSchedCalSection(scheduleId, accounts, connections, rules);
+}
+
+function renderSchedCalSection(scheduleId, accounts, connections, rules) {
+  var sid = escHtml(String(scheduleId));
+
+  /* build rules lookup */
+  var rulesMap = {};
+  rules.forEach(function(r) { rulesMap[r.connection_id] = r; });
+
+  var inner = '';
+
+  if (!accounts.length) {
+    /* no accounts at all → CTA */
+    inner = '<div style="padding:0 16px 24px">'
+      + '<div class="sc-cal-cta" onclick="showScreen(\'s-calendars\')">'
+      +   '<div class="sc-cal-cta-icon">'
+      +     '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--a)" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>'
+      +   '</div>'
+      +   '<div class="sc-cal-cta-text">'
+      +     '<div class="sc-cal-cta-title">Подключите календарь</div>'
+      +     '<div class="sc-cal-cta-sub">Блокируйте занятые слоты из Google Calendar</div>'
+      +   '</div>'
+      +   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      + '</div>'
+      + '</div>';
+  } else if (!connections.length) {
+    /* accounts exist but no calendars yet */
+    inner = '<div style="padding:0 16px 24px;font-size:12px;color:var(--t3);text-align:center;padding-top:8px">Синхронизация календарей…</div>';
+  } else {
+    /* list of connections with checkbox (blocking) + radio (write target) */
+    var rows = connections.map(function(c) {
+      var cid = escHtml(String(c.id));
+      var rule = rulesMap[c.id] || {};
+      var blocking = rule.use_for_blocking !== false; /* default ON */
+      var writing  = rule.use_for_writing === true;
+      var colorSafe = escHtml(c.calendar_color || '#888');
+
+      return '<div class="sc-cal-row">'
+        + '<div class="sc-cal-dot" style="background:' + colorSafe + '"></div>'
+        + '<div class="sc-cal-info"><div class="sc-cal-name">' + escHtml(c.calendar_name) + '</div></div>'
+        + '<div class="sc-cal-controls">'
+        +   '<label class="sc-cal-label" title="Учитывать занятость при показе свободных слотов">'
+        +     '<input type="checkbox" class="sc-cal-cb"'
+        +     ' data-conn="' + cid + '" data-schedid="' + sid + '"'
+        +     (blocking ? ' checked' : '')
+        +     ' onclick="onSchedCalChange(\'' + sid + '\')">'
+        +     '<span>Занятость</span>'
+        +   '</label>'
+        +   '<label class="sc-cal-label" title="Записывать бронирования в этот календарь">'
+        +     '<input type="radio" class="sc-cal-rb"'
+        +     ' name="sc-write-' + sid + '"'
+        +     ' data-conn="' + cid + '" data-schedid="' + sid + '"'
+        +     (writing ? ' checked' : '')
+        +     ' onclick="onSchedCalChange(\'' + sid + '\')">'
+        +     '<span>Запись</span>'
+        +   '</label>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    inner = '<div style="padding:0 16px 24px"><div class="sc-cal-list">' + rows + '</div></div>';
+  }
+
+  return '<div style="margin-top:4px">'
+    + '<div class="group-title" style="padding-top:24px">Внешние календари</div>'
+    + inner
+    + '</div>';
+}
+
+function onSchedCalChange(scheduleId) {
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  if (_schedCalSaveTimer) clearTimeout(_schedCalSaveTimer);
+  _schedCalSaveTimer = setTimeout(function() {
+    saveScheduleCalConfig(scheduleId);
+  }, 500);
+}
+
+async function saveScheduleCalConfig(scheduleId) {
+  var container = document.getElementById('sv-cal-config');
+  if (!container) return;
+
+  var rules = [];
+  container.querySelectorAll('.sc-cal-cb').forEach(function(cb) {
+    var connId = cb.getAttribute('data-conn');
+    var radio = container.querySelector('.sc-cal-rb[data-conn="' + connId + '"]');
+    rules.push({
+      connection_id: connId,
+      use_for_blocking: cb.checked,
+      use_for_writing: radio ? radio.checked : false,
+    });
+  });
+
+  var result = await apiFetch('PUT', '/api/calendar/schedules/' + scheduleId + '/calendar-config', {
+    rules: rules,
+  });
+
+  if (result.error) {
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    showToast('Ошибка сохранения', 'error');
+    return;
+  }
+
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  showToast('Сохранено');
 }
 
