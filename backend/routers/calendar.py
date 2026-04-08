@@ -8,7 +8,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from config import BOT_USERNAME
+from config import BOT_USERNAME, INTERNAL_API_KEY, MINI_APP_URL, CALENDAR_WEBHOOK_URL
 from database import db, get_pool
 from auth import get_current_user
 from calendars.encryption import encrypt_token
@@ -205,13 +205,14 @@ async def google_callback(
         log.info("google_account_created", user_id=str(user_id), email=email)
 
     # Получить список календарей и сохранить
+    calendars_list: list = []
+    account_data_for_cals = {
+        "access_token_encrypted": access_enc,
+        "refresh_token_encrypted": refresh_enc,
+    }
     try:
-        account_data = {
-            "access_token_encrypted": access_enc,
-            "refresh_token_encrypted": refresh_enc,
-        }
         provider = get_provider("google")
-        calendars_list = await provider.list_calendars(account_data)
+        calendars_list = await provider.list_calendars(account_data_for_cals)
         for cal in calendars_list:
             await cal_db.upsert_calendar_connection(conn, str(account_id), cal)
         log.info("google_calendars_fetched", count=len(calendars_list))
@@ -221,8 +222,13 @@ async def google_callback(
 
     await cal_db.log_sync(
         conn, str(account_id), None, "oauth_connect", "success",
-        {"email": email, "calendars": len(calendars_list) if 'calendars_list' in dir() else 0},
+        {"email": email, "calendars": len(calendars_list)},
     )
+
+    # Подписаться на webhook push-уведомления для каждого read-enabled календаря
+    asyncio.create_task(_subscribe_account_webhooks(
+        str(account_id), account_data_for_cals,
+    ))
 
     return HTMLResponse(_oauth_page(success=True))
 
@@ -264,11 +270,30 @@ async def delete_account(
 
     # Проверка владения
     account = await conn.fetchrow(
-        "SELECT id FROM calendar_accounts WHERE id = $1 AND user_id = $2",
+        "SELECT * FROM calendar_accounts WHERE id = $1 AND user_id = $2",
         account_id, user["id"],
     )
     if not account:
         raise HTTPException(status_code=404, detail="Аккаунт не найден")
+
+    # Отписаться от webhook-подписок (graceful — не блокирует удаление)
+    try:
+        from calendars.providers.google_webhooks import unsubscribe as webhook_unsubscribe
+        connections_with_hooks = await cal_db.get_account_connections_with_webhooks(conn, account_id)
+        account_data = dict(account)
+        for c in connections_with_hooks:
+            channel_id = c.get("webhook_channel_id")
+            resource_id = c.get("webhook_resource_id")
+            if channel_id and resource_id:
+                try:
+                    await webhook_unsubscribe(account_data, channel_id, resource_id)
+                    log.info("webhook_unsubscribed_on_delete",
+                             connection_id=str(c["id"]), channel_id=channel_id)
+                except Exception as e:
+                    log.warning("webhook_unsubscribe_failed_on_delete",
+                                connection_id=str(c["id"]), error=str(e))
+    except Exception as e:
+        log.warning("webhook_cleanup_error", account_id=account_id, error=str(e))
 
     await conn.execute("DELETE FROM calendar_accounts WHERE id = $1", account_id)
     log.info("calendar_account_deleted", account_id=account_id)
@@ -386,6 +411,12 @@ async def google_webhook(request: Request):
     channel_id = request.headers.get("X-Goog-Channel-Id", "")
     resource_id = request.headers.get("X-Goog-Resource-Id", "")
     resource_state = request.headers.get("X-Goog-Resource-State", "")
+    channel_token = request.headers.get("X-Goog-Channel-Token", "")
+
+    # Проверить webhook token если передан (опционально)
+    if channel_token and INTERNAL_API_KEY and channel_token != INTERNAL_API_KEY:
+        log.warning("google_webhook_invalid_token", channel_id=channel_id)
+        return {"ok": True}  # Всегда 200 — не сообщать Google об отказе
 
     log.info("google_webhook_received",
              channel_id=channel_id, resource_state=resource_state)
@@ -404,18 +435,66 @@ async def google_webhook(request: Request):
             "SELECT id FROM calendar_connections WHERE webhook_channel_id = $1",
             channel_id,
         )
+        if row:
+            await cal_db.log_sync(
+                conn, None, str(row["id"]),
+                "webhook_received", "success",
+                {"resource_state": resource_state, "channel_id": channel_id},
+            )
 
     if not row:
-        log.debug("google_webhook_stale", channel_id=channel_id)
+        log.info("google_webhook_stale", channel_id=channel_id)
         return {"ok": True}
 
-    # Запустить sync в background
+    # Запустить incremental sync в background
     sync_engine = request.app.state.sync_engine
     asyncio.create_task(sync_engine.sync_single_calendar(str(row["id"])))
     return {"ok": True}
 
 
 # ── Helpers ───────────────────────────────────────
+
+async def _subscribe_account_webhooks(account_id: str, account_data: dict):
+    """
+    Подписаться на push-уведомления для всех read-enabled календарей аккаунта.
+    Запускается как fire-and-forget задача после OAuth connect.
+    """
+    from calendars.providers.google_webhooks import subscribe_to_calendar
+    from database import get_pool
+
+    webhook_url = CALENDAR_WEBHOOK_URL or (MINI_APP_URL + "/api/calendar/webhook/google")
+    if not webhook_url or webhook_url == "/api/calendar/webhook/google":
+        log.warning("webhook_subscribe_skipped_no_url", account_id=account_id)
+        return
+
+    pool = await get_pool()
+    try:
+        async with pool.acquire() as conn:
+            connections = await cal_db.get_calendar_connections(conn, account_id)
+            for c in connections:
+                if not c.get("is_read_enabled", True):
+                    continue
+                connection_id = str(c["id"])
+                try:
+                    result = await subscribe_to_calendar(
+                        account_data,
+                        c["external_calendar_id"],
+                        webhook_url,
+                    )
+                    if result:
+                        await cal_db.update_connection_webhook(
+                            conn, connection_id,
+                            result["channel_id"], result["resource_id"], result["expires_at"],
+                        )
+                        log.info("webhook_subscribed_on_connect",
+                                 connection_id=connection_id,
+                                 channel_id=result["channel_id"])
+                except Exception as e:
+                    log.warning("webhook_subscribe_per_connection_error",
+                                connection_id=connection_id, error=str(e))
+    except Exception as e:
+        log.warning("subscribe_account_webhooks_error", account_id=account_id, error=str(e))
+
 
 async def _verify_schedule_ownership(conn, schedule_id: str, telegram_id: int):
     """Проверить что расписание принадлежит пользователю."""

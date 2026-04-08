@@ -21,6 +21,8 @@ ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
+# HTTPS base URL, used to build the webhook address (defaults to MINI_APP_URL)
+CALENDAR_WEBHOOK_URL = os.environ.get("CALENDAR_WEBHOOK_URL", "")
 
 # Telegram bot username (без @) — для OAuth-редиректа обратно в бот
 BOT_USERNAME = os.environ.get("BOT_USERNAME", "")

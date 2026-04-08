@@ -78,26 +78,32 @@ class GoogleCalendarProvider(CalendarProvider):
         time_min: datetime,
         time_max: datetime,
         sync_token: str | None = None,
-    ) -> tuple[list[ExternalEvent], str | None]:
-        """Прочитать события за период (или инкрементально по sync_token)."""
+    ) -> tuple[list[ExternalEvent], list[str], str | None, bool]:
+        """Прочитать события за период (или инкрементально по sync_token).
+
+        Возвращает (active_events, cancelled_ids, new_sync_token, is_full_sync).
+        """
         creds = self._get_credentials(account_data)
 
         def _fetch():
             service = self._build_service(creds)
             events_api = service.events()
-            all_events = []
+            all_events: list = []
+            cancelled_ids: list[str] = []
             page_token = None
+            is_full_sync = not sync_token
+            current_sync_token = sync_token
+            resp = None
 
             while True:
                 try:
-                    if sync_token and not page_token:
+                    if current_sync_token and not page_token:
                         resp = events_api.list(
                             calendarId=calendar_id,
-                            syncToken=sync_token,
-                            pageToken=page_token,
+                            syncToken=current_sync_token,
                         ).execute()
                     else:
-                        kwargs = {
+                        kwargs: dict = {
                             "calendarId": calendar_id,
                             "timeMin": time_min.isoformat(),
                             "timeMax": time_max.isoformat(),
@@ -110,8 +116,13 @@ class GoogleCalendarProvider(CalendarProvider):
                         resp = events_api.list(**kwargs).execute()
                 except HttpError as e:
                     if e.resp.status == 410:
-                        # Sync token expired → полная resync
+                        # Sync token expired → full resync
                         log.warning("google_sync_token_expired", calendar_id=calendar_id)
+                        is_full_sync = True
+                        current_sync_token = None
+                        page_token = None
+                        all_events = []
+                        cancelled_ids = []
                         resp = events_api.list(
                             calendarId=calendar_id,
                             timeMin=time_min.isoformat(),
@@ -125,6 +136,9 @@ class GoogleCalendarProvider(CalendarProvider):
 
                 for item in resp.get("items", []):
                     if item.get("status") == "cancelled":
+                        # Только для инкрементальной синхронизации — собирать к удалению
+                        if not is_full_sync:
+                            cancelled_ids.append(item["id"])
                         continue
                     ev = _parse_event(item)
                     if ev:
@@ -134,8 +148,8 @@ class GoogleCalendarProvider(CalendarProvider):
                 if not page_token:
                     break
 
-            new_sync_token = resp.get("nextSyncToken")
-            return all_events, new_sync_token
+            new_sync_token = resp.get("nextSyncToken") if resp else None
+            return all_events, cancelled_ids, new_sync_token, is_full_sync
 
         return await asyncio.to_thread(_fetch)
 

@@ -1,6 +1,7 @@
 """Sync Engine — фоновая синхронизация с внешними календарями."""
 
 import asyncio
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import asyncpg
@@ -43,12 +44,16 @@ class CalendarSyncEngine:
         log.info("sync_engine_stopped")
 
     async def _loop(self):
-        """Основной цикл — sync all accounts каждые SYNC_INTERVAL секунд."""
+        """Основной цикл — sync all accounts + renew webhooks каждые SYNC_INTERVAL секунд."""
         while self._running:
             try:
                 await self.sync_all_accounts()
             except Exception as e:
                 log.error("sync_loop_error", error=str(e))
+            try:
+                await self.renew_expiring_webhooks()
+            except Exception as e:
+                log.error("webhook_renewal_loop_error", error=str(e))
             await asyncio.sleep(SYNC_INTERVAL)
 
     async def sync_all_accounts(self):
@@ -127,23 +132,48 @@ class CalendarSyncEngine:
     async def _sync_calendar(
         self, conn, provider, account_id, account_data, connection, time_min, time_max,
     ):
-        """Синхронизировать один календарь: read_events → upsert busy slots."""
+        """Синхронизировать один календарь: read_events → upsert/delete busy slots.
+
+        - Полная синхронизация (без sync_token): upsert всех + удалить stale
+        - Инкрементальная (с sync_token): upsert изменённых + удалить cancelled
+        - 410 Gone в google.py → автоматически делает full resync и возвращает is_full_sync=True
+        """
         connection_id = str(connection["id"])
+        was_incremental = bool(connection.get("sync_token"))
         try:
-            events, new_token = await provider.read_events(
+            active_events, cancelled_ids, new_token, is_full_sync = await provider.read_events(
                 account_data,
                 connection["external_calendar_id"],
                 time_min,
                 time_max,
                 sync_token=connection.get("sync_token"),
             )
-            events_dicts = [e.model_dump() for e in events]
-            await cal_db.upsert_external_busy_slots(conn, connection_id, events_dicts)
 
-            # При полной синхронизации (без sync_token) — удалить устаревшие слоты
-            if not connection.get("sync_token"):
-                valid_ids = {e.external_id for e in events}
+            # Если sync_token был, но провайдер сделал full resync (410) — сброс токена в DB
+            if was_incremental and is_full_sync:
+                await conn.execute(
+                    "UPDATE calendar_connections SET sync_token = NULL WHERE id = $1",
+                    connection["id"],
+                )
+
+            events_dicts = [e.model_dump() for e in active_events]
+            if events_dicts:
+                await cal_db.upsert_external_busy_slots(conn, connection_id, events_dicts)
+
+            if is_full_sync:
+                # Полная синхронизация — удалить слоты которых нет в ответе
+                valid_ids = {e.external_id for e in active_events}
                 await cal_db.delete_stale_busy_slots(conn, connection_id, valid_ids)
+            elif cancelled_ids:
+                # Инкрементальная — удалить только помеченные cancelled
+                await conn.execute(
+                    """
+                    DELETE FROM external_busy_slots
+                    WHERE connection_id = $1
+                      AND external_event_id = ANY($2)
+                    """,
+                    connection["id"], cancelled_ids,
+                )
 
             if new_token:
                 await conn.execute(
@@ -159,7 +189,11 @@ class CalendarSyncEngine:
             await cal_db.log_sync(
                 conn, account_id, connection_id,
                 "fetch_events", "success",
-                {"events_count": len(events)},
+                {
+                    "events_count": len(active_events),
+                    "cancelled_count": len(cancelled_ids),
+                    "incremental": not is_full_sync,
+                },
             )
         except Exception as e:
             log.warning("sync_calendar_error", connection_id=connection_id, error=str(e))
@@ -198,6 +232,71 @@ class CalendarSyncEngine:
                 now - SYNC_WINDOW_PAST, now + SYNC_WINDOW_FUTURE,
             )
 
+    # ── Webhook Renewal ──────────────────────────────
+
+    async def renew_expiring_webhooks(self):
+        """Обновить webhook-подписки, истекающие в ближайшие 24 часа."""
+        async with self._pool.acquire() as conn:
+            expiring = await cal_db.get_connections_with_expiring_webhooks(conn)
+
+        if not expiring:
+            return
+
+        log.info("webhook_renewal_start", count=len(expiring))
+        for row in expiring:
+            try:
+                await self._renew_webhook(dict(row))
+            except Exception as e:
+                log.warning(
+                    "webhook_renew_failed",
+                    connection_id=str(row["id"]),
+                    error=str(e),
+                )
+
+    async def _renew_webhook(self, connection: dict):
+        """Отписаться от старой подписки и создать новую."""
+        from calendars.providers.google_webhooks import subscribe_to_calendar, unsubscribe
+        from config import MINI_APP_URL, CALENDAR_WEBHOOK_URL
+
+        connection_id = str(connection["id"])
+
+        # Отписаться от старой
+        old_channel_id = connection.get("webhook_channel_id")
+        old_resource_id = connection.get("webhook_resource_id")
+        if old_channel_id and old_resource_id:
+            try:
+                await unsubscribe(connection, old_channel_id, old_resource_id)
+            except Exception as e:
+                log.warning("webhook_old_unsubscribe_failed",
+                            connection_id=connection_id, error=str(e))
+
+        # Создать новую подписку
+        webhook_url = CALENDAR_WEBHOOK_URL or (MINI_APP_URL + "/api/calendar/webhook/google")
+        new_channel_id = str(uuid.uuid4())
+        result = await subscribe_to_calendar(
+            connection,
+            connection["external_calendar_id"],
+            webhook_url,
+            channel_id=new_channel_id,
+        )
+
+        async with self._pool.acquire() as conn:
+            if result:
+                await cal_db.update_connection_webhook(
+                    conn, connection_id,
+                    result["channel_id"], result["resource_id"], result["expires_at"],
+                )
+                log.info("webhook_renewed",
+                         connection_id=connection_id,
+                         new_channel_id=result["channel_id"])
+            else:
+                # Подписка невозможна (shared calendar) — очистить старые данные
+                await cal_db.clear_connection_webhook(conn, connection_id)
+                log.info("webhook_renewal_skipped_unsupported",
+                         connection_id=connection_id)
+
+
+# ── Standalone fire-and-forget helpers ──────────────
 
 async def write_booking_to_calendars(
     pool: asyncpg.Pool,
@@ -275,6 +374,86 @@ async def write_booking_to_calendars(
         log.error("write_booking_to_calendars_error", booking_id=booking_id, error=str(e))
 
 
+async def update_booking_in_calendars(pool: asyncpg.Pool, booking_id: str):
+    """Обновить заголовок события при подтверждении бронирования (fire-and-forget)."""
+    try:
+        async with pool.acquire() as conn:
+            booking = await conn.fetchrow(
+                """
+                SELECT b.guest_name, b.scheduled_time, b.end_time, b.meeting_link,
+                       s.title AS schedule_title, s.duration
+                FROM bookings b
+                JOIN schedules s ON s.id = b.schedule_id
+                WHERE b.id = $1
+                """,
+                booking_id,
+            )
+            if not booking:
+                return
+
+            mappings = await cal_db.get_event_mappings_for_booking(conn, booking_id)
+            if not mappings:
+                return
+
+            from calendars.schemas import BookingExternalEvent
+
+            end_time = (
+                booking["end_time"]
+                if booking["end_time"]
+                else booking["scheduled_time"] + timedelta(minutes=int(booking["duration"]))
+            )
+            updated_event = BookingExternalEvent(
+                summary=f"✓ {booking['schedule_title']} — {booking['guest_name']}",
+                description=(
+                    f"Встреча подтверждена\nГость: {booking['guest_name']}"
+                ),
+                start_time=booking["scheduled_time"],
+                end_time=end_time,
+                meeting_link=booking.get("meeting_link"),
+            )
+
+            for m in mappings:
+                if m.get("sync_status") == "deleted":
+                    continue
+                connection_id = str(m["connection_id"])
+                mapping_id = str(m["id"])
+                try:
+                    c = await conn.fetchrow(
+                        """
+                        SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
+                               ca.token_expires_at, ca.provider, ca.status
+                        FROM calendar_connections cc
+                        JOIN calendar_accounts ca ON ca.id = cc.account_id
+                        WHERE cc.id = $1 AND ca.status = 'active'
+                        """,
+                        connection_id,
+                    )
+                    if not c:
+                        continue
+
+                    provider = get_provider(c["provider"])
+                    new_etag = await provider.update_event(
+                        dict(c),
+                        c["external_calendar_id"],
+                        m["external_event_id"],
+                        updated_event,
+                        etag=m.get("etag"),
+                    )
+                    await conn.execute(
+                        "UPDATE event_mapping SET etag = $2, last_synced_at = NOW() WHERE id = $1",
+                        mapping_id, new_etag,
+                    )
+                    log.info("booking_confirmed_in_calendar",
+                             booking_id=booking_id, connection_id=connection_id)
+
+                except Exception as e:
+                    log.warning("booking_confirm_update_error",
+                                booking_id=booking_id, connection_id=connection_id,
+                                error=str(e))
+    except Exception as e:
+        log.error("update_booking_in_calendars_error", booking_id=booking_id, error=str(e))
+
+
 async def delete_booking_from_calendars(pool: asyncpg.Pool, booking_id: str):
     """Удалить события из всех внешних календарей при отмене бронирования (fire-and-forget)."""
     try:
@@ -306,13 +485,11 @@ async def delete_booking_from_calendars(pool: asyncpg.Pool, booking_id: str):
                     provider = get_provider(c["provider"])
                     account_data = dict(c)
 
-                    deleted = await provider.delete_event(
+                    await provider.delete_event(
                         account_data, c["external_calendar_id"], m["external_event_id"],
                     )
 
-                    await cal_db.update_event_mapping_status(
-                        conn, mapping_id, "deleted",
-                    )
+                    await cal_db.update_event_mapping_status(conn, mapping_id, "deleted")
                     await cal_db.log_sync(
                         conn, None, connection_id,
                         "delete_booking", "success",

@@ -106,6 +106,79 @@ async def upsert_calendar_connection(conn, account_id: str, data: dict) -> dict:
     return row_to_dict(row)
 
 
+async def update_connection_webhook(
+    conn,
+    connection_id: str,
+    channel_id: str,
+    resource_id: str | None,
+    expires_at,
+) -> None:
+    """Сохранить данные webhook-подписки для calendar_connection."""
+    await conn.execute(
+        """
+        UPDATE calendar_connections
+        SET webhook_channel_id  = $2,
+            webhook_resource_id = $3,
+            webhook_expires_at  = $4
+        WHERE id = $1
+        """,
+        connection_id, channel_id, resource_id, expires_at,
+    )
+
+
+async def clear_connection_webhook(conn, connection_id: str) -> None:
+    """Очистить данные webhook-подписки (после unsubscribe)."""
+    await conn.execute(
+        """
+        UPDATE calendar_connections
+        SET webhook_channel_id  = NULL,
+            webhook_resource_id = NULL,
+            webhook_expires_at  = NULL
+        WHERE id = $1
+        """,
+        connection_id,
+    )
+
+
+async def get_connections_with_expiring_webhooks(conn) -> list[dict]:
+    """Подключения с webhook-подписками, истекающими в ближайшие 24 часа."""
+    return rows_to_list(await conn.fetch(
+        """
+        SELECT cc.*,
+               ca.id               AS cal_account_id,
+               ca.provider,
+               ca.status           AS account_status,
+               ca.access_token_encrypted,
+               ca.refresh_token_encrypted,
+               ca.token_expires_at
+        FROM calendar_connections cc
+        JOIN calendar_accounts ca ON ca.id = cc.account_id
+        WHERE cc.webhook_channel_id IS NOT NULL
+          AND cc.webhook_expires_at IS NOT NULL
+          AND cc.webhook_expires_at < NOW() + INTERVAL '24 hours'
+          AND ca.status = 'active'
+        """
+    ))
+
+
+async def get_account_connections_with_webhooks(conn, account_id: str) -> list[dict]:
+    """Все подключения аккаунта с активными webhook-подписками."""
+    return rows_to_list(await conn.fetch(
+        """
+        SELECT cc.*,
+               ca.access_token_encrypted,
+               ca.refresh_token_encrypted,
+               ca.token_expires_at,
+               ca.provider
+        FROM calendar_connections cc
+        JOIN calendar_accounts ca ON ca.id = cc.account_id
+        WHERE cc.account_id = $1
+          AND cc.webhook_channel_id IS NOT NULL
+        """,
+        account_id,
+    ))
+
+
 async def toggle_calendar_connection(
     conn, connection_id: str, fields: dict
 ) -> dict:

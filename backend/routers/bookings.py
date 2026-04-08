@@ -272,6 +272,7 @@ async def get_booking(
 @router.patch("/api/bookings/{booking_id}/confirm")
 async def confirm_booking(
     booking_id: str,
+    request: Request,
     auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db),
 ):
@@ -317,6 +318,14 @@ async def confirm_booking(
                 organizer_timezone=sched.get("timezone") or "UTC",
                 meeting_link=row.get("meeting_link") or "",
             ))
+
+    # Обновить заголовок события во внешних календарях (fire-and-forget)
+    try:
+        from calendars.sync import update_booking_in_calendars
+        pool = request.app.state.sync_engine._pool
+        asyncio.create_task(update_booking_in_calendars(pool, booking_id))
+    except Exception as e:
+        log.warning("calendar_confirm_update_error", error=str(e))
 
     return row_to_dict(row)
 

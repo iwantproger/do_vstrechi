@@ -28,11 +28,14 @@ class CalendarProvider(ABC):
         time_min: datetime,
         time_max: datetime,
         sync_token: str | None = None,
-    ) -> tuple[list[ExternalEvent], str | None]:
+    ) -> tuple[list[ExternalEvent], list[str], str | None, bool]:
         """Прочитать события (busy-слоты) за период.
 
-        Возвращает (events, new_sync_token).
-        Если sync_token передан — инкрементальная синхронизация.
+        Возвращает (active_events, cancelled_ids, new_sync_token, is_full_sync).
+        - active_events: список активных событий для upsert
+        - cancelled_ids: external IDs удалённых событий (только при incremental)
+        - new_sync_token: токен для следующего инкрементального запроса
+        - is_full_sync: True если была полная синхронизация (без токена или 410)
         """
         ...
 
