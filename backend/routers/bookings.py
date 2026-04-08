@@ -3,7 +3,7 @@ import uuid
 import asyncio
 import asyncpg
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -90,6 +90,8 @@ async def create_booking(
 async def list_bookings(
     auth_user: dict = Depends(get_current_user),
     role: Optional[str] = Query(None, description="organizer | guest | all"),
+    schedule_id: Optional[str] = Query(None, description="Filter by schedule UUID"),
+    future_only: bool = Query(False, description="Only future non-cancelled bookings"),
     conn: asyncpg.Connection = Depends(db),
 ):
     telegram_id = auth_user["id"]
@@ -137,6 +139,18 @@ async def list_bookings(
         result = [r for r in result if r["my_role"] == "organizer"]
     elif role == "guest":
         result = [r for r in result if r["my_role"] == "guest"]
+
+    if schedule_id:
+        result = [r for r in result if str(r.get("schedule_id", "")) == schedule_id]
+
+    if future_only:
+        now = datetime.now(timezone.utc)
+        result = [
+            r for r in result
+            if r.get("status") not in ("cancelled", "completed")
+            and r.get("scheduled_time") is not None
+            and r["scheduled_time"] > now
+        ]
 
     return result
 

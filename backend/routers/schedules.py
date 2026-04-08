@@ -1,8 +1,9 @@
 """Роуты расписаний и доступных слотов."""
 import uuid
+import asyncio
 import asyncpg
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, available_timezones
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from database import db
 from auth import get_current_user
 from schemas import ScheduleCreate, ScheduleUpdate
-from utils import row_to_dict, rows_to_list, _track_event
+from utils import row_to_dict, rows_to_list, _track_event, _notify_bot_status_change
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -91,6 +92,7 @@ async def get_schedule(schedule_id: str, conn: asyncpg.Connection = Depends(db))
 @router.delete("/api/schedules/{schedule_id}")
 async def delete_schedule(
     schedule_id: str,
+    cancel_meetings: bool = Query(False, description="Отменить все будущие встречи"),
     auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db),
 ):
@@ -100,18 +102,56 @@ async def delete_schedule(
         raise HTTPException(status_code=400, detail="Неверный формат ID")
 
     telegram_id = auth_user["id"]
-    result = await conn.execute(
+
+    schedule = await conn.fetchrow(
         """
-        UPDATE schedules SET is_active = FALSE
-        WHERE id = $1
-          AND user_id = (SELECT id FROM users WHERE telegram_id = $2)
+        SELECT s.id, s.title FROM schedules s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.id = $1 AND u.telegram_id = $2
         """,
         sid, telegram_id
     )
-    if result == "UPDATE 0":
+    if not schedule:
         raise HTTPException(status_code=404, detail="Расписание не найдено или нет доступа")
-    await _track_event(conn, "schedule_deleted", telegram_id, {"schedule_id": schedule_id})
-    return {"success": True}
+
+    await conn.execute("UPDATE schedules SET is_active = FALSE WHERE id = $1", sid)
+
+    cancelled_count = 0
+    if cancel_meetings:
+        now = datetime.now(timezone.utc)
+        cancelled_rows = await conn.fetch(
+            """
+            UPDATE bookings
+            SET status = 'cancelled'
+            WHERE schedule_id = $1
+              AND scheduled_time > $2
+              AND status NOT IN ('cancelled', 'completed')
+            RETURNING id, guest_telegram_id, guest_name, scheduled_time
+            """,
+            sid, now,
+        )
+        cancelled_count = len(cancelled_rows)
+        for b in cancelled_rows:
+            if b["guest_telegram_id"]:
+                asyncio.create_task(_notify_bot_status_change(
+                    booking_id=str(b["id"]),
+                    new_status="cancelled",
+                    initiator_telegram_id=telegram_id,
+                    organizer_telegram_id=telegram_id,
+                    guest_telegram_id=b["guest_telegram_id"],
+                    guest_name=b["guest_name"],
+                    schedule_title=schedule["title"],
+                    scheduled_time=str(b["scheduled_time"]),
+                    organizer_timezone="UTC",
+                ))
+
+    await _track_event(conn, "schedule_deleted", telegram_id, {
+        "schedule_id": schedule_id, "cancel_meetings": cancel_meetings,
+        "cancelled_count": cancelled_count,
+    })
+    log.info("schedule_deleted", schedule_id=schedule_id,
+             cancel_meetings=cancel_meetings, cancelled=cancelled_count)
+    return {"success": True, "meetings_cancelled": cancelled_count}
 
 
 @router.patch("/api/schedules/{schedule_id}")

@@ -739,6 +739,31 @@
 </div>
 
 <!-- ═══════════════════════════════
+     УДАЛЕНИЕ РАСПИСАНИЯ
+════════════════════════════════ -->
+<div class="overlay" id="sheet-delete-schedule" onclick="closeSheet('sheet-delete-schedule')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheet-delete-title">Удалить расписание?</div>
+    <div style="padding:0 16px 12px;font-size:14px;color:var(--t2)" id="sheet-delete-sub">Расписание будет перемещено в архив.</div>
+    <div id="sheet-delete-keep" style="padding:0 16px 6px">
+      <button class="btn btn-primary" style="width:100%" onclick="deleteScheduleKeepMeetings()">Удалить, встречи оставить</button>
+      <div style="font-size:11px;color:var(--t2);text-align:center;margin-top:4px">Встречи останутся активными</div>
+    </div>
+    <div id="sheet-delete-cancel-all" style="padding:0 16px 6px">
+      <button class="btn" style="width:100%;background:var(--rs);color:var(--red);border:1px solid rgba(240,100,73,.3)" onclick="deleteScheduleCancelMeetings()">Удалить и отменить все встречи</button>
+      <div style="font-size:11px;color:var(--t2);text-align:center;margin-top:4px">Участники получат уведомление</div>
+    </div>
+    <div id="sheet-delete-simple" style="padding:0 16px 6px">
+      <button class="btn btn-danger" style="width:100%" onclick="deleteScheduleKeepMeetings()">Удалить расписание</button>
+    </div>
+    <div style="padding:8px 16px 16px">
+      <button class="btn btn-secondary" style="width:100%" onclick="closeSheet('sheet-delete-schedule')">Не удалять</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
      CHANGELOG SHEET
 ════════════════════════════════ -->
 <div class="overlay" id="sheet-changelog" onclick="closeSheet('sheet-changelog')">

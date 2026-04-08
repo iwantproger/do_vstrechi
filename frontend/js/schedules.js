@@ -565,38 +565,85 @@ function pauseSchedule() {
   toggleSchedulePause();
 }
 
-function openDeleteConfirm() {
-  state.pendingDeleteId = _editScheduleId;
-  var titleEl = document.getElementById('sheet-cancel-title');
-  var subEl = document.getElementById('sheet-cancel-sub');
-  var actEl = document.getElementById('sheet-cancel-action');
+async function openDeleteConfirm() {
+  var id = _editScheduleId;
+  if (!id) return;
+
+  /* Check for future bookings on this schedule */
+  var hasFuture = false;
+  var futureCount = 0;
+  var { data } = await apiFetch('GET', '/api/bookings?schedule_id=' + id + '&future_only=true');
+  if (data && Array.isArray(data)) {
+    futureCount = data.length;
+    hasFuture = futureCount > 0;
+  }
+
+  state.pendingDeleteId = id;
+
+  var titleEl = document.getElementById('sheet-delete-title');
+  var subEl   = document.getElementById('sheet-delete-sub');
+  var keepDiv = document.getElementById('sheet-delete-keep');
+  var cancelAllDiv = document.getElementById('sheet-delete-cancel-all');
+  var simpleDiv = document.getElementById('sheet-delete-simple');
+
   if (titleEl) titleEl.textContent = 'Удалить расписание?';
-  if (subEl) subEl.textContent = 'Расписание будет деактивировано. Существующие встречи сохранятся.';
-  /* reset disabled state from any previous operation */
-  if (actEl) { actEl.disabled = false; actEl.className = 'btn btn-danger'; actEl.textContent = 'Удалить'; }
-  state._deleteMode = true;
-  showSheet('sheet-cancel');
+
+  if (hasFuture) {
+    if (subEl) subEl.innerHTML = 'У этого расписания <b>' + futureCount + ' ' + _pluralMeetings(futureCount) + '</b>.<br>Что с ними сделать?';
+    if (keepDiv) keepDiv.style.display = '';
+    if (cancelAllDiv) cancelAllDiv.style.display = '';
+    if (simpleDiv) simpleDiv.style.display = 'none';
+  } else {
+    if (subEl) subEl.textContent = 'Расписание будет перемещено в архив.';
+    if (keepDiv) keepDiv.style.display = 'none';
+    if (cancelAllDiv) cancelAllDiv.style.display = 'none';
+    if (simpleDiv) simpleDiv.style.display = '';
+  }
+
+  showSheet('sheet-delete-schedule');
 }
 
-async function confirmDeleteSchedule() {
-  var id = state.pendingDeleteId;
-  if (!id) return;
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-  var { error } = await apiFetch('DELETE', '/api/schedules/' + id);
-  closeSheet('sheet-cancel');
-  state._deleteMode = false;
-  if (error) {
-    showToast('Не удалось удалить');
-    return;
-  }
-  /* FIX: пометить как удалённое в localStorage + обновить state */
+function _pluralMeetings(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'активная встреча';
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'активные встречи';
+  return 'активных встреч';
+}
+
+function _finishScheduleDelete(id, toast) {
   _markDeleted(id);
   var s = (state.schedules || []).find(function(x) { return x.id === id; });
   if (s) s.is_active = false;
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-  showToast('Расписание удалено');
+  showToast(toast, 'success');
   state.pendingDeleteId = null;
   goBack();
+  loadSchedules();
+}
+
+async function deleteScheduleKeepMeetings() {
+  var id = state.pendingDeleteId;
+  if (!id) return;
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  var { error } = await apiFetch('DELETE', '/api/schedules/' + id + '?cancel_meetings=false');
+  closeSheet('sheet-delete-schedule');
+  if (error) { showToast('Не удалось удалить', 'error'); return; }
+  _finishScheduleDelete(id, 'Расписание удалено, встречи сохранены');
+}
+
+async function deleteScheduleCancelMeetings() {
+  var id = state.pendingDeleteId;
+  if (!id) return;
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+  var { error } = await apiFetch('DELETE', '/api/schedules/' + id + '?cancel_meetings=true');
+  closeSheet('sheet-delete-schedule');
+  if (error) { showToast('Не удалось удалить', 'error'); return; }
+  _finishScheduleDelete(id, 'Расписание и встречи удалены');
+  if (typeof loadMeetings === 'function') loadMeetings();
+}
+
+/* kept for backward compat — called from confirmCancelMeeting() when _deleteMode=true */
+async function confirmDeleteSchedule() {
+  await deleteScheduleKeepMeetings();
 }
 
 /* ═══════════════════════════════════════════
