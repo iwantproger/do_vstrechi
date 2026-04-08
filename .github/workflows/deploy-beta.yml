@@ -38,14 +38,13 @@ jobs:
               git reset --hard origin/dev
             fi
 
-            # Build and deploy beta (compose file in main repo, code from worktree)
-            cd /opt/dovstrechi
+            # Build and deploy beta (compose file from worktree — stays in sync with dev branch)
             echo "=== Building beta services ==="
-            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
+            docker compose -f /opt/dovstrechi-beta/docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta build
 
             echo "=== Starting beta services ==="
-            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
+            docker compose -f /opt/dovstrechi-beta/docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta up -d
 
             # Apply beta migrations (idempotent)
@@ -66,5 +65,5 @@ jobs:
             curl -sf https://beta.dovstrechiapp.ru/health || echo "WARNING: Beta health check failed"
 
             echo "=== Beta deploy complete ==="
-            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
+            docker compose -f /opt/dovstrechi-beta/docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta ps
