@@ -86,11 +86,78 @@ async def handle_new_booking(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
+async def handle_status_change(request: web.Request) -> web.Response:
+    """Receive booking status-change notification from backend."""
+    key = request.headers.get("X-Internal-Key", "")
+    if not INTERNAL_API_KEY or not hmac.compare_digest(key, INTERNAL_API_KEY):
+        return web.json_response({"error": "unauthorized"}, status=401)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400)
+
+    bot: Bot = request.app["bot"]
+    new_status     = payload.get("new_status", "")
+    initiator_tid  = payload.get("initiator_telegram_id")
+    organizer_tid  = payload.get("organizer_telegram_id")
+    guest_tid      = payload.get("guest_telegram_id")
+    guest_name     = payload.get("guest_name", "—")
+    schedule_title = payload.get("schedule_title", "Встреча")
+    org_tz         = payload.get("organizer_timezone") or "UTC"
+    dt             = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
+    meeting_link   = payload.get("meeting_link", "")
+
+    try:
+        if new_status == "confirmed":
+            if guest_tid:
+                text = (
+                    "✅ <b>Встреча подтверждена!</b>\n\n"
+                    f"📋 {schedule_title}\n"
+                    f"📅 {dt}\n"
+                )
+                if meeting_link:
+                    text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
+                await bot.send_message(
+                    guest_tid, text,
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                )
+
+        elif new_status == "cancelled":
+            if initiator_tid == organizer_tid:
+                # Organizer cancelled → notify guest
+                if guest_tid:
+                    text = (
+                        "🚫 <b>Встреча отменена организатором.</b>\n\n"
+                        f"📋 {schedule_title}\n"
+                        f"📅 {dt}"
+                    )
+                    await bot.send_message(guest_tid, text, parse_mode=ParseMode.HTML)
+            else:
+                # Guest cancelled → notify organizer
+                if organizer_tid:
+                    text = (
+                        "🚫 <b>Отмена встречи.</b>\n\n"
+                        f"👤 {guest_name} отменил(а) запись.\n"
+                        f"📋 {schedule_title}\n"
+                        f"📅 {dt}"
+                    )
+                    await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+
+        return web.json_response({"ok": True})
+
+    except Exception as e:
+        log.error(f"Status-change notification failed: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
 async def start_internal_server(bot: Bot):
     """Start aiohttp server on :8080 for internal notifications."""
     webapp = web.Application()
     webapp["bot"] = bot
-    webapp.router.add_post("/internal/notify", handle_new_booking)
+    webapp.router.add_post("/internal/notify",        handle_new_booking)
+    webapp.router.add_post("/internal/status-change", handle_status_change)
     runner = web.AppRunner(webapp)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", 8080)

@@ -77,3 +77,16 @@ async def _notify_bot_new_booking(**kwargs: Any) -> None:
                 log.warning("bot_notification_failed", response=result)
     except Exception as e:
         log.warning("bot_notification_error", error=str(e))
+
+
+async def _notify_bot_status_change(**kwargs: Any) -> None:
+    """Fire-and-forget: notify bot that a booking changed status (confirmed/cancelled)."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(
+                f"{BOT_INTERNAL_URL}/internal/status-change",
+                json=kwargs,
+                headers={"X-Internal-Key": INTERNAL_API_KEY},
+            )
+    except Exception as e:
+        log.warning("bot_status_notification_error", error=str(e))

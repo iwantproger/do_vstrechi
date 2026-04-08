@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     created_by          BIGINT,
     reminder_24h_sent   BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_1h_sent    BOOLEAN NOT NULL DEFAULT FALSE,
+    reminder_15m_sent   BOOLEAN NOT NULL DEFAULT FALSE,
+    reminder_5m_sent    BOOLEAN NOT NULL DEFAULT FALSE,
+    morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

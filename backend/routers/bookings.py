@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from database import db
 from auth import get_current_user, get_optional_user
 from schemas import BookingCreate
-from utils import row_to_dict, rows_to_list, generate_meeting_link, _track_event, _notify_bot_new_booking
+from utils import row_to_dict, rows_to_list, generate_meeting_link, _track_event, _notify_bot_new_booking, _notify_bot_status_change
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -141,39 +141,55 @@ async def list_bookings(
     return result
 
 
+_REMINDER_CFG = {
+    "24h": ("reminder_24h_sent",    "INTERVAL '24 hours 15 minutes'", "INTERVAL '23 hours 45 minutes'"),
+    "1h":  ("reminder_1h_sent",     "INTERVAL '1 hour 15 minutes'",   "INTERVAL '45 minutes'"),
+    "15m": ("reminder_15m_sent",    "INTERVAL '17 minutes'",          "INTERVAL '13 minutes'"),
+    "5m":  ("reminder_5m_sent",     "INTERVAL '7 minutes'",           "INTERVAL '3 minutes'"),
+}
+
+_REMINDER_SELECT = """
+    SELECT b.id, b.guest_name, b.guest_contact, b.guest_telegram_id,
+           b.scheduled_time, b.meeting_link, b.notes,
+           s.title AS schedule_title, s.duration,
+           u.telegram_id AS organizer_telegram_id,
+           u.first_name AS organizer_name,
+           u.timezone AS organizer_timezone
+    FROM bookings b
+    JOIN schedules s ON b.schedule_id = s.id
+    JOIN users u ON s.user_id = u.id
+"""
+
+
 @router.get("/api/bookings/pending-reminders")
 async def get_pending_reminders(
     reminder_type: str = Query(...),
     conn: asyncpg.Connection = Depends(db),
 ):
-    if reminder_type not in ("24h", "1h"):
-        raise HTTPException(400, "reminder_type must be '24h' or '1h'")
+    if reminder_type not in _REMINDER_CFG and reminder_type != "morning":
+        raise HTTPException(400, "reminder_type must be 24h, 1h, 15m, 5m, or morning")
 
-    if reminder_type == "24h":
-        flag_col = "reminder_24h_sent"
-        interval = "INTERVAL '24 hours 15 minutes'"
-        min_interval = "INTERVAL '23 hours 45 minutes'"
+    if reminder_type == "morning":
+        # Morning reminder: it's 09:00–10:00 in organizer's TZ, meeting is today in
+        # organizer's TZ, and the meeting is still more than 2 hours away.
+        rows = await conn.fetch(_REMINDER_SELECT + """
+            WHERE b.status = 'confirmed'
+              AND b.morning_reminder_sent = FALSE
+              AND b.scheduled_time > NOW() + INTERVAL '2 hours'
+              AND DATE(b.scheduled_time AT TIME ZONE u.timezone) = DATE(NOW() AT TIME ZONE u.timezone)
+              AND EXTRACT(HOUR FROM NOW() AT TIME ZONE u.timezone) >= 9
+              AND EXTRACT(HOUR FROM NOW() AT TIME ZONE u.timezone) < 10
+        """)
     else:
-        flag_col = "reminder_1h_sent"
-        interval = "INTERVAL '1 hour 15 minutes'"
-        min_interval = "INTERVAL '45 minutes'"
-
-    rows = await conn.fetch(f"""
-        SELECT b.id, b.guest_name, b.guest_contact, b.guest_telegram_id,
-               b.scheduled_time, b.meeting_link, b.notes,
-               s.title AS schedule_title, s.duration,
-               u.telegram_id AS organizer_telegram_id,
-               u.first_name AS organizer_name,
-               u.timezone AS organizer_timezone
-        FROM bookings b
-        JOIN schedules s ON b.schedule_id = s.id
-        JOIN users u ON s.user_id = u.id
-        WHERE b.status = 'confirmed'
-          AND b.{flag_col} = FALSE
-          AND b.scheduled_time > NOW()
-          AND b.scheduled_time <= NOW() + {interval}
-          AND b.scheduled_time >= NOW() + {min_interval}
-    """)
+        flag_col, max_interval, min_interval = _REMINDER_CFG[reminder_type]
+        rows = await conn.fetch(f"""
+            {_REMINDER_SELECT}
+            WHERE b.status = 'confirmed'
+              AND b.{flag_col} = FALSE
+              AND b.scheduled_time > NOW()
+              AND b.scheduled_time <= NOW() + {max_interval}
+              AND b.scheduled_time >= NOW() + {min_interval}
+        """)
     return {"bookings": [dict(r) for r in rows]}
 
 
@@ -250,6 +266,26 @@ async def confirm_booking(
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или уже обработано")
     await _track_event(conn, "booking_confirmed", telegram_id, {"booking_id": booking_id})
+
+    if row.get("guest_telegram_id"):
+        sched = await conn.fetchrow(
+            "SELECT s.title, u.telegram_id, u.timezone FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = $1",
+            row["schedule_id"],
+        )
+        if sched:
+            asyncio.create_task(_notify_bot_status_change(
+                booking_id=booking_id,
+                new_status="confirmed",
+                initiator_telegram_id=telegram_id,
+                organizer_telegram_id=sched["telegram_id"],
+                guest_telegram_id=row["guest_telegram_id"],
+                guest_name=row["guest_name"],
+                schedule_title=sched["title"],
+                scheduled_time=str(row["scheduled_time"]),
+                organizer_timezone=sched.get("timezone") or "UTC",
+                meeting_link=row.get("meeting_link") or "",
+            ))
+
     return row_to_dict(row)
 
 
@@ -286,7 +322,34 @@ async def cancel_booking(
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя отменить")
     await _track_event(conn, "booking_cancelled", telegram_id, {"booking_id": booking_id})
+
+    sched = await conn.fetchrow(
+        "SELECT s.title, u.telegram_id, u.timezone FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = $1",
+        row["schedule_id"],
+    )
+    if sched and (row.get("guest_telegram_id") or sched["telegram_id"]):
+        asyncio.create_task(_notify_bot_status_change(
+            booking_id=booking_id,
+            new_status="cancelled",
+            initiator_telegram_id=telegram_id,
+            organizer_telegram_id=sched["telegram_id"],
+            guest_telegram_id=row.get("guest_telegram_id"),
+            guest_name=row["guest_name"],
+            schedule_title=sched["title"],
+            scheduled_time=str(row["scheduled_time"]),
+            organizer_timezone=sched.get("timezone") or "UTC",
+        ))
+
     return row_to_dict(row)
+
+
+_REMINDER_FLAG = {
+    "24h":     "reminder_24h_sent",
+    "1h":      "reminder_1h_sent",
+    "15m":     "reminder_15m_sent",
+    "5m":      "reminder_5m_sent",
+    "morning": "morning_reminder_sent",
+}
 
 
 @router.patch("/api/bookings/{booking_id}/reminder-sent")
@@ -295,9 +358,9 @@ async def mark_reminder_sent(
     reminder_type: str = Query(...),
     conn: asyncpg.Connection = Depends(db),
 ):
-    if reminder_type not in ("24h", "1h"):
+    if reminder_type not in _REMINDER_FLAG:
         raise HTTPException(400, "Invalid reminder_type")
-    flag_col = "reminder_24h_sent" if reminder_type == "24h" else "reminder_1h_sent"
+    flag_col = _REMINDER_FLAG[reminder_type]
     await conn.execute(
         f"UPDATE bookings SET {flag_col} = TRUE WHERE id = $1",
         uuid.UUID(booking_id),

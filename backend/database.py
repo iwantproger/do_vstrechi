@@ -66,6 +66,18 @@ async def run_migrations():
             ALTER TABLE schedules
                 ADD COLUMN IF NOT EXISTS requires_confirmation BOOLEAN NOT NULL DEFAULT TRUE;
         """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS reminder_15m_sent BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS reminder_5m_sent BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
     log.info("Migrations applied")
 
 
