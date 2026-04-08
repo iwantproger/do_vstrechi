@@ -47,17 +47,18 @@ async def create_booking(
 
     meeting_link = generate_meeting_link(schedule["platform"])
     guest_telegram_id = auth_user["id"] if auth_user else data.guest_telegram_id
+    initial_status = 'pending' if schedule.get("requires_confirmation", True) else 'confirmed'
 
     row = await conn.fetchrow(
         """
         INSERT INTO bookings
             (schedule_id, guest_name, guest_contact, guest_telegram_id,
              scheduled_time, status, meeting_link, notes)
-        VALUES ($1,$2,$3,$4,$5,'pending',$6,$7)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
         RETURNING *
         """,
         sid, data.guest_name, data.guest_contact, guest_telegram_id,
-        scheduled_time, meeting_link, data.notes
+        scheduled_time, initial_status, meeting_link, data.notes
     )
 
     result = row_to_dict(row)

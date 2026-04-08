@@ -1,0 +1,2 @@
+ALTER TABLE schedules
+  ADD COLUMN IF NOT EXISTS requires_confirmation BOOLEAN NOT NULL DEFAULT TRUE;

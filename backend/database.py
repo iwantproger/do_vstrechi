@@ -62,6 +62,10 @@ async def run_migrations():
         await conn.execute("""
             ALTER TABLE bookings ADD COLUMN IF NOT EXISTS created_by BIGINT;
         """)
+        await conn.execute("""
+            ALTER TABLE schedules
+                ADD COLUMN IF NOT EXISTS requires_confirmation BOOLEAN NOT NULL DEFAULT TRUE;
+        """)
     log.info("Migrations applied")
 
 

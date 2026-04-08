@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     location_mode          TEXT NOT NULL DEFAULT 'fixed',
     platform               TEXT NOT NULL DEFAULT 'jitsi',
     min_booking_advance    INTEGER NOT NULL DEFAULT 0,
+    requires_confirmation  BOOLEAN NOT NULL DEFAULT TRUE,
     is_active              BOOLEAN NOT NULL DEFAULT TRUE,
     is_default      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

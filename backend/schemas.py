@@ -21,6 +21,7 @@ class ScheduleCreate(BaseModel):
     location_mode: str = Field("fixed", max_length=50)
     platform: str = Field("jitsi", max_length=50)
     min_booking_advance: Optional[int] = Field(0, ge=0, le=10080)
+    requires_confirmation: bool = Field(True)
 
 
 class ScheduleUpdate(BaseModel):
@@ -35,6 +36,7 @@ class ScheduleUpdate(BaseModel):
     platform: Optional[str] = Field(None, max_length=50)
     is_active: Optional[bool] = None
     min_booking_advance: Optional[int] = Field(None, ge=0, le=10080)
+    requires_confirmation: Optional[bool] = None
 
 
 class QuickMeetingCreate(BaseModel):
