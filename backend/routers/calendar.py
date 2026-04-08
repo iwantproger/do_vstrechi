@@ -119,12 +119,17 @@ def _oauth_page(success: bool, error_key: str = "") -> str:
 
 # ── Google OAuth ──────────────────────────────────
 
-@router.get("/google/auth")
-async def google_auth_redirect(auth_user: dict = Depends(get_current_user)):
-    """Начать OAuth flow — redirect на Google consent screen."""
+@router.get("/google/auth-url")
+async def google_auth_url(auth_user: dict = Depends(get_current_user)):
+    """Вернуть Google OAuth URL с подписанным state.
+
+    Frontend получает URL через API (с initData), затем открывает его
+    через tg.openLink() во внешнем браузере. Браузер идёт напрямую на
+    Google — наш backend в этом шаге не участвует.
+    """
     state = sign_state(auth_user["id"])
     url = get_google_auth_url(state)
-    return RedirectResponse(url=url, status_code=302)
+    return {"url": url}
 
 
 @router.get("/google/callback")

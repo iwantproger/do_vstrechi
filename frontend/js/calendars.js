@@ -106,14 +106,21 @@ function showConnectProviders() {
   el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
-function connectGoogle() {
-  var authUrl = BACKEND + '/api/calendar/google/auth';
+async function connectGoogle() {
+  /* Step 1: get signed Google OAuth URL from backend (with initData auth) */
+  var res = await apiFetch('GET', '/api/calendar/google/auth-url');
+  if (res.error || !res.data || !res.data.url) {
+    showToast('Не удалось получить ссылку для авторизации', 'error');
+    return;
+  }
 
-  /* Inside Telegram — open external browser */
+  var googleUrl = res.data.url;
+
+  /* Step 2: open Google consent screen in external browser */
   if (tg && tg.openLink) {
-    tg.openLink(authUrl);
+    tg.openLink(googleUrl);
   } else {
-    window.open(authUrl, 'google-auth', 'width=500,height=600');
+    window.open(googleUrl, 'google-auth', 'width=500,height=600');
   }
 
   showToast('Авторизуйтесь в открывшемся окне');
