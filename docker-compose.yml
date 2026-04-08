@@ -44,6 +44,14 @@ services:
       ADMIN_SESSION_TTL_HOURS: ${ADMIN_SESSION_TTL_HOURS:-2}
       ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST:-}
       ANONYMIZE_SALT: ${ANONYMIZE_SALT:-do-vstrechi-2026}
+      MINI_APP_URL: ${MINI_APP_URL:-https://dovstrechiapp.ru}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://dovstrechiapp.ru}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      BOT_USERNAME: ${BOT_USERNAME:-}
+      CALENDAR_WEBHOOK_URL: ${CALENDAR_WEBHOOK_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
