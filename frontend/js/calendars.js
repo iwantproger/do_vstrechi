@@ -107,7 +107,7 @@ var _CALDAV_CONFIG = {
     desc:        'Введите ваш Яндекс email и пароль приложения (не основной пароль от аккаунта).',
     placeholder: 'user@yandex.ru',
     help: '<ol>'
-      + '<li>Откройте <a href="https://passport.yandex.ru/profile/security" target="_blank">passport.yandex.ru</a> → Безопасность → Пароли приложений</li>'
+      + '<li>Откройте <a href="https://id.yandex.ru/security/app-passwords" target="_blank">id.yandex.ru</a> → Пароли приложений</li>'
       + '<li>Нажмите «Создать новый пароль»</li>'
       + '<li>Выберите тип «Календарь (CalDAV)»</li>'
       + '<li>Скопируйте сгенерированный пароль</li>'

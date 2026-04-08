@@ -41,11 +41,11 @@ jobs:
             # Build and deploy beta (compose file in main repo, code from worktree)
             cd /opt/dovstrechi
             echo "=== Building beta services ==="
-            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta build
 
             echo "=== Starting beta services ==="
-            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta up -d
 
             # Apply beta migrations (idempotent)
@@ -66,5 +66,5 @@ jobs:
             curl -sf https://beta.dovstrechiapp.ru/health || echo "WARNING: Beta health check failed"
 
             echo "=== Beta deploy complete ==="
-            docker compose -f docker-compose.beta.yml --env-file .env.beta \
+            docker compose -f docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta ps
