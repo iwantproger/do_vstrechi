@@ -13,6 +13,8 @@ function showScreen(id, push = true) {
   next.classList.add('active');
   state.currentScreen = id;
 
+  if (id === 's-calendars') loadCalendarAccounts();
+
   const isTab = TAB_SCREENS.includes(id);
   if (isTab) showNavbar(); else hideNavbar();
 

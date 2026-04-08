@@ -273,6 +273,20 @@ async def available_slots(
             occ_end   = occ_start + timedelta(minutes=int(r["duration"]) + int(r["buffer_time"]))
             occupied.append((occ_start, occ_end))
 
+        # External busy slots из подключённых календарей
+        try:
+            from calendars.db import get_schedule_calendar_rules, get_external_busy_slots
+            rules = await get_schedule_calendar_rules(conn, str(sid))
+            blocking_ids = [str(r["connection_id"]) for r in rules if r.get("use_for_blocking")]
+            if blocking_ids:
+                ext_busy = await get_external_busy_slots(
+                    conn, blocking_ids, slot_start_utc, slot_end_utc,
+                )
+                for eb in ext_busy:
+                    occupied.append((eb["start_time"], eb["end_time"]))
+        except Exception as e:
+            log.warning("external_busy_slots_error", schedule_id=schedule_id, error=str(e))
+
         duration_min = int(schedule["duration"])
         buffer_min   = int(schedule["buffer_time"] or 0)
         step = timedelta(minutes=duration_min + buffer_min)

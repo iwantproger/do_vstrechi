@@ -5,7 +5,7 @@ import asyncpg
 import structlog
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from database import db
 from auth import get_current_user, get_optional_user
@@ -19,6 +19,7 @@ router = APIRouter()
 @router.post("/api/bookings")
 async def create_booking(
     data: BookingCreate,
+    request: Request,
     conn: asyncpg.Connection = Depends(db),
     auth_user: dict | None = Depends(get_optional_user),
 ):
@@ -78,6 +79,23 @@ async def create_booking(
             schedule_title=schedule["title"],
             meeting_link=meeting_link,
         ))
+
+    # Записать во внешние календари (fire-and-forget)
+    try:
+        from calendars.sync import write_booking_to_calendars
+        pool = request.app.state.sync_engine._pool
+        asyncio.create_task(write_booking_to_calendars(
+            pool=pool,
+            booking_id=str(result["id"]),
+            schedule_id=str(sid),
+            guest_name=data.guest_name,
+            scheduled_time=scheduled_time,
+            duration_min=int(schedule["duration"]),
+            schedule_title=schedule["title"],
+            meeting_link=meeting_link,
+        ))
+    except Exception as e:
+        log.warning("calendar_write_schedule_error", error=str(e))
 
     await _track_event(conn, "booking_created", guest_telegram_id or 0, {
         "booking_id": str(result["id"]), "schedule_id": str(sid),
@@ -306,6 +324,7 @@ async def confirm_booking(
 @router.patch("/api/bookings/{booking_id}/cancel")
 async def cancel_booking(
     booking_id: str,
+    request: Request,
     auth_user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(db),
 ):
@@ -353,6 +372,14 @@ async def cancel_booking(
             scheduled_time=str(row["scheduled_time"]),
             organizer_timezone=sched.get("timezone") or "UTC",
         ))
+
+    # Удалить из внешних календарей (fire-and-forget)
+    try:
+        from calendars.sync import delete_booking_from_calendars
+        pool = request.app.state.sync_engine._pool
+        asyncio.create_task(delete_booking_from_calendars(pool, booking_id))
+    except Exception as e:
+        log.warning("calendar_delete_schedule_error", error=str(e))
 
     return row_to_dict(row)
 

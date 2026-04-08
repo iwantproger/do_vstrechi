@@ -37,6 +37,7 @@ from database import init_pool, close_pool, run_migrations, get_pool, db
 from utils import _track_event, anonymize_id
 
 from routers import users, schedules, bookings, meetings, stats, admin as admin_router
+from routers import calendar as calendar_router
 
 
 # ─────────────────────────────────────────────────────────
@@ -47,7 +48,18 @@ from routers import users, schedules, bookings, meetings, stats, admin as admin_
 async def lifespan(app: FastAPI):
     await init_pool()
     await run_migrations()
+    # Регистрация провайдеров календарей
+    from calendars.registry import register_provider
+    from calendars.providers.google import GoogleCalendarProvider
+    register_provider("google", GoogleCalendarProvider())
+    # Sync Engine — фоновая синхронизация внешних календарей
+    from calendars.sync import CalendarSyncEngine
+    pool = await get_pool()
+    sync_engine = CalendarSyncEngine(pool)
+    app.state.sync_engine = sync_engine
+    await sync_engine.start()
     yield
+    await sync_engine.stop()
     await close_pool()
 
 
@@ -120,6 +132,7 @@ app.include_router(bookings.router)
 app.include_router(meetings.router)
 app.include_router(stats.router)
 app.include_router(admin_router.router)
+app.include_router(calendar_router.router)
 
 
 # ─────────────────────────────────────────────────────────
