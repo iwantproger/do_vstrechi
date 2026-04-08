@@ -176,10 +176,14 @@ async function loadMonthSlots() {
     try {
       var promises = batch.map(function(ds) {
         return apiFetch('GET', '/api/available-slots/' + sched.id + '?date=' + ds + '&viewer_tz=' + encodeURIComponent(userTimezone))
-          .then(function(res) { return { date: ds, slots: (res.data && res.data.available_slots) || [] }; });
+          .then(function(res) {
+            /* On API error: leave as undefined (green "not loaded") rather than [] (grey "no slots") */
+            if (res.error || !res.data) return { date: ds, slots: null };
+            return { date: ds, slots: res.data.available_slots || [] };
+          });
       });
       var results = await Promise.all(promises);
-      results.forEach(function(r) { state.monthSlots[r.date] = r.slots; });
+      results.forEach(function(r) { if (r.slots !== null) state.monthSlots[r.date] = r.slots; });
       renderCalendar();
     } catch (e) { /* network batch failed, skip */ }
   }

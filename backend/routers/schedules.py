@@ -224,77 +224,97 @@ async def available_slots(
         raise HTTPException(status_code=404, detail="Расписание не найдено")
     schedule = dict(row)
 
-    org_tz = ZoneInfo(schedule.get("organizer_timezone") or "UTC")
+    try:
+        org_tz_str = schedule.get("organizer_timezone") or "UTC"
+        org_tz = ZoneInfo(org_tz_str)
+    except Exception:
+        log.warning("unknown_organizer_tz", schedule_id=schedule_id, tz=schedule.get("organizer_timezone"))
+        org_tz = ZoneInfo("UTC")
+
     vtz = ZoneInfo(viewer_tz) if viewer_tz in available_timezones() else ZoneInfo("UTC")
 
     day_of_week = target_date.weekday()
-    if day_of_week not in schedule["work_days"]:
+    if day_of_week not in (schedule["work_days"] or []):
         return {"available_slots": [], "date": date}
 
-    start_h, start_m = map(int, schedule["start_time"].strftime("%H:%M").split(":"))
-    end_h, end_m = map(int, schedule["end_time"].strftime("%H:%M").split(":"))
+    try:
+        start_h, start_m = map(int, schedule["start_time"].strftime("%H:%M").split(":"))
+        end_h, end_m = map(int, schedule["end_time"].strftime("%H:%M").split(":"))
 
-    slot_start = datetime(target_date.year, target_date.month, target_date.day,
-                          start_h, start_m, tzinfo=org_tz)
-    slot_end = datetime(target_date.year, target_date.month, target_date.day,
-                        end_h, end_m, tzinfo=org_tz)
+        slot_start = datetime(target_date.year, target_date.month, target_date.day,
+                              start_h, start_m, tzinfo=org_tz)
+        slot_end = datetime(target_date.year, target_date.month, target_date.day,
+                            end_h, end_m, tzinfo=org_tz)
 
-    slot_start_utc = slot_start.astimezone(ZoneInfo("UTC"))
-    slot_end_utc = slot_end.astimezone(ZoneInfo("UTC"))
+        slot_start_utc = slot_start.astimezone(ZoneInfo("UTC"))
+        slot_end_utc = slot_end.astimezone(ZoneInfo("UTC"))
 
-    # Fetch ALL organizer bookings (across all their schedules) that could overlap with
-    # the requested day window (expanded by max possible buffer = 2h on each side).
-    organizer_bookings = await conn.fetch(
-        """
-        SELECT b.scheduled_time,
-               COALESCE(s.duration, 60)     AS duration,
-               COALESCE(s.buffer_time, 0)   AS buffer_time
-        FROM bookings b
-        JOIN schedules s ON s.id = b.schedule_id
-        WHERE s.user_id = $1
-          AND b.status NOT IN ('cancelled')
-          AND b.scheduled_time >= $2 - INTERVAL '2 hours'
-          AND b.scheduled_time <  $3 + INTERVAL '2 hours'
-        """,
-        schedule["user_id"], slot_start_utc, slot_end_utc,
-    )
+        # Fetch ALL organizer bookings (across all their schedules) that could overlap with
+        # the requested day window (expanded by max possible buffer = 2h on each side).
+        organizer_bookings = await conn.fetch(
+            """
+            SELECT b.scheduled_time,
+                   COALESCE(s.duration, 60)     AS duration,
+                   COALESCE(s.buffer_time, 0)   AS buffer_time
+            FROM bookings b
+            JOIN schedules s ON s.id = b.schedule_id
+            WHERE s.user_id = $1
+              AND b.status NOT IN ('cancelled')
+              AND b.scheduled_time >= $2 - INTERVAL '2 hours'
+              AND b.scheduled_time <  $3 + INTERVAL '2 hours'
+            """,
+            schedule["user_id"], slot_start_utc, slot_end_utc,
+        )
 
-    # Build list of (occ_start, occ_end) intervals in UTC, including buffer on both sides.
-    occupied: list[tuple[datetime, datetime]] = []
-    for r in organizer_bookings:
-        occ_start = r["scheduled_time"].replace(second=0, microsecond=0)
-        occ_end   = occ_start + timedelta(minutes=r["duration"] + r["buffer_time"])
-        occupied.append((occ_start, occ_end))
+        # Build list of (occ_start, occ_end) intervals in UTC, including buffer on both sides.
+        occupied: list[tuple[datetime, datetime]] = []
+        for r in organizer_bookings:
+            occ_start = r["scheduled_time"].replace(second=0, microsecond=0)
+            occ_end   = occ_start + timedelta(minutes=int(r["duration"]) + int(r["buffer_time"]))
+            occupied.append((occ_start, occ_end))
 
-    step = timedelta(minutes=schedule["duration"] + schedule["buffer_time"])
-    slot_duration = timedelta(minutes=schedule["duration"])
-    now_utc = datetime.now(ZoneInfo("UTC"))
-    min_advance = schedule.get("min_booking_advance") or 0
-    earliest_bookable_utc = now_utc + timedelta(minutes=min_advance)
+        duration_min = int(schedule["duration"])
+        buffer_min   = int(schedule["buffer_time"] or 0)
+        step = timedelta(minutes=duration_min + buffer_min)
+        slot_duration = timedelta(minutes=duration_min)
+        if slot_duration.total_seconds() <= 0:
+            log.warning("invalid_slot_duration", schedule_id=schedule_id, duration=duration_min)
+            return {"available_slots": [], "date": date}
 
-    slots = []
-    current = slot_start
-    while current + slot_duration <= slot_end:
-        current_utc = current.astimezone(ZoneInfo("UTC")).replace(second=0, microsecond=0)
-        slot_end_utc_candidate = current_utc + slot_duration
-        if current_utc > earliest_bookable_utc:
-            # Overlap check: slot [current_utc, slot_end_utc_candidate) vs each occupied interval
-            conflict = any(
-                current_utc < occ_end and slot_end_utc_candidate > occ_start
-                for occ_start, occ_end in occupied
-            )
-            if not conflict:
-                viewer_dt = current.astimezone(vtz)
-                slots.append({
-                    "time": current.strftime("%H:%M"),
-                    "datetime": current_utc.isoformat(),
-                    "datetime_utc": current_utc.isoformat(),
-                    "datetime_local": viewer_dt.strftime("%H:%M"),
-                })
-        current += step
+        now_utc = datetime.now(ZoneInfo("UTC"))
+        min_advance = int(schedule.get("min_booking_advance") or 0)
+        earliest_bookable_utc = now_utc + timedelta(minutes=min_advance)
+
+        slots = []
+        current = slot_start
+        while current + slot_duration <= slot_end:
+            current_utc = current.astimezone(ZoneInfo("UTC")).replace(second=0, microsecond=0)
+            slot_end_utc_candidate = current_utc + slot_duration
+            if current_utc > earliest_bookable_utc:
+                # Overlap check: slot [current_utc, slot_end_utc_candidate) vs each occupied interval
+                conflict = any(
+                    current_utc < occ_end and slot_end_utc_candidate > occ_start
+                    for occ_start, occ_end in occupied
+                )
+                if not conflict:
+                    viewer_dt = current.astimezone(vtz)
+                    slots.append({
+                        "time": current.strftime("%H:%M"),
+                        "datetime": current_utc.isoformat(),
+                        "datetime_utc": current_utc.isoformat(),
+                        "datetime_local": viewer_dt.strftime("%H:%M"),
+                    })
+            current += step
+
+    except Exception as e:
+        log.error("available_slots_error", schedule_id=schedule_id, date=date,
+                  error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка расчёта слотов")
 
     if slots:
         await _track_event(conn, "slots_viewed", 0, {
             "schedule_id": schedule_id, "date": date, "slots_count": len(slots),
         })
+    log.debug("available_slots_ok", schedule_id=schedule_id, date=date,
+              slots_count=len(slots), org_tz=org_tz_str)
     return {"available_slots": slots, "date": date}

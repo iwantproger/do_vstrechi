@@ -525,7 +525,7 @@ function openShareSheet(schedId) {
 
 /* FIX: Bug #10 — шаринг через нативный Telegram без перехода в браузер */
 function shareTelegram() {
-  var schedId = _editScheduleId || state._shareScheduleId || '';
+  var schedId = state._shareScheduleId || _editScheduleId || '';
   var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
   closeSheet('sheet-share');
   if (!url) return;
