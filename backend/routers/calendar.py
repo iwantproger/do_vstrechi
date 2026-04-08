@@ -500,7 +500,14 @@ async def caldav_connect(
     except CalDAVAuthError:
         raise HTTPException(400, detail="Неверный email или пароль")
     except Exception as e:
-        log.warning("caldav_connect_failed", provider=body.provider, error=str(e))
+        import traceback as _tb
+        log.error(
+            "caldav_connect_failed",
+            provider=body.provider,
+            error=str(e),
+            exc_type=type(e).__name__,
+            traceback=_tb.format_exc(),
+        )
         raise HTTPException(
             502,
             detail="Не удалось подключиться к календарю. Проверьте email и пароль приложения.",

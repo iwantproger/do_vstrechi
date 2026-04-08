@@ -245,12 +245,15 @@ function _caldavShowError(msg) {
   errEl.style.display = 'block';
 }
 
-/* Enter в поле password → submit */
+/* Enter + keyboard-avoid для модала */
 document.addEventListener('DOMContentLoaded', function() {
   var pwdInp = document.getElementById('caldav-password');
   if (pwdInp) {
     pwdInp.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); submitCalDAVConnect(); }
+    });
+    pwdInp.addEventListener('focus', function() {
+      setTimeout(function() { pwdInp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300);
     });
   }
   var emailInp = document.getElementById('caldav-email');
@@ -260,6 +263,23 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         var pwd = document.getElementById('caldav-password');
         if (pwd) pwd.focus();
+      }
+    });
+    emailInp.addEventListener('focus', function() {
+      setTimeout(function() { emailInp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300);
+    });
+  }
+
+  /* visualViewport: подтягивать активный элемент при изменении высоты (открытие клавиатуры) */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function() {
+      var modal = document.getElementById('modal-caldav');
+      if (!modal || modal.style.display === 'none') return;
+      var active = document.activeElement;
+      if (active && (active.id === 'caldav-email' || active.id === 'caldav-password')) {
+        setTimeout(function() {
+          active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 50);
       }
     });
   }

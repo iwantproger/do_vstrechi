@@ -761,7 +761,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center}
 @media(min-width:500px){.modal{align-items:center}}
 .modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.65);animation:modal-fade-in .2s ease}
-.modal-content{position:relative;z-index:1;width:100%;max-width:420px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--r3) var(--r3) 0 0;padding:24px 20px 32px;animation:modal-slide-up .22s cubic-bezier(.32,1,.36,1)}
+.modal-content{position:relative;z-index:1;width:100%;max-width:420px;max-height:90dvh;overflow-y:auto;background:var(--s2);border:1px solid var(--b2);border-radius:var(--r3) var(--r3) 0 0;padding:24px 20px 32px;animation:modal-slide-up .22s cubic-bezier(.32,1,.36,1)}
 @media(min-width:500px){.modal-content{border-radius:var(--r3);padding:28px 24px}}
 
 .modal-title{font-size:17px;font-weight:800;color:var(--t1);margin-bottom:6px;letter-spacing:-.01em}
