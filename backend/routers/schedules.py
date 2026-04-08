@@ -260,8 +260,8 @@ async def available_slots(
             JOIN schedules s ON s.id = b.schedule_id
             WHERE s.user_id = $1
               AND b.status NOT IN ('cancelled')
-              AND b.scheduled_time >= $2 - INTERVAL '2 hours'
-              AND b.scheduled_time <  $3 + INTERVAL '2 hours'
+              AND b.scheduled_time >= $2::timestamptz - INTERVAL '2 hours'
+              AND b.scheduled_time <  $3::timestamptz + INTERVAL '2 hours'
             """,
             schedule["user_id"], slot_start_utc, slot_end_utc,
         )
