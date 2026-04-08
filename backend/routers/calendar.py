@@ -15,6 +15,7 @@ from calendars.encryption import encrypt_token
 from calendars.schemas import (
     CalendarConnectionToggle,
     ScheduleCalendarConfig,
+    CalDAVConnectRequest,
 )
 from calendars.registry import get_provider
 from calendars.providers.google_oauth import (
@@ -454,6 +455,111 @@ async def google_webhook(request: Request):
     # Запустить incremental sync в background
     sync_engine = request.app.state.sync_engine
     asyncio.create_task(sync_engine.sync_single_calendar(str(row["id"])))
+    return {"ok": True}
+
+
+# ── CalDAV Connect ────────────────────────────────
+
+@router.post("/caldav/connect")
+async def caldav_connect(
+    body: CalDAVConnectRequest,
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Подключить CalDAV-провайдер (Yandex или Apple) через email + app-specific password.
+
+    Шаги:
+    1. Проверка credentials через list_calendars() (fail-fast, не сохраняет при ошибке)
+    2. Создание или обновление calendar_account
+    3. Upsert всех найденных calendar_connections
+    """
+    from calendars.providers.caldav_adapter import CalDAVAuthError
+
+    try:
+        provider = get_provider(body.provider)
+    except KeyError:
+        raise HTTPException(400, detail=f"Провайдер '{body.provider}' не поддерживается")
+
+    user = await conn.fetchrow(
+        "SELECT id FROM users WHERE telegram_id = $1", auth_user["id"]
+    )
+    if not user:
+        raise HTTPException(404, detail="Пользователь не найден")
+
+    email = body.email.strip()
+    password_enc = encrypt_token(body.password)
+
+    # Проверка credentials: list_calendars() без сохранения в БД
+    temp_account = {
+        "caldav_url": None,       # использует default_url провайдера
+        "caldav_username": email,
+        "caldav_password_encrypted": password_enc,
+    }
+    try:
+        calendars_list = await provider.list_calendars(temp_account)
+    except CalDAVAuthError:
+        raise HTTPException(400, detail="Неверный email или пароль")
+    except Exception as e:
+        log.warning("caldav_connect_failed", provider=body.provider, error=str(e))
+        raise HTTPException(
+            502,
+            detail="Не удалось подключиться к календарю. Проверьте email и пароль приложения.",
+        )
+
+    # Проверить, не подключён ли уже такой аккаунт
+    existing = await conn.fetchrow(
+        """
+        SELECT id FROM calendar_accounts
+        WHERE user_id = $1 AND provider = $2 AND provider_email = $3
+        """,
+        user["id"], body.provider, email,
+    )
+
+    if existing:
+        account_id = str(existing["id"])
+        await conn.execute(
+            """
+            UPDATE calendar_accounts
+            SET caldav_password_encrypted = $2,
+                caldav_username = $3,
+                status = 'active',
+                last_error = NULL
+            WHERE id = $1
+            """,
+            existing["id"], password_enc, email,
+        )
+        log.info("caldav_account_reconnected",
+                 user_id=str(user["id"]), provider=body.provider)
+    else:
+        account = await cal_db.create_calendar_account(conn, str(user["id"]), {
+            "provider": body.provider,
+            "provider_email": email,
+            "caldav_username": email,
+            "caldav_password_encrypted": password_enc,
+            "status": "active",
+        })
+        account_id = str(account["id"])
+        log.info("caldav_account_created",
+                 user_id=str(user["id"]), provider=body.provider,
+                 calendars_count=len(calendars_list))
+
+    # Сохранить / обновить calendar_connections
+    for cal_data in calendars_list:
+        await cal_db.upsert_calendar_connection(conn, account_id, cal_data)
+
+    await cal_db.log_sync(
+        conn, account_id, None, "caldav_connect", "success",
+        {"provider": body.provider, "email": email, "calendars": len(calendars_list)},
+    )
+
+    # Вернуть полные данные нового аккаунта
+    accounts = await cal_db.get_user_calendar_accounts(conn, str(user["id"]))
+    new_account = next((a for a in accounts if str(a["id"]) == account_id), None)
+    if new_account:
+        new_account.pop("access_token_encrypted", None)
+        new_account.pop("refresh_token_encrypted", None)
+        new_account.pop("caldav_password_encrypted", None)
+        return new_account
     return {"ok": True}
 
 

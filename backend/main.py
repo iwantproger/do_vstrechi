@@ -51,7 +51,11 @@ async def lifespan(app: FastAPI):
     # Регистрация провайдеров календарей
     from calendars.registry import register_provider
     from calendars.providers.google import GoogleCalendarProvider
+    from calendars.providers.yandex import YandexCalendarProvider
+    from calendars.providers.apple import AppleCalendarProvider
     register_provider("google", GoogleCalendarProvider())
+    register_provider("yandex", YandexCalendarProvider())
+    register_provider("apple", AppleCalendarProvider())
     # Sync Engine — фоновая синхронизация внешних календарей
     from calendars.sync import CalendarSyncEngine
     pool = await get_pool()

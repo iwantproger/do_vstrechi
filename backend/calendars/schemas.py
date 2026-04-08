@@ -44,6 +44,13 @@ class ScheduleCalendarConfig(BaseModel):
     rules: list[ScheduleCalendarRule]
 
 
+class CalDAVConnectRequest(BaseModel):
+    """Запрос подключения CalDAV-провайдера (Yandex, Apple)."""
+    provider: str = Field(..., pattern=r'^(yandex|apple)$', description="yandex или apple")
+    email: str = Field(..., min_length=1, max_length=200)
+    password: str = Field(..., min_length=1, max_length=500, description="App-specific password")
+
+
 # ── Внутренние модели (провайдеры / sync) ──────────
 
 class ExternalEvent(BaseModel):
