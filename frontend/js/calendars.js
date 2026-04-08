@@ -4,6 +4,7 @@
 
 var _calPollTimer = null;
 var _calPollTimeout = null;
+var _calDAVProvider = null;  // текущий провайдер открытого CalDAV модала
 
 async function loadCalendarAccounts() {
   var list = document.getElementById('calendars-list');
@@ -96,6 +97,173 @@ function renderCalendarConnection(c, accountId) {
     + '</div>'
     + '</div>';
 }
+
+
+/* ── CalDAV Connect (Yandex, Apple) ─────── */
+
+var _CALDAV_CONFIG = {
+  yandex: {
+    title:       'Подключить Яндекс Календарь',
+    desc:        'Введите ваш Яндекс email и пароль приложения (не основной пароль от аккаунта).',
+    placeholder: 'user@yandex.ru',
+    help: '<ol>'
+      + '<li>Откройте <a href="https://passport.yandex.ru/profile/security" target="_blank">passport.yandex.ru</a> → Безопасность → Пароли приложений</li>'
+      + '<li>Нажмите «Создать новый пароль»</li>'
+      + '<li>Выберите тип «Календарь (CalDAV)»</li>'
+      + '<li>Скопируйте сгенерированный пароль</li>'
+      + '<li>Вставьте его в поле выше</li>'
+      + '</ol>',
+  },
+  apple: {
+    title:       'Подключить Apple Calendar',
+    desc:        'Введите ваш Apple ID и пароль приложения (создаётся отдельно от основного пароля).',
+    placeholder: 'apple-id@icloud.com',
+    help: '<ol>'
+      + '<li>Откройте <a href="https://appleid.apple.com" target="_blank">appleid.apple.com</a> → Вход и безопасность</li>'
+      + '<li>Нажмите «Пароли приложений» → «Создать пароль»</li>'
+      + '<li>Введите название (например, «До встречи»)</li>'
+      + '<li>Скопируйте 16-символьный пароль (формат: xxxx-xxxx-xxxx-xxxx)</li>'
+      + '<li>Вставьте его в поле выше</li>'
+      + '</ol>',
+  },
+};
+
+function openCalDAVModal(provider) {
+  var cfg = _CALDAV_CONFIG[provider];
+  if (!cfg) return;
+
+  _calDAVProvider = provider;
+
+  var modal = document.getElementById('modal-caldav');
+  var title = document.getElementById('caldav-modal-title');
+  var desc = document.getElementById('caldav-modal-desc');
+  var emailInp = document.getElementById('caldav-email');
+  var pwdInp = document.getElementById('caldav-password');
+  var errEl = document.getElementById('caldav-error');
+  var helpEl = document.getElementById('caldav-help-content');
+  var details = modal.querySelector('.caldav-help');
+
+  title.textContent = cfg.title;
+  desc.textContent = cfg.desc;
+  emailInp.placeholder = cfg.placeholder;
+  helpEl.innerHTML = cfg.help;
+
+  /* Сброс полей */
+  emailInp.value = '';
+  pwdInp.value = '';
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+  if (details) details.removeAttribute('open');
+
+  /* Сброс кнопки Submit */
+  var submitBtn = document.getElementById('caldav-submit');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Подключить';
+
+  modal.style.display = 'flex';
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+  /* Фокус на email с небольшой задержкой (анимация) */
+  setTimeout(function() { emailInp.focus(); }, 250);
+}
+
+function closeCalDAVModal() {
+  var modal = document.getElementById('modal-caldav');
+  if (!modal) return;
+  modal.style.display = 'none';
+  _calDAVProvider = null;
+  /* Очистить пароль из памяти */
+  var pwdInp = document.getElementById('caldav-password');
+  if (pwdInp) pwdInp.value = '';
+}
+
+async function submitCalDAVConnect() {
+  var provider = _calDAVProvider;
+  if (!provider) return;
+
+  var emailInp = document.getElementById('caldav-email');
+  var pwdInp = document.getElementById('caldav-password');
+  var errEl = document.getElementById('caldav-error');
+  var submitBtn = document.getElementById('caldav-submit');
+
+  var email = (emailInp.value || '').trim();
+  var password = pwdInp.value || '';
+
+  /* Валидация */
+  if (!email) {
+    emailInp.focus();
+    _caldavShowError('Введите email');
+    return;
+  }
+  if (!password) {
+    pwdInp.focus();
+    _caldavShowError('Введите пароль приложения');
+    return;
+  }
+
+  errEl.style.display = 'none';
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Подключение…';
+
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+  var { data, error } = await apiFetch('POST', '/api/calendar/caldav/connect', {
+    provider: provider,
+    email: email,
+    password: password,
+  });
+
+  /* Очистить пароль из памяти сразу после отправки */
+  pwdInp.value = '';
+
+  if (error || !data) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Подключить';
+
+    /* Бэкенд возвращает detail в error — "Неверный email или пароль" для 400 */
+    var isAuthErr = error && (error.indexOf('Неверный') !== -1 || error.indexOf('пароль') !== -1);
+    if (isAuthErr) {
+      _caldavShowError('Неверный email или пароль. Убедитесь, что вы используете пароль приложения, а не основной пароль аккаунта.');
+    } else {
+      _caldavShowError('Не удалось подключить. Проверьте соединение и попробуйте позже.');
+    }
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    return;
+  }
+
+  /* Успех */
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  closeCalDAVModal();
+  showToast('Календарь подключён!', 'success');
+  loadCalendarAccounts();
+}
+
+function _caldavShowError(msg) {
+  var errEl = document.getElementById('caldav-error');
+  if (!errEl) return;
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+}
+
+/* Enter в поле password → submit */
+document.addEventListener('DOMContentLoaded', function() {
+  var pwdInp = document.getElementById('caldav-password');
+  if (pwdInp) {
+    pwdInp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); submitCalDAVConnect(); }
+    });
+  }
+  var emailInp = document.getElementById('caldav-email');
+  if (emailInp) {
+    emailInp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var pwd = document.getElementById('caldav-password');
+        if (pwd) pwd.focus();
+      }
+    });
+  }
+});
 
 
 /* ── Connect Google ────────────────────── */
