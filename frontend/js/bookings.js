@@ -34,7 +34,7 @@ async function loadHome() {
     if (state.currentScreen === 's-home') loadHome();
   }, 60000);
 
-  var { data, error } = await apiFetch('GET', '/api/bookings?role=organizer');
+  var { data, error } = await apiFetch('GET', '/api/bookings?role=all');
   if (error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
   if (data) state.bookings = data;
 
@@ -92,16 +92,22 @@ function renderHeroCard(m, now) {
   const datePart = dt.getDate() + ' ' + MONTHS_GEN[dt.getMonth()].slice(0, 3);
   const plat = PLAT_NAMES[m.schedule_platform] || m.schedule_platform || '';
   const meta = datePart + ' · ' + dur + ' мин' + (plat ? ' · ' + plat : '');
-  const name = escHtml(m.guest_name);
+  const isGuest = m.my_role === 'guest';
+  /* For guest meetings show the organizer's name; for organizer meetings show the guest's name */
+  const name = isGuest
+    ? escHtml(m.organizer_first_name || 'Организатор')
+    : escHtml(m.guest_name || '');
   const title = escHtml(m.schedule_title || '');
   const withinHour = (dt - now) > 0 && (dt - now) < 3600000;
   const heroStatus = getMeetingStatus(m);
+  const guestBadge = isGuest ? '<div style="display:inline-block;font-size:10px;font-weight:700;background:rgba(124,92,252,.15);color:#9b78ff;border-radius:6px;padding:2px 7px;margin-bottom:6px">Я участник</div>' : '';
 
   if (heroStatus === 'confirmed' || heroStatus === 'ongoing') {
     const heroLabel = heroStatus === 'ongoing' ? 'ВСТРЕЧА ИДЁТ' : 'БЛИЖАЙШАЯ ВСТРЕЧА';
     const heroBorder = heroStatus === 'ongoing' ? 'rgba(45,212,160,.4)' : 'rgba(0,229,168,.18)';
     return '<div onclick="if(!event.target.closest(\'button\')){openMeetDetail(\'' + m.id + '\')}" style="margin:32px 16px 0;background:#182020;border-radius:20px;padding:18px;border:1px solid ' + heroBorder + ';cursor:pointer">'
       + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--a);margin-bottom:8px">' + heroLabel + '</div>'
+      + guestBadge
       + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
       + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
       + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">'
@@ -116,10 +122,19 @@ function renderHeroCard(m, now) {
     + '</div>';
   }
 
-  /* pending — amber card, label depends on urgency */
-  const heroLabel = withinHour ? 'До встречи меньше часа' : 'Ожидает подтверждения';
+  /* pending — amber card, label depends on role + urgency */
+  const heroLabel = isGuest
+    ? (withinHour ? 'До встречи меньше часа' : 'Ожидает начала')
+    : (withinHour ? 'До встречи меньше часа' : 'Ожидает подтверждения');
+  const pendingBtns = !isGuest
+    ? '<div style="display:flex;gap:8px;margin-top:14px">'
+        + '<button class="btn btn-confirm" onclick="confirmMeeting(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Подтвердить</button>'
+        + '<button class="btn btn-danger" onclick="openCancelSheet(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Отклонить</button>'
+      + '</div>'
+    : '';
   return '<div onclick="if(!event.target.closest(\'button\')){openMeetDetail(\'' + m.id + '\')}" style="margin:32px 16px 0;background:#1E1200;border-radius:20px;padding:18px;border:1px solid rgba(245,166,35,.3);cursor:pointer">'
     + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin-bottom:8px">' + heroLabel + '</div>'
+    + guestBadge
     + '<div style="font-size:18px;font-weight:800;color:#fff">' + name + '</div>'
     + '<div style="font-size:13px;font-weight:500;color:#fff;margin-top:2px">' + title + '</div>'
     + '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:16px">'
@@ -128,10 +143,7 @@ function renderHeroCard(m, now) {
         + '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-top:2px">' + meta + '</div>'
       + '</div>'
     + '</div>'
-    + '<div style="display:flex;gap:8px;margin-top:14px">'
-      + '<button class="btn btn-confirm" onclick="confirmMeeting(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Подтвердить</button>'
-      + '<button class="btn btn-danger" onclick="openCancelSheet(\'' + m.id + '\')" style="flex:1;height:40px;padding:0;font-size:13px">Отклонить</button>'
-    + '</div>'
+    + pendingBtns
   + '</div>';
 }
 
@@ -521,6 +533,8 @@ function openCancelSheet(id) {
   var titleEl = document.getElementById('sheet-cancel-title');
   var subEl = document.getElementById('sheet-cancel-sub');
   var actEl = document.getElementById('sheet-cancel-action');
+  /* reset disabled state from any previous operation */
+  if (actEl) { actEl.disabled = false; actEl.className = 'btn btn-danger'; }
   if (m && m.status === 'pending') {
     if (titleEl) titleEl.textContent = 'Отклонить встречу?';
     if (subEl) subEl.textContent = 'Встреча с ' + (m.guest_name || 'участником') + ' будет отменена.';

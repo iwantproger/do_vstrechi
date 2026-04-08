@@ -212,9 +212,12 @@ function openScheduleDetail(id) {
   var linkInp = document.getElementById('sl-link-inp');
   if (linkInp) linkInp.value = '';
 
-  /* manual confirm toggle — stub, API doesn't have this field yet */
+  /* manual confirm toggle — backed by requires_confirmation field */
   var togEl = document.getElementById('sl-manual-tog');
-  if (togEl) togEl.classList.remove('on');
+  if (togEl) {
+    if (s.requires_confirmation !== false) togEl.classList.add('on');
+    else togEl.classList.remove('on');
+  }
 
   /* pause button label */
   updatePauseBtn(s.is_active !== false);
@@ -285,6 +288,7 @@ function collectScheduleForm() {
   }
 
   var advance = parseInt((document.getElementById('sl-advance') || {}).value) || 0;
+  var manualTog = document.getElementById('sl-manual-tog');
 
   return {
     title: nameVal,
@@ -296,6 +300,7 @@ function collectScheduleForm() {
     end_time: endVal,
     platform: plat,
     min_booking_advance: advance,
+    requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
   };
 }
 
@@ -567,7 +572,8 @@ function openDeleteConfirm() {
   var actEl = document.getElementById('sheet-cancel-action');
   if (titleEl) titleEl.textContent = 'Удалить расписание?';
   if (subEl) subEl.textContent = 'Расписание будет деактивировано. Существующие встречи сохранятся.';
-  if (actEl) actEl.textContent = 'Удалить';
+  /* reset disabled state from any previous operation */
+  if (actEl) { actEl.disabled = false; actEl.className = 'btn btn-danger'; actEl.textContent = 'Удалить'; }
   state._deleteMode = true;
   showSheet('sheet-cancel');
 }
@@ -639,8 +645,8 @@ function openNewSchedule() {
   el = document.getElementById('nw-link-wrap'); if (el) el.style.display = 'none';
   el = document.getElementById('nw-link-inp'); if (el) el.value = '';
 
-  /* manual toggle off */
-  el = document.getElementById('nw-manual-tog'); if (el) el.classList.remove('on');
+  /* manual confirm toggle — default ON (require confirmation) */
+  el = document.getElementById('nw-manual-tog'); if (el) el.classList.add('on');
 
   /* reset button */
   var btn = document.getElementById('nw-submit-btn');
@@ -677,6 +683,7 @@ function getFormScheduleData() {
   }
 
   var advance = parseInt((document.getElementById('nw-advance') || {}).value) || 0;
+  var manualTog = document.getElementById('nw-manual-tog');
 
   return {
     title: nameVal,
@@ -689,6 +696,7 @@ function getFormScheduleData() {
     location_mode: 'fixed',
     platform: plat,
     min_booking_advance: advance,
+    requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
   };
 }
 
