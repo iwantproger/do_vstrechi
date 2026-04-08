@@ -22,6 +22,9 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 
+# Telegram bot username (без @) — для OAuth-редиректа обратно в бот
+BOT_USERNAME = os.environ.get("BOT_USERNAME", "")
+
 _allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
 CORS_ORIGINS = (
     [o.strip() for o in _allowed_origins.split(",") if o.strip()]

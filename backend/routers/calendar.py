@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-from config import MINI_APP_URL
+from config import BOT_USERNAME
 from database import db, get_pool
 from auth import get_current_user
 from calendars.encryption import encrypt_token
@@ -30,6 +30,93 @@ log = structlog.get_logger()
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
 
+def _oauth_page(success: bool, error_key: str = "") -> str:
+    """Вернуть HTML-страницу после OAuth callback."""
+    tg_url = f"https://t.me/{BOT_USERNAME}?start=calendar_connected" if BOT_USERNAME else ""
+
+    if success:
+        icon = "✅"
+        title = "Google Calendar подключён!"
+        subtitle = "Возвращайтесь в Telegram — приложение уже обновилось."
+        btn_text = "Вернуться в Telegram"
+        js_redirect = f"window.location.href = '{tg_url}';" if tg_url else ""
+    else:
+        labels = {
+            "cancelled":     "Вы отменили подключение Google Calendar.",
+            "no_code":       "Ошибка: не получен код авторизации от Google.",
+            "invalid_state": "Ошибка безопасности: недействительный параметр state.",
+            "user_not_found":"Ошибка: пользователь не найден. Попробуйте ещё раз.",
+            "token_exchange":"Ошибка обмена токенов с Google. Попробуйте позже.",
+        }
+        icon = "❌"
+        title = "Не удалось подключить календарь"
+        subtitle = labels.get(error_key, "Произошла ошибка. Попробуйте ещё раз.")
+        btn_text = "Вернуться в Telegram"
+        js_redirect = f"window.location.href = '{tg_url}';" if tg_url else ""
+
+    auto_redirect_script = f"""
+    <script>
+      setTimeout(function() {{ {js_redirect} }}, 1500);
+    </script>""" if js_redirect else ""
+
+    tg_btn = f'<a href="{tg_url}" class="btn">{btn_text}</a>' if tg_url else ""
+
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center;
+      background: #17212b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #e8edf2;
+      padding: 24px;
+    }}
+    .card {{
+      background: #232e3c;
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,.35);
+    }}
+    .icon {{ font-size: 48px; margin-bottom: 16px; }}
+    h1 {{ font-size: 20px; font-weight: 600; margin-bottom: 8px; }}
+    p {{ font-size: 14px; color: #93a3b5; line-height: 1.5; margin-bottom: 28px; }}
+    .btn {{
+      display: inline-block;
+      background: #2ca5e0;
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      transition: opacity .15s;
+    }}
+    .btn:hover {{ opacity: .85; }}
+    .hint {{ margin-top: 16px; font-size: 12px; color: #637080; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">{icon}</div>
+    <h1>{title}</h1>
+    <p>{subtitle}</p>
+    {tg_btn}
+    {"<p class='hint'>Перенаправляем автоматически…</p>" if js_redirect else ""}
+  </div>
+  {auto_redirect_script}
+</body>
+</html>"""
+
+
 # ── Google OAuth ──────────────────────────────────
 
 @router.get("/google/auth")
@@ -48,37 +135,27 @@ async def google_callback(
     conn: asyncpg.Connection = Depends(db),
 ):
     """OAuth callback от Google (без auth — redirect от Google)."""
-    redirect_base = MINI_APP_URL or "/"
-
     # Пользователь отказал
     if error:
         log.info("google_oauth_denied", error=error)
-        return RedirectResponse(
-            url=f"{redirect_base}?calendar_error=cancelled", status_code=302
-        )
+        return HTMLResponse(_oauth_page(success=False, error_key="cancelled"))
 
     if not code:
-        return RedirectResponse(
-            url=f"{redirect_base}?calendar_error=no_code", status_code=302
-        )
+        return HTMLResponse(_oauth_page(success=False, error_key="no_code"))
 
     # Проверка state
     try:
         telegram_id = verify_state(state)
     except ValueError as e:
         log.warning("google_oauth_invalid_state", error=str(e))
-        return RedirectResponse(
-            url=f"{redirect_base}?calendar_error=invalid_state", status_code=302
-        )
+        return HTMLResponse(_oauth_page(success=False, error_key="invalid_state"))
 
     # Найти пользователя
     user = await conn.fetchrow(
         "SELECT id FROM users WHERE telegram_id = $1", telegram_id
     )
     if not user:
-        return RedirectResponse(
-            url=f"{redirect_base}?calendar_error=user_not_found", status_code=302
-        )
+        return HTMLResponse(_oauth_page(success=False, error_key="user_not_found"))
     user_id = user["id"]
 
     # Обменять code на токены
@@ -86,9 +163,7 @@ async def google_callback(
         tokens = await exchange_google_code(code)
     except ValueError as e:
         log.error("google_token_exchange_error", error=str(e))
-        return RedirectResponse(
-            url=f"{redirect_base}?calendar_error=token_exchange", status_code=302
-        )
+        return HTMLResponse(_oauth_page(success=False, error_key="token_exchange"))
 
     # Получить email
     try:
@@ -149,9 +224,7 @@ async def google_callback(
         {"email": email, "calendars": len(calendars_list) if 'calendars_list' in dir() else 0},
     )
 
-    return RedirectResponse(
-        url=f"{redirect_base}?calendar_connected=google", status_code=302
-    )
+    return HTMLResponse(_oauth_page(success=True))
 
 
 # ── Accounts ──────────────────────────────────────

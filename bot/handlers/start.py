@@ -33,6 +33,22 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         await handle_notify_setup(msg, booking_id)
         return
 
+    # Deep link: calendar_connected — Google Calendar успешно подключён
+    if args == "calendar_connected":
+        await msg.answer(
+            "✅ <b>Google Calendar подключён!</b>\n\n"
+            "Ваши события из Google Calendar теперь автоматически блокируют слоты в расписаниях.\n\n"
+            "Откройте приложение, чтобы настроить какие календари использовать.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="📅 Открыть приложение",
+                    web_app=WebAppInfo(url=MINI_APP_URL),
+                )
+            ]]),
+        )
+        return
+
     try:
         from aiogram.types import MenuButtonWebApp
         await msg.bot.set_chat_menu_button(
