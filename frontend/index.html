@@ -208,9 +208,13 @@
         <div class="chip" data-plat="zoom" onclick="pickPlatEdit(this)">Zoom</div>
         <div class="chip" data-plat="google_meet" onclick="pickPlatEdit(this)">Google Meet</div>
         <div class="chip" data-plat="other" onclick="pickPlatEdit(this)">Своя ссылка</div>
+        <div class="chip" data-plat="offline" onclick="pickPlatEdit(this)">Офлайн</div>
       </div>
       <div id="sl-link-wrap" style="display:none;margin-top:8px">
         <input class="inp" id="sl-link-inp" placeholder="Вставьте ссылку на конференцию…" oninput="markScheduleDirty()">
+      </div>
+      <div id="sl-addr-wrap" style="display:none;margin-top:8px">
+        <input class="inp" id="sl-addr-inp" placeholder="ул. Примерная 1 или ссылка на Яндекс.Карты" oninput="markScheduleDirty()">
       </div>
     </div>
     <div style="background:var(--s2);border-radius:var(--r2);padding:14px;border:1px solid var(--b1);margin-bottom:14px">
@@ -412,9 +416,13 @@
         <div class="chip" data-plat="zoom" onclick="pickPlatNew(this)">Zoom</div>
         <div class="chip" data-plat="google_meet" onclick="pickPlatNew(this)">Google Meet</div>
         <div class="chip" data-plat="other" onclick="pickPlatNew(this)">Своя ссылка</div>
+        <div class="chip" data-plat="offline" onclick="pickPlatNew(this)">Офлайн</div>
       </div>
       <div id="nw-link-wrap" style="display:none;margin-top:8px">
         <input class="inp" id="nw-link-inp" placeholder="Вставьте ссылку на конференцию…">
+      </div>
+      <div id="nw-addr-wrap" style="display:none;margin-top:8px">
+        <input class="inp" id="nw-addr-inp" placeholder="ул. Примерная 1 или ссылка на Яндекс.Карты">
       </div>
     </div>
     <div style="background:var(--s2);border-radius:var(--r2);padding:14px;border:1px solid var(--b1);margin-bottom:14px">

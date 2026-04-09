@@ -166,9 +166,7 @@ function renderHeroCard(m, now) {
           + '<div style="font-size:30px;font-weight:800;color:#fff;line-height:1">' + time + '</div>'
           + '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-top:2px">' + meta + '</div>'
         + '</div>'
-        + (m.meeting_link && ['jitsi','zoom','google_meet'].indexOf(m.schedule_platform || '') >= 0
-          ? '<button data-link="' + escHtml(m.meeting_link) + '" onclick="openLink(this.dataset.link)" style="height:40px;padding:0 16px;background:var(--a);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:#000;cursor:pointer;white-space:nowrap;flex-shrink:0">Подключиться</button>'
-          : '')
+        + renderMeetingActionButton(m, 'hero')
       + '</div>'
     + '</div>';
   }
@@ -200,6 +198,39 @@ function renderHeroCard(m, now) {
 
 function isGuestBooking(m) {
   return m.my_role === 'guest';
+}
+
+/* Returns HTML for the primary action button on a meeting card/detail.
+   - Online platforms (jitsi/zoom/google_meet): "Подключиться" opens meeting_link
+   - Offline: "Место" copies address to clipboard (or opens maps if URL)
+   - Other/no link: empty string
+   style: 'hero' → inline style pill, 'detail' → .btn.btn-primary */
+function renderMeetingActionButton(m, style) {
+  var plat = m.platform || m.schedule_platform || '';
+  var link = m.meeting_link || '';
+  var addr = m.location_address || '';
+
+  if (['jitsi', 'zoom', 'google_meet'].indexOf(plat) >= 0 && link) {
+    if (style === 'hero') {
+      return '<button data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)" style="height:40px;padding:0 16px;background:var(--a);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:#000;cursor:pointer;white-space:nowrap;flex-shrink:0">Подключиться</button>';
+    }
+    return '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px" data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)">Подключиться</button>';
+  }
+
+  if (plat === 'offline' && addr) {
+    var safeAddr = escHtml(addr);
+    /* If the address looks like a URL, open it; otherwise copy to clipboard */
+    var isUrl = /^https?:\/\//i.test(addr);
+    var action = isUrl
+      ? 'openLink(\'' + escHtml(addr).replace(/'/g, '\\\'') + '\')'
+      : 'navigator.clipboard && navigator.clipboard.writeText(\'' + escHtml(addr).replace(/'/g, '\\\'') + '\').then(function(){showToast(\'Адрес скопирован\')})';
+    if (style === 'hero') {
+      return '<button onclick="' + action + '" style="height:40px;padding:0 16px;background:var(--a);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:#000;cursor:pointer;white-space:nowrap;flex-shrink:0">Место</button>';
+    }
+    return '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px" onclick="' + action + '">Место</button>';
+  }
+
+  return '';
 }
 
 function renderMeetingCard(m) {
@@ -542,11 +573,19 @@ function renderMeetDetailHtml(m, dStatus) {
       + '</div>'
     : '<div class="dr-val">Не указан</div>';
 
-  /* meeting link row */
-  var linkRow = link
-    ? '<div class="detail-row"><div class="dr-label">Ссылка на встречу</div>'
-      + '<div class="dr-val link" data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)" style="cursor:pointer">' + escHtml(linkDisplay) + '</div></div>'
-    : '';
+  /* meeting link / address row */
+  var bPlat = m.platform || m.schedule_platform || '';
+  var bAddr = m.location_address || '';
+  var linkRow;
+  if (bPlat === 'offline' && bAddr) {
+    linkRow = '<div class="detail-row"><div class="dr-label">Место встречи</div>'
+      + '<div class="dr-val">' + escHtml(bAddr) + '</div></div>';
+  } else {
+    linkRow = link
+      ? '<div class="detail-row"><div class="dr-label">Ссылка на встречу</div>'
+        + '<div class="dr-val link" data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)" style="cursor:pointer">' + escHtml(linkDisplay) + '</div></div>'
+      : '';
+  }
 
   /* notes row */
   var notesRow = notes
@@ -593,10 +632,7 @@ function renderMeetDetailHtml(m, dStatus) {
   /* action buttons — guests only see connect + cancel, not confirm/reject */
   var id = m.id;
   if (dStatus === 'confirmed' || dStatus === 'ongoing') {
-    var isCallPlatform = ['jitsi','zoom','google_meet'].indexOf(m.schedule_platform || '') >= 0;
-    var connectBtn = (link && isCallPlatform)
-      ? '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px" data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)">Подключиться</button>'
-      : '';
+    var connectBtn = renderMeetingActionButton(m, 'detail');
     html += '<div style="padding:0 16px;display:flex;gap:8px">'
       + connectBtn
       + '<button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отменить встречу</button>'

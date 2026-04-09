@@ -19,7 +19,8 @@ class ScheduleCreate(BaseModel):
     start_time: str = Field("09:00", pattern=r"^\d{2}:\d{2}$")
     end_time: str = Field("18:00", pattern=r"^\d{2}:\d{2}$")
     location_mode: str = Field("fixed", max_length=50)
-    platform: str = Field("jitsi", max_length=50)
+    platform: str = Field("jitsi", max_length=50)  # jitsi, zoom, google_meet, other, offline
+    location_address: Optional[str] = Field(None, max_length=500)
     min_booking_advance: Optional[int] = Field(0, ge=0, le=10080)
     requires_confirmation: bool = Field(True)
 
@@ -34,6 +35,7 @@ class ScheduleUpdate(BaseModel):
     end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     location_mode: Optional[str] = Field(None, max_length=50)
     platform: Optional[str] = Field(None, max_length=50)
+    location_address: Optional[str] = Field(None, max_length=500)
     is_active: Optional[bool] = None
     min_booking_advance: Optional[int] = Field(None, ge=0, le=10080)
     requires_confirmation: Optional[bool] = None

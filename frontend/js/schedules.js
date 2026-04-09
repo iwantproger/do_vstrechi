@@ -208,7 +208,17 @@ function openScheduleDetail(id) {
     });
   }
   var linkWrap = document.getElementById('sl-link-wrap');
-  if (linkWrap) linkWrap.style.display = (s.platform === 'other' || s.platform === 'zoom' || s.platform === 'google_meet') ? '' : 'none';
+  var addrWrap = document.getElementById('sl-addr-wrap');
+  var addrInp = document.getElementById('sl-addr-inp');
+  if (s.platform === 'offline') {
+    if (linkWrap) linkWrap.style.display = 'none';
+    if (addrWrap) addrWrap.style.display = '';
+    if (addrInp) addrInp.value = s.location_address || '';
+  } else {
+    if (linkWrap) linkWrap.style.display = (s.platform === 'other' || s.platform === 'zoom' || s.platform === 'google_meet') ? '' : 'none';
+    if (addrWrap) addrWrap.style.display = 'none';
+    if (addrInp) addrInp.value = '';
+  }
   var linkInp = document.getElementById('sl-link-inp');
   if (linkInp) linkInp.value = '';
 
@@ -289,6 +299,7 @@ function collectScheduleForm() {
 
   var advance = parseInt((document.getElementById('sl-advance') || {}).value) || 0;
   var manualTog = document.getElementById('sl-manual-tog');
+  var addrVal = (document.getElementById('sl-addr-inp') || {}).value || '';
 
   return {
     title: nameVal,
@@ -299,6 +310,7 @@ function collectScheduleForm() {
     start_time: startVal,
     end_time: endVal,
     platform: plat,
+    location_address: addrVal || null,
     min_booking_advance: advance,
     requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
   };
@@ -484,7 +496,17 @@ function pickPlatEdit(el) {
   el.classList.add('on');
   var plat = el.getAttribute('data-plat');
   var linkWrap = document.getElementById('sl-link-wrap');
-  if (linkWrap) linkWrap.style.display = (plat === 'other' || plat === 'zoom' || plat === 'google_meet') ? '' : 'none';
+  var addrWrap = document.getElementById('sl-addr-wrap');
+  if (plat === 'offline') {
+    if (linkWrap) linkWrap.style.display = 'none';
+    if (addrWrap) addrWrap.style.display = '';
+  } else if (plat === 'other' || plat === 'zoom' || plat === 'google_meet') {
+    if (linkWrap) linkWrap.style.display = '';
+    if (addrWrap) addrWrap.style.display = 'none';
+  } else {
+    if (linkWrap) linkWrap.style.display = 'none';
+    if (addrWrap) addrWrap.style.display = 'none';
+  }
   markScheduleDirty();
 }
 
@@ -692,6 +714,8 @@ function openNewSchedule() {
   }
   el = document.getElementById('nw-link-wrap'); if (el) el.style.display = 'none';
   el = document.getElementById('nw-link-inp'); if (el) el.value = '';
+  el = document.getElementById('nw-addr-wrap'); if (el) el.style.display = 'none';
+  el = document.getElementById('nw-addr-inp'); if (el) el.value = '';
 
   /* manual confirm toggle — default ON (require confirmation) */
   el = document.getElementById('nw-manual-tog'); if (el) el.classList.add('on');
@@ -732,6 +756,7 @@ function getFormScheduleData() {
 
   var advance = parseInt((document.getElementById('nw-advance') || {}).value) || 0;
   var manualTog = document.getElementById('nw-manual-tog');
+  var addrVal = (document.getElementById('nw-addr-inp') || {}).value || '';
 
   return {
     title: nameVal,
@@ -743,6 +768,7 @@ function getFormScheduleData() {
     end_time: endVal,
     location_mode: 'fixed',
     platform: plat,
+    location_address: addrVal || null,
     min_booking_advance: advance,
     requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
   };
@@ -753,8 +779,18 @@ function pickPlatNew(el) {
   if (cont) cont.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('on'); });
   el.classList.add('on');
   var plat = el.getAttribute('data-plat');
-  var wrap = document.getElementById('nw-link-wrap');
-  if (wrap) wrap.style.display = (plat !== 'jitsi') ? '' : 'none';
+  var linkWrap = document.getElementById('nw-link-wrap');
+  var addrWrap = document.getElementById('nw-addr-wrap');
+  if (plat === 'offline') {
+    if (linkWrap) linkWrap.style.display = 'none';
+    if (addrWrap) addrWrap.style.display = '';
+  } else if (plat === 'other' || plat === 'zoom' || plat === 'google_meet') {
+    if (linkWrap) linkWrap.style.display = '';
+    if (addrWrap) addrWrap.style.display = 'none';
+  } else {
+    if (linkWrap) linkWrap.style.display = 'none';
+    if (addrWrap) addrWrap.style.display = 'none';
+  }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
