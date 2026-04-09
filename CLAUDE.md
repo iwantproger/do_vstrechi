@@ -92,6 +92,7 @@ do_vstrechi/
 ├── .env.example            # Шаблон переменных окружения (prod)
 ├── .env.beta.example       # Шаблон переменных для beta
 ├── CHANGELOG.md            # История релизов (semver)
+├── CHANGELOG_USER.md       # История обновлений для пользователей приложения
 └── .gitignore
 ```
 
