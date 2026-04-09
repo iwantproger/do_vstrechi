@@ -1,0 +1,30 @@
+name: Emergency Prod Diag
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Diagnose and fix via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/dovstrechi
+
+            echo "=== docker compose ps ==="
+            docker compose ps
+
+            echo "=== backend logs tail 80 ==="
+            docker compose logs backend --tail=80
+
+            echo "=== nginx logs tail=20 ==="
+            docker compose logs nginx --tail=20
+
+            echo "=== health check ==="
+            curl -sf http://localhost/health || echo "HEALTH FAILED"
