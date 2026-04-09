@@ -67,3 +67,38 @@ async def cb_cancel_booking(cb: CallbackQuery):
         await cb.answer("Встреча отменена")
     else:
         await cb.answer("Не удалось отменить", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("guest_confirm_"))
+async def cb_guest_confirm(cb: CallbackQuery):
+    """Участник подтверждает что встреча в силе."""
+    booking_id = cb.data.replace("guest_confirm_", "", 1)
+    try:
+        await cb.message.edit_text(
+            cb.message.text + "\n\n✅ <b>Вы подтвердили встречу!</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=None,
+        )
+    except Exception:
+        pass
+    await cb.answer("Встреча подтверждена!")
+    log.info(f"Guest {cb.from_user.id} confirmed booking {booking_id}")
+
+
+@router.callback_query(F.data.startswith("guest_cancel_"))
+async def cb_guest_cancel(cb: CallbackQuery):
+    """Участник отменяет встречу через утреннее сообщение."""
+    booking_id = cb.data.replace("guest_cancel_", "", 1)
+    result = await api("patch", f"/api/bookings/{booking_id}/cancel")
+    try:
+        await cb.message.edit_text(
+            cb.message.text + "\n\n❌ <b>Встреча отменена</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=None,
+        )
+    except Exception:
+        pass
+    if result:
+        await cb.answer("Встреча отменена")
+    else:
+        await cb.answer("Не удалось отменить", show_alert=True)

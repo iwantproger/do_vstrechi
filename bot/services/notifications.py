@@ -48,10 +48,15 @@ async def handle_new_booking(request: web.Request) -> web.Response:
         if meeting_link:
             org_text += f"\n🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{booking_id}"),
-            InlineKeyboardButton(text="❌ Отклонить",  callback_data=f"cancel_{booking_id}"),
-        ]])
+        requires_confirm = payload.get("requires_confirmation", True)
+        if requires_confirm:
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{booking_id}"),
+                InlineKeyboardButton(text="❌ Отклонить",  callback_data=f"cancel_{booking_id}"),
+            ]])
+        else:
+            kb = None
+            org_text += "\n\n✅ <i>Автоматически подтверждено</i>"
 
         await bot.send_message(
             chat_id=organizer_tid,

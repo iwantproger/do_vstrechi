@@ -11,10 +11,36 @@ function setupProfile() {
   const greeting = document.getElementById('home-greeting');
   if (greeting) greeting.textContent = 'Привет, ' + u.first_name + ' ';
   const ini = (u.first_name?.[0] || '') + (u.last_name?.[0] || '');
+  const tid = u.id || (state.user && state.user.telegram_id);
+
+  /* home-avatar — inject img inside the existing circle div (preserves onclick) */
   const ha = document.getElementById('home-avatar');
-  if (ha) ha.textContent = ini || '?';
+  if (ha) {
+    if (tid) {
+      ha.innerHTML = '<img src="/api/users/' + tid + '/avatar"'
+        + ' style="width:100%;height:100%;object-fit:cover;border-radius:inherit"'
+        + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"'
+        + ' loading="lazy">'
+        + '<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">' + escHtml(ini || '?') + '</span>';
+    } else {
+      ha.textContent = ini || '?';
+    }
+  }
+
+  /* profile-avatar — same approach */
   const pa = document.getElementById('profile-avatar');
-  if (pa) pa.textContent = ini || '?';
+  if (pa) {
+    if (tid) {
+      pa.innerHTML = '<img src="/api/users/' + tid + '/avatar"'
+        + ' style="width:100%;height:100%;object-fit:cover;border-radius:inherit"'
+        + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"'
+        + ' loading="lazy">'
+        + '<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">' + escHtml(ini || '?') + '</span>';
+    } else {
+      pa.textContent = ini || '?';
+    }
+  }
+
   const pn = document.getElementById('profile-name');
   if (pn) pn.textContent = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
   const ps = document.getElementById('profile-sub');
@@ -92,17 +118,21 @@ async function loadHome() {
   const heroEl = document.getElementById('home-hero');
   if (heroEl) heroEl.innerHTML = nearest ? renderHeroCard(nearest, now) : '';
 
-  /* meetings list — bookings + external events merged */
+  /* meetings list — bookings + external events merged, exclude hero booking */
+  const heroId = nearest ? nearest.id : null;
   const label = document.getElementById('home-section-label');
   const listEl = document.getElementById('home-meetings');
-  if (todayAll.length) {
+  const todayList = heroId ? todayAll.filter(function(m) { return m.id !== heroId; }) : todayAll;
+  if (todayList.length) {
     if (label) label.classList.remove('hidden');
-    if (listEl) listEl.innerHTML = todayAll.map(function(m) {
+    if (listEl) listEl.innerHTML = todayList.map(function(m) {
       return m._isExt ? renderExtEventCard(m) : renderMeetingCard(m);
     }).join('');
   } else {
     if (label) label.classList.add('hidden');
-    if (listEl) listEl.innerHTML = renderEmpty('Нет встреч', 'На сегодня ничего не запланировано');
+    if (listEl) listEl.innerHTML = todayList.length === 0 && nearest
+      ? ''
+      : renderEmpty('Нет встреч', 'На сегодня ничего не запланировано');
   }
 }
 
@@ -121,7 +151,7 @@ function renderHeroCard(m, now) {
   const title = escHtml(m.schedule_title || '');
   const withinHour = (dt - now) > 0 && (dt - now) < 3600000;
   const heroStatus = getMeetingStatus(m);
-  const guestBadge = isGuest ? '<div style="display:inline-block;font-size:10px;font-weight:700;background:rgba(124,92,252,.15);color:#9b78ff;border-radius:6px;padding:2px 7px;margin-bottom:6px">Я участник</div>' : '';
+  const guestBadge = isGuest ? '<div style="margin-bottom:6px">' + badgeParticipant() + '</div>' : '';
 
   if (heroStatus === 'confirmed' || heroStatus === 'ongoing') {
     const heroLabel = heroStatus === 'ongoing' ? 'ВСТРЕЧА ИДЁТ' : 'БЛИЖАЙШАЯ ВСТРЕЧА';
@@ -136,7 +166,7 @@ function renderHeroCard(m, now) {
           + '<div style="font-size:30px;font-weight:800;color:#fff;line-height:1">' + time + '</div>'
           + '<div style="font-size:12px;font-weight:500;color:var(--t2);margin-top:2px">' + meta + '</div>'
         + '</div>'
-        + (m.meeting_link
+        + (m.meeting_link && ['jitsi','zoom','google_meet'].indexOf(m.schedule_platform || '') >= 0
           ? '<button data-link="' + escHtml(m.meeting_link) + '" onclick="openLink(this.dataset.link)" style="height:40px;padding:0 16px;background:var(--a);border:none;border-radius:999px;font-family:var(--font);font-size:13px;font-weight:700;color:#000;cursor:pointer;white-space:nowrap;flex-shrink:0">Подключиться</button>'
           : '')
       + '</div>'
@@ -179,18 +209,21 @@ function renderMeetingCard(m) {
   const timeEnd = fmtTimeOffset(dt, dur);
   const isGuest = isGuestBooking(m);
   /* for guest bookings: show organizer name instead of guest name */
-  const name = escHtml(isGuest
-    ? (m.organizer_first_name || 'Организатор')
-    : (m.guest_name || (m.is_manual ? 'Личная встреча' : '')));
+  const personName = isGuest ? (m.organizer_first_name || 'Организатор') : (m.guest_name || (m.is_manual ? 'Личная встреча' : ''));
+  const name = escHtml(personName);
   const title = escHtml(m.is_manual ? (m.title || m.display_title || '') : (m.schedule_title || ''));
   const dStatus = m._ds || getMeetingStatus(m);
   const isPending = dStatus === 'pending' && !m.is_manual && !isGuest;
-  const guestBadge = isGuest
-    ? '<span style="font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 8px;border-radius:var(--rf);margin-left:6px;white-space:nowrap">Я участник</span>'
-    : '';
+  const guestBadge = isGuest ? badgeParticipant() : '';
+
+  /* avatar: organizer sees guest photo, guest sees organizer photo */
+  const personTid = isGuest ? m.organizer_telegram_id : m.guest_telegram_id;
+  const personIni = getInitials(personName);
+  const avatarHtml = renderAvatar(personTid, personIni, 40);
 
   return '<div onclick="openMeetDetail(\'' + m.id + '\')" style="margin:0 16px 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">'
-    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px' + (isPending ? ';margin-bottom:24px' : '') + '">'
+    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px' + (isPending ? ';margin-bottom:24px' : '') + '">'
+      + avatarHtml
       + '<div style="flex:1;min-width:0">'
         + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><span style="font-size:14px;font-weight:700;color:var(--t1)">' + name + '</span>' + guestBadge + '</div>'
         + '<div style="font-size:12px;font-weight:400;color:var(--t1);margin-top:1px">' + timeStart + ' – ' + timeEnd + '</div>'
@@ -521,14 +554,14 @@ function renderMeetDetailHtml(m, dStatus) {
     : '';
 
   /* role badge */
-  var roleBadge = isGuest
-    ? '<span style="font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 8px;border-radius:var(--rf);margin-left:6px">Я участник</span>'
-    : '';
+  var roleBadge = isGuest ? badgeParticipant() : '';
 
   /* HTML: avatar + name */
+  var personTid = isGuest ? m.organizer_telegram_id : m.guest_telegram_id;
+  var detailAvatar = renderAvatar(personTid, initials, 56);
   var html = '<div style="padding:20px 16px 0">'
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">'
-      + '<div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:' + avatarColor + ';border:1px solid ' + borderColor + '">' + escHtml(initials) + '</div>'
+      + detailAvatar
       + '<div>'
         + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">' + name + '</span>' + roleBadge + '</div>'
         + (contact ? '<div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">' + contact + '</div>' : '')
@@ -560,9 +593,12 @@ function renderMeetDetailHtml(m, dStatus) {
   /* action buttons — guests only see connect + cancel, not confirm/reject */
   var id = m.id;
   if (dStatus === 'confirmed' || dStatus === 'ongoing') {
-    var linkAttr = link ? ' data-link="' + escHtml(link) + '"' : '';
+    var isCallPlatform = ['jitsi','zoom','google_meet'].indexOf(m.schedule_platform || '') >= 0;
+    var connectBtn = (link && isCallPlatform)
+      ? '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px" data-link="' + escHtml(link) + '" onclick="openLink(this.dataset.link)">Подключиться</button>'
+      : '';
     html += '<div style="padding:0 16px;display:flex;gap:8px">'
-      + '<button class="btn btn-primary" style="flex:1;height:40px;padding:0;font-size:13px"' + linkAttr + ' onclick="if(this.dataset.link)openLink(this.dataset.link)">Подключиться</button>'
+      + connectBtn
       + '<button class="btn btn-cancel" style="flex:1;height:40px;padding:0;font-size:13px" onclick="openCancelSheet(\'' + id + '\')">Отменить встречу</button>'
     + '</div>';
   } else if (dStatus === 'pending' && !isGuest) {

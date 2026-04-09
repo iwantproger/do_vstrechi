@@ -1,0 +1,35 @@
+name: Fix GOOGLE_REDIRECT_URI on prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    name: Set GOOGLE_REDIRECT_URI in prod .env
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fix via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/dovstrechi
+
+            # Remove any existing (possibly empty) GOOGLE_REDIRECT_URI line
+            sed -i '/^GOOGLE_REDIRECT_URI=/d' .env
+
+            # Add the correct value
+            echo "GOOGLE_REDIRECT_URI=https://dovstrechiapp.ru/api/calendar/google/callback" >> .env
+
+            # Verify
+            grep GOOGLE_REDIRECT_URI .env
+
+            # Restart backend to pick up new env var
+            docker compose restart backend
+
+            # Wait and health check
+            sleep 5
+            curl -sf http://localhost/health && echo "✓ Backend healthy"

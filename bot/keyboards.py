@@ -8,16 +8,18 @@ from config import MINI_APP_URL
 
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Постоянная нижняя панель."""
-    keyboard = [
-        [KeyboardButton(text="📅 Создать расписание")],
-        [
-            KeyboardButton(text="📋 Мои расписания"),
-            KeyboardButton(text="👥 Мои встречи"),
+    """Постоянная нижняя панель 2×2+1."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🏠 Главная"),    KeyboardButton(text="📋 Встречи")],
+            [KeyboardButton(text="📅 Расписания"), KeyboardButton(text="👤 Профиль")],
+            [KeyboardButton(
+                text="🗓 Открыть приложение",
+                web_app=WebAppInfo(url=MINI_APP_URL),
+            )],
         ],
-        [KeyboardButton(text="❓ Помощь")],
-    ]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+        resize_keyboard=True,
+    )
 
 
 def kb_main() -> InlineKeyboardMarkup:
