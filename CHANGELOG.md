@@ -10,6 +10,31 @@
 
 ---
 
+## [2.2.0] — 09.04.2026
+
+### Added
+- Интеграция Google Calendar: OAuth, синхронизация событий, push-уведомления через webhooks
+- Интеграция Яндекс Календарь и Apple Calendar (CalDAV)
+- Блокировка занятых слотов из внешних календарей (zero-config)
+- Запись/удаление бронирований во внешних календарях
+- Новый экран настроек календарей: provider-cards, 3 переключателя на календарь
+- `is_display_enabled`: показ событий из внешних календарей в экране Встречи и на главном экране
+- Privacy Policy и Terms of Service (`/privacy`, `/terms`) на RU+EN
+- Google Search Console верификация (`/google6eb70911ad60f85e.html`)
+
+### Fixed
+- CalDAV: прямой URL вместо REPORT-запроса для Apple iCloud (delete/update)
+- ENCRYPTION_KEY в beta-окружении
+- Google Calendar кнопка подключения (отсутствовали скобки в onclick)
+- Дедупликация внешних событий (NOT EXISTS event_mapping)
+- Beta deploy использует compose-файл из dev-worktree
+
+### Changed
+- Убран избыточный scope `calendar.readonly` (покрывается `calendar.events`)
+- `deploy-beta.yml`: compose и env файлы из worktree `/opt/dovstrechi-beta/`
+
+---
+
 ## [2.1.0] — 08.04.2026
 
 ### Added
