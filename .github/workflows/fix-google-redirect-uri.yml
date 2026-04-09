@@ -5,7 +5,7 @@ on:
 
 jobs:
   fix:
-    name: Set GOOGLE_REDIRECT_URI in prod .env
+    name: Set calendar env vars in prod .env
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -15,21 +15,45 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: PROD_ENCRYPTION_KEY,PROD_GOOGLE_CLIENT_ID,PROD_GOOGLE_CLIENT_SECRET
           script: |
             cd /opt/dovstrechi
 
-            # Remove any existing (possibly empty) GOOGLE_REDIRECT_URI line
+            echo "=== Current calendar vars in .env ==="
+            grep -E "GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|GOOGLE_REDIRECT_URI|ENCRYPTION_KEY|BOT_USERNAME|CALENDAR_WEBHOOK_URL" .env || echo "(none found)"
+
+            # Remove existing lines for these vars
+            sed -i '/^ENCRYPTION_KEY=/d' .env
+            sed -i '/^GOOGLE_CLIENT_ID=/d' .env
+            sed -i '/^GOOGLE_CLIENT_SECRET=/d' .env
             sed -i '/^GOOGLE_REDIRECT_URI=/d' .env
+            sed -i '/^BOT_USERNAME=/d' .env
+            sed -i '/^CALENDAR_WEBHOOK_URL=/d' .env
 
-            # Add the correct value
+            # Add all 6 calendar integration vars
+            echo "ENCRYPTION_KEY=${PROD_ENCRYPTION_KEY}" >> .env
+            echo "GOOGLE_CLIENT_ID=${PROD_GOOGLE_CLIENT_ID}" >> .env
+            echo "GOOGLE_CLIENT_SECRET=${PROD_GOOGLE_CLIENT_SECRET}" >> .env
             echo "GOOGLE_REDIRECT_URI=https://dovstrechiapp.ru/api/calendar/google/callback" >> .env
+            echo "BOT_USERNAME=do_vstrechi_bot" >> .env
+            echo "CALENDAR_WEBHOOK_URL=https://dovstrechiapp.ru/api/calendar/webhook/google" >> .env
 
-            # Verify it's in .env
-            grep GOOGLE_REDIRECT_URI .env
+            echo "=== Vars after update ==="
+            grep -E "GOOGLE_CLIENT_ID|GOOGLE_REDIRECT_URI|ENCRYPTION_KEY|BOT_USERNAME|CALENDAR_WEBHOOK_URL" .env
 
-            # Recreate backend container to pick up new env var (restart doesn't reload env)
-            docker compose up -d backend
+            # Recreate backend container to pick up new env vars
+            docker compose up -d --force-recreate backend
 
-            # Wait and health check
-            sleep 5
+            # Wait for it to be healthy
+            sleep 8
+
+            # Verify GOOGLE_REDIRECT_URI is inside the container
+            echo "=== GOOGLE_REDIRECT_URI inside container ==="
+            docker compose exec -T backend env | grep GOOGLE_REDIRECT_URI
+
+            # Health check
             curl -sf http://localhost/health && echo "✓ Backend healthy"
+        env:
+          PROD_ENCRYPTION_KEY: ${{ secrets.PROD_ENCRYPTION_KEY }}
+          PROD_GOOGLE_CLIENT_ID: ${{ secrets.PROD_GOOGLE_CLIENT_ID }}
+          PROD_GOOGLE_CLIENT_SECRET: ${{ secrets.PROD_GOOGLE_CLIENT_SECRET }}
