@@ -313,6 +313,39 @@ async def write_booking_to_calendars(
         async with pool.acquire() as conn:
             rules = await cal_db.get_schedule_calendar_rules(conn, schedule_id)
             write_rules = [r for r in rules if r.get("use_for_writing")]
+
+            # Zero-config: если правил нет — искать все write-target connections организатора
+            if not write_rules:
+                organizer = await conn.fetchrow(
+                    "SELECT user_id FROM schedules WHERE id = $1", schedule_id
+                )
+                if not organizer:
+                    return
+                write_conns = await conn.fetch(
+                    """
+                    SELECT cc.id FROM calendar_connections cc
+                    JOIN calendar_accounts ca ON ca.id = cc.account_id
+                    WHERE ca.user_id = $1
+                      AND ca.status = 'active'
+                      AND cc.is_write_target = TRUE
+                    """,
+                    organizer["user_id"],
+                )
+                # Fallback: если и write_target нет — берём первый read-enabled
+                if not write_conns:
+                    write_conns = await conn.fetch(
+                        """
+                        SELECT cc.id FROM calendar_connections cc
+                        JOIN calendar_accounts ca ON ca.id = cc.account_id
+                        WHERE ca.user_id = $1
+                          AND ca.status = 'active'
+                          AND cc.is_read_enabled = TRUE
+                        LIMIT 1
+                        """,
+                        organizer["user_id"],
+                    )
+                write_rules = [{"connection_id": c["id"]} for c in write_conns]
+
             if not write_rules:
                 return
 
@@ -333,7 +366,8 @@ async def write_booking_to_calendars(
                     c = await conn.fetchrow(
                         """
                         SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
-                               ca.token_expires_at, ca.provider, ca.status
+                               ca.token_expires_at, ca.provider, ca.status,
+                               ca.caldav_url, ca.caldav_username, ca.caldav_password_encrypted
                         FROM calendar_connections cc
                         JOIN calendar_accounts ca ON ca.id = cc.account_id
                         WHERE cc.id = $1 AND ca.status = 'active'
@@ -421,7 +455,8 @@ async def update_booking_in_calendars(pool: asyncpg.Pool, booking_id: str):
                     c = await conn.fetchrow(
                         """
                         SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
-                               ca.token_expires_at, ca.provider, ca.status
+                               ca.token_expires_at, ca.provider, ca.status,
+                               ca.caldav_url, ca.caldav_username, ca.caldav_password_encrypted
                         FROM calendar_connections cc
                         JOIN calendar_accounts ca ON ca.id = cc.account_id
                         WHERE cc.id = $1 AND ca.status = 'active'
@@ -471,7 +506,8 @@ async def delete_booking_from_calendars(pool: asyncpg.Pool, booking_id: str):
                     c = await conn.fetchrow(
                         """
                         SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
-                               ca.token_expires_at, ca.provider, ca.status
+                               ca.token_expires_at, ca.provider, ca.status,
+                               ca.caldav_url, ca.caldav_username, ca.caldav_password_encrypted
                         FROM calendar_connections cc
                         JOIN calendar_accounts ca ON ca.id = cc.account_id
                         WHERE cc.id = $1 AND ca.status = 'active'
