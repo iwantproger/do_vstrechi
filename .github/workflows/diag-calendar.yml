@@ -1,0 +1,37 @@
+name: Diag calendar on prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Diagnose via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/dovstrechi
+
+            echo "=== calendar_accounts ==="
+            docker compose exec -T postgres psql -U dovstrechi -d dovstrechi -c \
+              "SELECT id, provider, provider_email, status, created_at FROM calendar_accounts ORDER BY created_at DESC LIMIT 10;"
+
+            echo "=== calendar_connections ==="
+            docker compose exec -T postgres psql -U dovstrechi -d dovstrechi -c \
+              "SELECT * FROM calendar_connections LIMIT 10;"
+
+            echo "=== columns in calendar_connections ==="
+            docker compose exec -T postgres psql -U dovstrechi -d dovstrechi -c \
+              "SELECT column_name FROM information_schema.columns WHERE table_name='calendar_connections' ORDER BY ordinal_position;"
+
+            echo "=== columns in calendar_accounts ==="
+            docker compose exec -T postgres psql -U dovstrechi -d dovstrechi -c \
+              "SELECT column_name FROM information_schema.columns WHERE table_name='calendar_accounts' ORDER BY ordinal_position;"
+
+            echo "=== backend logs (calendar/error) ==="
+            docker compose logs backend --tail=150 2>&1 | grep -iE "calendar|list_calendar|error|exception|traceback|warning" | tail -40
