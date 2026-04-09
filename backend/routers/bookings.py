@@ -225,6 +225,94 @@ async def get_pending_reminders(
     return {"bookings": [dict(r) for r in rows]}
 
 
+@router.get("/api/bookings/pending-reminders-v2")
+async def get_pending_reminders_v2(conn: asyncpg.Connection = Depends(db)):
+    """Встречи, требующие напоминаний по настройкам пользователя (sent_reminders)."""
+    rows = await conn.fetch("""
+        WITH user_reminder_mins AS (
+            SELECT u.telegram_id,
+                   jsonb_array_elements_text(
+                       COALESCE(u.reminder_settings->'reminders', '["1440","60"]'::jsonb)
+                   )::int AS reminder_min
+            FROM users u
+        )
+        SELECT DISTINCT
+            b.id            AS booking_id,
+            b.guest_name,
+            b.guest_contact,
+            b.guest_telegram_id,
+            b.scheduled_time,
+            b.meeting_link,
+            b.status,
+            s.title         AS schedule_title,
+            s.duration,
+            s.platform,
+            u.telegram_id   AS organizer_telegram_id,
+            u.first_name    AS organizer_name,
+            u.timezone      AS organizer_timezone,
+            rm.reminder_min
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        JOIN user_reminder_mins rm ON rm.telegram_id = u.telegram_id
+        WHERE b.status IN ('confirmed', 'pending')
+          AND b.scheduled_time > NOW()
+          AND b.scheduled_time <= NOW() + (rm.reminder_min || ' minutes')::interval
+          AND b.scheduled_time > NOW() + ((rm.reminder_min - 2) || ' minutes')::interval
+          AND NOT EXISTS (
+              SELECT 1 FROM sent_reminders sr
+              WHERE sr.booking_id = b.id
+                AND sr.reminder_type = rm.reminder_min::text
+          )
+        ORDER BY b.scheduled_time
+    """)
+    return {"reminders": [dict(r) for r in rows]}
+
+
+@router.get("/api/bookings/confirmation-requests")
+async def get_confirmation_requests(conn: asyncpg.Connection = Depends(db)):
+    """Встречи на сегодня, участникам которых нужно отправить запрос подтверждения."""
+    rows = await conn.fetch("""
+        SELECT b.id, b.guest_name, b.guest_telegram_id,
+               b.scheduled_time, b.meeting_link,
+               s.title    AS schedule_title,
+               s.duration,
+               u.timezone AS organizer_timezone,
+               u.telegram_id AS organizer_telegram_id
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'confirmed'
+          AND b.guest_telegram_id IS NOT NULL
+          AND DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+              = DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          AND NOT EXISTS (
+              SELECT 1 FROM sent_reminders sr
+              WHERE sr.booking_id = b.id
+                AND sr.reminder_type = 'confirmation_request'
+          )
+    """)
+    return {"bookings": [dict(r) for r in rows]}
+
+
+@router.post("/api/sent-reminders")
+async def record_sent_reminder(request: Request, conn: asyncpg.Connection = Depends(db)):
+    data = await request.json()
+    try:
+        bid = uuid.UUID(data["booking_id"])
+    except (KeyError, ValueError):
+        raise HTTPException(status_code=400, detail="Неверный booking_id")
+    await conn.execute(
+        """
+        INSERT INTO sent_reminders (booking_id, reminder_type)
+        VALUES ($1, $2)
+        ON CONFLICT (booking_id, reminder_type) DO NOTHING
+        """,
+        bid, str(data.get("reminder_type", "")),
+    )
+    return {"ok": True}
+
+
 @router.get("/api/bookings/{booking_id}")
 async def get_booking(
     booking_id: str,

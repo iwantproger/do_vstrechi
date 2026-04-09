@@ -1,8 +1,9 @@
 """Роуты пользователей."""
+import json
 import asyncpg
 import structlog
 from zoneinfo import available_timezones
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from database import db
 from auth import get_current_user
@@ -38,6 +39,22 @@ async def auth_user(
     is_new = row["created_at"] == row["updated_at"] if row else False
     await _track_event(conn, "user_auth", telegram_id, {"timezone": tz, "is_new": is_new})
     return row_to_dict(row)
+
+
+@router.patch("/api/users/notification-settings")
+async def update_notification_settings(
+    request: Request,
+    conn: asyncpg.Connection = Depends(db),
+    auth_user: dict = Depends(get_current_user),
+):
+    body = await request.json()
+    telegram_id = auth_user["id"]
+    settings = json.dumps(body.get("settings", {}))
+    await conn.execute(
+        "UPDATE users SET reminder_settings = $1::jsonb WHERE telegram_id = $2",
+        settings, telegram_id,
+    )
+    return {"ok": True}
 
 
 @router.get("/api/users/{telegram_id}")
