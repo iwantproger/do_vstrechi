@@ -572,9 +572,6 @@
         <div class="notif-badge" id="meet-badge" style="display:none">0</div>
       </div>
     </div>
-    <div class="nav-ai-pill" id="nav-create" onclick="openQuickAdd()">
-      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </div>
     <div class="nav-item" id="nav-links" onclick="navTab('s-schedules','nav-links')">
       <div class="nav-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></div>
     </div>
@@ -582,6 +579,11 @@
       <div class="nav-ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
     </div>
   </div>
+</div>
+
+<!-- Пилюля "+" — отдельный fixed элемент справа -->
+<div class="nav-ai-pill" id="nav-create" onclick="openQuickAdd()">
+  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </div>
 
 <!-- ═══════════════════════════════
@@ -659,18 +661,18 @@
      QUICK ADD MEETING SHEET
 ════════════════════════════════ -->
 <div class="overlay" id="sheet-quick-add" onclick="closeSheet('sheet-quick-add')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">Новая встреча</div>
+    <div class="sheet-title" style="padding:0 20px">Новая встреча</div>
 
     <!-- Mode chips -->
-    <div style="display:flex;gap:8px;margin-bottom:18px">
+    <div style="display:flex;gap:8px;padding:0 20px;margin-bottom:18px">
       <div class="qa-mode on" id="qa-mode-personal" onclick="setQaMode('personal')">Личная встреча</div>
       <div class="qa-mode" id="qa-mode-schedule" onclick="setQaMode('schedule')">В расписание</div>
     </div>
 
     <!-- Personal mode fields -->
-    <div id="qa-personal-fields">
+    <div id="qa-personal-fields" style="padding:0 20px">
       <div style="margin-bottom:12px">
         <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Название встречи</div>
         <input id="qa-title" type="text" placeholder="Встреча с командой" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
@@ -688,7 +690,7 @@
     </div>
 
     <!-- Schedule mode fields -->
-    <div id="qa-schedule-fields" style="display:none">
+    <div id="qa-schedule-fields" style="display:none;padding:0 20px">
       <div style="margin-bottom:12px">
         <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Расписание</div>
         <select id="qa-schedule-sel" onchange="onQaScheduleChange()" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none;appearance:none">
@@ -706,7 +708,7 @@
     </div>
 
     <!-- Extra fields (participant + notes) -->
-    <div style="margin-bottom:10px">
+    <div style="margin-bottom:10px;padding:0 20px">
       <div onclick="toggleQaExtra()" style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:600;padding:4px 0">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span id="qa-extra-lbl">Участник и заметки</span>
@@ -727,9 +729,11 @@
       </div>
     </div>
 
-    <div id="qa-error" style="display:none;color:var(--red);font-size:13px;margin-bottom:10px;padding:10px 12px;background:rgba(240,100,73,.1);border-radius:10px"></div>
+    <div id="qa-error" style="display:none;color:var(--red);font-size:13px;margin-bottom:10px;padding:10px 12px;background:rgba(240,100,73,.1);border-radius:10px;margin-left:20px;margin-right:20px"></div>
 
-    <button id="qa-submit-btn" class="btn btn-primary" onclick="submitQuickAdd()" style="width:100%;height:50px;font-size:16px;font-weight:700;margin-top:4px">Создать встречу</button>
+    <div style="padding:12px 20px calc(env(safe-area-inset-bottom,8px) + 12px)">
+      <button id="qa-submit-btn" class="btn btn-primary" onclick="submitQuickAdd()" style="width:100%;height:50px;font-size:16px;font-weight:700">Создать встречу</button>
+    </div>
   </div>
 </div>
 
