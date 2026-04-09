@@ -11,10 +11,36 @@ function setupProfile() {
   const greeting = document.getElementById('home-greeting');
   if (greeting) greeting.textContent = 'Привет, ' + u.first_name + ' ';
   const ini = (u.first_name?.[0] || '') + (u.last_name?.[0] || '');
+  const tid = u.id || (state.user && state.user.telegram_id);
+
+  /* home-avatar — inject img inside the existing circle div (preserves onclick) */
   const ha = document.getElementById('home-avatar');
-  if (ha) ha.textContent = ini || '?';
+  if (ha) {
+    if (tid) {
+      ha.innerHTML = '<img src="/api/users/' + tid + '/avatar"'
+        + ' style="width:100%;height:100%;object-fit:cover;border-radius:inherit"'
+        + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"'
+        + ' loading="lazy">'
+        + '<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">' + escHtml(ini || '?') + '</span>';
+    } else {
+      ha.textContent = ini || '?';
+    }
+  }
+
+  /* profile-avatar — same approach */
   const pa = document.getElementById('profile-avatar');
-  if (pa) pa.textContent = ini || '?';
+  if (pa) {
+    if (tid) {
+      pa.innerHTML = '<img src="/api/users/' + tid + '/avatar"'
+        + ' style="width:100%;height:100%;object-fit:cover;border-radius:inherit"'
+        + ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"'
+        + ' loading="lazy">'
+        + '<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">' + escHtml(ini || '?') + '</span>';
+    } else {
+      pa.textContent = ini || '?';
+    }
+  }
+
   const pn = document.getElementById('profile-name');
   if (pn) pn.textContent = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
   const ps = document.getElementById('profile-sub');
@@ -183,16 +209,21 @@ function renderMeetingCard(m) {
   const timeEnd = fmtTimeOffset(dt, dur);
   const isGuest = isGuestBooking(m);
   /* for guest bookings: show organizer name instead of guest name */
-  const name = escHtml(isGuest
-    ? (m.organizer_first_name || 'Организатор')
-    : (m.guest_name || (m.is_manual ? 'Личная встреча' : '')));
+  const personName = isGuest ? (m.organizer_first_name || 'Организатор') : (m.guest_name || (m.is_manual ? 'Личная встреча' : ''));
+  const name = escHtml(personName);
   const title = escHtml(m.is_manual ? (m.title || m.display_title || '') : (m.schedule_title || ''));
   const dStatus = m._ds || getMeetingStatus(m);
   const isPending = dStatus === 'pending' && !m.is_manual && !isGuest;
   const guestBadge = isGuest ? badgeParticipant() : '';
 
+  /* avatar: organizer sees guest photo, guest sees organizer photo */
+  const personTid = isGuest ? m.organizer_telegram_id : m.guest_telegram_id;
+  const personIni = getInitials(personName);
+  const avatarHtml = renderAvatar(personTid, personIni, 40);
+
   return '<div onclick="openMeetDetail(\'' + m.id + '\')" style="margin:0 16px 8px;background:var(--s1);border-radius:14px;padding:14px 16px;cursor:pointer">'
-    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px' + (isPending ? ';margin-bottom:24px' : '') + '">'
+    + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px' + (isPending ? ';margin-bottom:24px' : '') + '">'
+      + avatarHtml
       + '<div style="flex:1;min-width:0">'
         + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><span style="font-size:14px;font-weight:700;color:var(--t1)">' + name + '</span>' + guestBadge + '</div>'
         + '<div style="font-size:12px;font-weight:400;color:var(--t1);margin-top:1px">' + timeStart + ' – ' + timeEnd + '</div>'
@@ -526,9 +557,11 @@ function renderMeetDetailHtml(m, dStatus) {
   var roleBadge = isGuest ? badgeParticipant() : '';
 
   /* HTML: avatar + name */
+  var personTid = isGuest ? m.organizer_telegram_id : m.guest_telegram_id;
+  var detailAvatar = renderAvatar(personTid, initials, 56);
   var html = '<div style="padding:20px 16px 0">'
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">'
-      + '<div style="width:56px;height:56px;border-radius:16px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:' + avatarColor + ';border:1px solid ' + borderColor + '">' + escHtml(initials) + '</div>'
+      + detailAvatar
       + '<div>'
         + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px"><span style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.02em">' + name + '</span>' + roleBadge + '</div>'
         + (contact ? '<div style="font-size:13px;color:var(--t2);margin-top:3px;font-weight:500">' + contact + '</div>' : '')

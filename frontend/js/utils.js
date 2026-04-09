@@ -187,6 +187,28 @@ function scheduleStatusHtml(isActive) {
   return '<div class="mst mst-pending"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/><rect x="14" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/></svg><span class="mst-label">На паузе</span></div>';
 }
 
+function avatarUrl(telegramId) {
+  if (!telegramId) return null;
+  return '/api/users/' + telegramId + '/avatar';
+}
+
+function renderAvatar(telegramId, initials, size) {
+  size = size || 44;
+  var fontSize = Math.round(size * 0.38);
+  var radius = Math.round(size * 0.32);
+  var ini = escHtml(initials || '?');
+  if (telegramId) {
+    return '<div class="avatar-wrap" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;overflow:hidden;flex-shrink:0;background:var(--a);display:flex;align-items:center;justify-content:center;font-size:' + fontSize + 'px;font-weight:800;color:#07221A">'
+      + '<img src="' + avatarUrl(telegramId) + '" '
+      + 'style="width:100%;height:100%;object-fit:cover" '
+      + 'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" '
+      + 'loading="lazy">'
+      + '<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center">' + ini + '</span>'
+      + '</div>';
+  }
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px;background:var(--a);display:flex;align-items:center;justify-content:center;font-size:' + fontSize + 'px;font-weight:800;color:#07221A;flex-shrink:0">' + ini + '</div>';
+}
+
 function badgeParticipant() {
   return '<span class="badge-participant">'
     + '<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
