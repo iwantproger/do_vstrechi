@@ -4,102 +4,19 @@
 
 var _calPollTimer = null;
 var _calPollTimeout = null;
-var _calDAVProvider = null;  // текущий провайдер открытого CalDAV модала
+var _calDAVProvider = null;
 
-async function loadCalendarAccounts() {
-  var list = document.getElementById('calendars-list');
-  var empty = document.getElementById('calendars-empty');
-  if (!list) return;
+/* ── Provider definitions ──────────────────── */
 
-  list.innerHTML = '<div class="cal-skeleton"><div class="skel-block"></div><div class="skel-block short"></div></div>';
-  if (empty) empty.style.display = 'none';
+var _PROVIDERS = [
+  { id: 'google',  name: 'Google Calendar',    connect: 'connectGoogle',           caldav: false, comingSoon: false },
+  { id: 'yandex',  name: 'Яндекс Календарь',   connect: "openCalDAVModal('yandex')", caldav: true,  comingSoon: false },
+  { id: 'apple',   name: 'Apple Calendar',     connect: "openCalDAVModal('apple')",  caldav: true,  comingSoon: false },
+  { id: 'outlook', name: 'Outlook / Microsoft', connect: null,                      caldav: false, comingSoon: true  },
+  { id: 'other',   name: 'Другие (CalDAV)',     connect: null,                      caldav: false, comingSoon: true  },
+];
 
-  var { data, error } = await apiFetch('GET', '/api/calendar/accounts');
-  if (error) {
-    list.innerHTML = '<div class="cal-error">'
-      + '<p>Не удалось загрузить</p>'
-      + '<button class="btn btn-sm" onclick="loadCalendarAccounts()">Повторить</button>'
-      + '</div>';
-    return;
-  }
-
-  if (!data || !data.length) {
-    list.innerHTML = '';
-    if (empty) empty.style.display = '';
-    return;
-  }
-
-  if (empty) empty.style.display = 'none';
-  list.innerHTML = data.map(renderCalendarAccount).join('');
-}
-
-function renderCalendarAccount(acc) {
-  var icon = providerIcon(acc.provider);
-  var statusCls = (acc.status === 'active') ? 'dot-green' : 'dot-red';
-  var statusText = acc.status === 'active' ? 'Подключён' : acc.status === 'expired' ? 'Требуется переподключение' : acc.status;
-  var email = acc.provider_email ? escHtml(acc.provider_email) : '';
-  var accId = escHtml(String(acc.id));
-
-  var calendarsHtml = '';
-  if (acc.calendars && acc.calendars.length) {
-    calendarsHtml = '<div class="cal-connections" id="cal-conn-' + accId + '">'
-      + acc.calendars.map(function(c) { return renderCalendarConnection(c, accId); }).join('')
-      + '</div>';
-  }
-
-  var reconnectBtn = '';
-  if (acc.status === 'expired' || acc.status === 'revoked') {
-    reconnectBtn = '<button class="btn btn-sm btn-accent" onclick="connectGoogle()" style="margin-top:8px">Переподключить</button>';
-  }
-
-  return '<div class="cal-account">'
-    + '<div class="cal-account-header" onclick="toggleCalExpand(\'' + accId + '\')">'
-    +   '<div class="cal-provider-info">'
-    +     '<div class="cal-provider-icon">' + icon + '</div>'
-    +     '<div class="cal-provider-details">'
-    +       '<div class="cal-provider-name">' + escHtml(providerName(acc.provider)) + '</div>'
-    +       '<div class="cal-provider-email">' + email + '</div>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div class="cal-account-right">'
-    +     '<span class="status-dot ' + statusCls + '"></span>'
-    +     '<svg class="cal-chevron" id="cal-chev-' + accId + '" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
-    +   '</div>'
-    + '</div>'
-    + (acc.status !== 'active' ? '<div class="cal-status-warn">' + escHtml(statusText) + reconnectBtn + '</div>' : '')
-    + calendarsHtml
-    + '<div class="cal-account-footer">'
-    +   '<button class="btn-text btn-danger" onclick="disconnectAccount(\'' + accId + '\')">Отключить</button>'
-    + '</div>'
-    + '</div>';
-}
-
-function renderCalendarConnection(c, accountId) {
-  var color = c.calendar_color || '#888';
-  var connId = escHtml(String(c.id));
-  var readOn = c.is_read_enabled ? ' on' : '';
-  var writeOn = c.is_write_target ? ' on' : '';
-
-  return '<div class="cal-conn">'
-    + '<div class="cal-conn-info">'
-    +   '<span class="cal-color-dot" style="background:' + escHtml(color) + '"></span>'
-    +   '<span class="cal-conn-name">' + escHtml(c.calendar_name) + '</span>'
-    + '</div>'
-    + '<div class="cal-conn-toggles">'
-    +   '<div class="cal-tog-wrap">'
-    +     '<span class="cal-tog-label">Блокировать</span>'
-    +     '<div class="tog-sm' + readOn + '" onclick="toggleCalConnection(\'' + connId + '\',\'is_read_enabled\',this)"></div>'
-    +   '</div>'
-    +   '<div class="cal-tog-wrap">'
-    +     '<span class="cal-tog-label">Записывать</span>'
-    +     '<div class="tog-sm' + writeOn + '" onclick="toggleCalConnection(\'' + connId + '\',\'is_write_target\',this)"></div>'
-    +   '</div>'
-    + '</div>'
-    + '</div>';
-}
-
-
-/* ── CalDAV Connect (Yandex, Apple) ─────── */
+/* ── CalDAV modal config ───────────────────── */
 
 var _CALDAV_CONFIG = {
   yandex: {
@@ -128,6 +45,155 @@ var _CALDAV_CONFIG = {
   },
 };
 
+/* ── Tooltips ──────────────────────────────── */
+
+var _TOG_TIPS = {
+  is_read_enabled:    'Слоты занятые в этом календаре не будут доступны для бронирования',
+  is_write_target:    'Новые встречи из «До встречи» автоматически появятся в этом календаре',
+  is_display_enabled: 'События из этого календаря будут видны в разделе «Встречи»',
+};
+var _TOG_LABELS = {
+  is_read_enabled:    'Блокировать занятые слоты',
+  is_write_target:    'Записывать встречи',
+  is_display_enabled: 'Показывать в «До встречи»',
+};
+
+/* ── Load & render ─────────────────────────── */
+
+async function loadCalendarAccounts() {
+  var container = document.getElementById('cal-providers-list');
+  if (!container) return;
+
+  container.innerHTML = '<div class="cal-skeleton"><div class="skel-block"></div><div class="skel-block short"></div></div>';
+
+  var { data, error } = await apiFetch('GET', '/api/calendar/accounts');
+  if (error) {
+    container.innerHTML = '<div class="cal-error">'
+      + '<p>Не удалось загрузить</p>'
+      + '<button class="btn btn-sm" onclick="loadCalendarAccounts()">Повторить</button>'
+      + '</div>';
+    return;
+  }
+
+  var accounts = data || [];
+  container.innerHTML = _PROVIDERS.map(function(prov) {
+    var connected = accounts.filter(function(a) { return a.provider === prov.id; });
+    return renderProviderCard(prov, connected);
+  }).join('');
+}
+
+function renderProviderCard(prov, connected) {
+  var icon = providerIcon(prov.id);
+
+  if (prov.comingSoon) {
+    return '<div class="cal-prov-card cal-prov-soon">'
+      + '<div class="cal-prov-row">'
+      +   '<div class="cal-prov-icon">' + icon + '</div>'
+      +   '<div class="cal-prov-name">' + escHtml(prov.name) + '</div>'
+      +   '<span class="cal-badge-soon">Скоро</span>'
+      + '</div>'
+      + '</div>';
+  }
+
+  /* Not connected */
+  if (!connected.length) {
+    return '<div class="cal-prov-card">'
+      + '<div class="cal-prov-row">'
+      +   '<div class="cal-prov-icon">' + icon + '</div>'
+      +   '<div class="cal-prov-name">' + escHtml(prov.name) + '</div>'
+      +   '<button class="cal-btn-connect" onclick="' + escHtml(prov.connect) + '">Подключить</button>'
+      + '</div>'
+      + '</div>';
+  }
+
+  /* Connected — one card per account */
+  return connected.map(function(acc) {
+    return renderConnectedCard(prov, acc);
+  }).join('') + renderProviderAddMore(prov, connected);
+}
+
+function renderProviderAddMore(prov, connected) {
+  /* Allow connecting additional accounts for the same provider */
+  return '<div class="cal-prov-add" onclick="' + escHtml(prov.connect) + '">'
+    + '<span>+ Добавить ещё ' + escHtml(prov.name) + '</span>'
+    + '</div>';
+}
+
+function renderConnectedCard(prov, acc) {
+  var accId = escHtml(String(acc.id));
+  var icon = providerIcon(prov.id);
+  var email = acc.provider_email ? escHtml(acc.provider_email) : '';
+  var isExpanded = false; /* collapsed by default */
+  var statusDot = (acc.status === 'active') ? 'dot-green' : 'dot-red';
+  var warnHtml = (acc.status !== 'active')
+    ? '<div class="cal-prov-warn">'
+      + escHtml(acc.status === 'expired' ? 'Требуется переподключение' : acc.status)
+      + '</div>'
+    : '';
+
+  var calendarsHtml = '';
+  if (acc.calendars && acc.calendars.length) {
+    calendarsHtml = acc.calendars.map(function(c) {
+      return renderCalendarRow(c, accId);
+    }).join('');
+  }
+
+  return '<div class="cal-prov-card" id="cal-card-' + accId + '">'
+    /* header row */
+    + '<div class="cal-prov-row cal-prov-row-click" onclick="toggleCalExpand(\'' + accId + '\')">'
+    +   '<div class="cal-prov-icon">' + icon + '</div>'
+    +   '<div class="cal-prov-details">'
+    +     '<div class="cal-prov-name">' + escHtml(prov.name) + '</div>'
+    +     (email ? '<div class="cal-prov-email">' + email + '</div>' : '')
+    +   '</div>'
+    +   '<div class="cal-prov-right">'
+    +     '<span class="status-dot ' + statusDot + '"></span>'
+    +     '<svg class="cal-chevron" id="cal-chev-' + accId + '" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
+    +   '</div>'
+    + '</div>'
+    + warnHtml
+    /* expandable body */
+    + '<div class="cal-expanded" id="cal-exp-' + accId + '" style="display:none">'
+    +   (calendarsHtml
+        ? '<div class="cal-exp-label">Календари</div>' + calendarsHtml
+        : '<div class="cal-exp-empty">Нет доступных календарей</div>')
+    +   '<div class="cal-exp-footer">'
+    +     '<button class="btn-text btn-danger" onclick="disconnectAccount(\'' + accId + '\')">Отключить аккаунт</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+function renderCalendarRow(c, accountId) {
+  var connId = escHtml(String(c.id));
+  var color = c.calendar_color || '#888';
+
+  function togRow(field) {
+    var isOn = c[field] ? ' on' : '';
+    return '<div class="cal-tog-row">'
+      + '<div class="cal-tog-left">'
+      +   '<span class="cal-tog-label">' + escHtml(_TOG_LABELS[field]) + '</span>'
+      +   '<button class="cal-info-btn" onclick="event.stopPropagation();toggleCalInfo(\'' + connId + '_' + field + '\',this)" aria-label="Подсказка">ⓘ</button>'
+      +   '<div class="cal-info-popup" id="calinfo-' + connId + '_' + field + '">' + escHtml(_TOG_TIPS[field]) + '</div>'
+      + '</div>'
+      + '<div class="tog-md' + isOn + '" onclick="toggleCalConnection(\'' + connId + '\',\'' + field + '\',this)"></div>'
+      + '</div>';
+  }
+
+  return '<div class="cal-cal-row">'
+    + '<div class="cal-cal-name-row">'
+    +   '<span class="cal-color-dot" style="background:' + escHtml(color) + '"></span>'
+    +   '<span class="cal-cal-name">' + escHtml(c.calendar_name) + '</span>'
+    + '</div>'
+    + togRow('is_read_enabled')
+    + togRow('is_write_target')
+    + togRow('is_display_enabled')
+    + '</div>';
+}
+
+
+/* ── CalDAV Connect ─────────────────────────── */
+
 function openCalDAVModal(provider) {
   var cfg = _CALDAV_CONFIG[provider];
   if (!cfg) return;
@@ -148,22 +214,18 @@ function openCalDAVModal(provider) {
   emailInp.placeholder = cfg.placeholder;
   helpEl.innerHTML = cfg.help;
 
-  /* Сброс полей */
   emailInp.value = '';
   pwdInp.value = '';
   errEl.style.display = 'none';
   errEl.textContent = '';
   if (details) details.removeAttribute('open');
 
-  /* Сброс кнопки Submit */
   var submitBtn = document.getElementById('caldav-submit');
   submitBtn.disabled = false;
   submitBtn.textContent = 'Подключить';
 
   modal.style.display = 'flex';
   if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-
-  /* Фокус на email с небольшой задержкой (анимация) */
   setTimeout(function() { emailInp.focus(); }, 250);
 }
 
@@ -172,7 +234,6 @@ function closeCalDAVModal() {
   if (!modal) return;
   modal.style.display = 'none';
   _calDAVProvider = null;
-  /* Очистить пароль из памяти */
   var pwdInp = document.getElementById('caldav-password');
   if (pwdInp) pwdInp.value = '';
 }
@@ -189,17 +250,8 @@ async function submitCalDAVConnect() {
   var email = (emailInp.value || '').trim();
   var password = pwdInp.value || '';
 
-  /* Валидация */
-  if (!email) {
-    emailInp.focus();
-    _caldavShowError('Введите email');
-    return;
-  }
-  if (!password) {
-    pwdInp.focus();
-    _caldavShowError('Введите пароль приложения');
-    return;
-  }
+  if (!email) { emailInp.focus(); _caldavShowError('Введите email'); return; }
+  if (!password) { pwdInp.focus(); _caldavShowError('Введите пароль приложения'); return; }
 
   errEl.style.display = 'none';
   submitBtn.disabled = true;
@@ -208,19 +260,14 @@ async function submitCalDAVConnect() {
   if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/calendar/caldav/connect', {
-    provider: provider,
-    email: email,
-    password: password,
+    provider: provider, email: email, password: password,
   });
 
-  /* Очистить пароль из памяти сразу после отправки */
   pwdInp.value = '';
 
   if (error || !data) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Подключить';
-
-    /* Бэкенд возвращает detail в error — "Неверный email или пароль" для 400 */
     var isAuthErr = error && (error.indexOf('Неверный') !== -1 || error.indexOf('пароль') !== -1);
     if (isAuthErr) {
       _caldavShowError('Неверный email или пароль. Убедитесь, что вы используете пароль приложения, а не основной пароль аккаунта.');
@@ -231,7 +278,6 @@ async function submitCalDAVConnect() {
     return;
   }
 
-  /* Успех */
   if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   closeCalDAVModal();
   showToast('Календарь подключён!', 'success');
@@ -270,47 +316,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  /* visualViewport: подтягивать активный элемент при изменении высоты (открытие клавиатуры) */
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', function() {
       var modal = document.getElementById('modal-caldav');
       if (!modal || modal.style.display === 'none') return;
       var active = document.activeElement;
       if (active && (active.id === 'caldav-email' || active.id === 'caldav-password')) {
-        setTimeout(function() {
-          active.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }, 50);
+        setTimeout(function() { active.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
       }
     });
   }
 });
 
 
-/* ── Connect Google ────────────────────── */
-
-function showConnectProviders() {
-  var el = document.getElementById('connect-providers');
-  if (!el) return;
-  el.style.display = el.style.display === 'none' ? '' : 'none';
-}
+/* ── Connect Google ────────────────────────── */
 
 async function connectGoogle() {
-  /* Step 1: get signed Google OAuth URL from backend (with initData auth) */
   var res = await apiFetch('GET', '/api/calendar/google/auth-url');
   if (res.error || !res.data || !res.data.url) {
     showToast('Не удалось получить ссылку для авторизации', 'error');
     return;
   }
-
   var googleUrl = res.data.url;
-
-  /* Step 2: open Google consent screen in external browser */
   if (tg && tg.openLink) {
     tg.openLink(googleUrl);
   } else {
     window.open(googleUrl, 'google-auth', 'width=500,height=600');
   }
-
   showToast('Авторизуйтесь в открывшемся окне');
   startOAuthPolling('google');
 }
@@ -318,14 +350,11 @@ async function connectGoogle() {
 function startOAuthPolling(provider) {
   stopOAuthPolling();
   var startCount = 0;
-
-  /* remember current account count to detect new ones */
   apiFetch('GET', '/api/calendar/accounts').then(function(res) {
     var existing = (res.data || []).filter(function(a) { return a.provider === provider; });
     startCount = existing.length;
     poll();
   });
-
   function poll() {
     _calPollTimer = setTimeout(async function() {
       var { data } = await apiFetch('GET', '/api/calendar/accounts');
@@ -340,8 +369,6 @@ function startOAuthPolling(provider) {
       poll();
     }, 3000);
   }
-
-  /* 2-minute timeout */
   _calPollTimeout = setTimeout(function() {
     stopOAuthPolling();
     showToast('Время ожидания истекло. Попробуйте снова.', 'error');
@@ -354,7 +381,7 @@ function stopOAuthPolling() {
 }
 
 
-/* ── Toggle connection ─────────────────── */
+/* ── Toggle connection ─────────────────────── */
 
 async function toggleCalConnection(connectionId, field, el) {
   var newVal = !el.classList.contains('on');
@@ -369,13 +396,16 @@ async function toggleCalConnection(connectionId, field, el) {
     return;
   }
 
-  /* If turning on write_target — reset others visually */
+  /* If turning on write_target — reset other write toggles visually in the same card */
   if (field === 'is_write_target' && newVal) {
-    var parent = el.closest('.cal-connections');
-    if (parent) {
-      parent.querySelectorAll('.cal-tog-wrap:last-child .tog-sm').forEach(function(t) {
-        t.classList.remove('on');
-      });
+    var card = el.closest('.cal-cal-row');
+    if (card) {
+      var parent = card.closest('.cal-expanded');
+      if (parent) {
+        parent.querySelectorAll('[onclick*="is_write_target"]').forEach(function(t) {
+          if (t !== el) t.classList.remove('on');
+        });
+      }
     }
   }
 
@@ -383,19 +413,46 @@ async function toggleCalConnection(connectionId, field, el) {
 }
 
 
-/* ── Expand/Collapse ───────────────────── */
+/* ── Expand/Collapse ─────────────────────── */
 
 function toggleCalExpand(accId) {
-  var conn = document.getElementById('cal-conn-' + accId);
+  var exp = document.getElementById('cal-exp-' + accId);
   var chev = document.getElementById('cal-chev-' + accId);
-  if (!conn) return;
-  var isOpen = conn.style.display !== 'none';
-  conn.style.display = isOpen ? 'none' : '';
+  if (!exp) return;
+  var isOpen = exp.style.display !== 'none';
+  exp.style.display = isOpen ? 'none' : '';
   if (chev) chev.classList.toggle('rotated', !isOpen);
 }
 
 
-/* ── Disconnect ────────────────────────── */
+/* ── Info tooltip ──────────────────────────── */
+
+function toggleCalInfo(key, btn) {
+  var popup = document.getElementById('calinfo-' + key);
+  if (!popup) return;
+  var isVisible = popup.classList.contains('visible');
+
+  /* close all popups first */
+  document.querySelectorAll('.cal-info-popup.visible').forEach(function(p) {
+    p.classList.remove('visible');
+  });
+
+  if (!isVisible) {
+    popup.classList.add('visible');
+    /* close on outside click */
+    setTimeout(function() {
+      document.addEventListener('click', function _close(e) {
+        if (!popup.contains(e.target) && e.target !== btn) {
+          popup.classList.remove('visible');
+          document.removeEventListener('click', _close);
+        }
+      });
+    }, 0);
+  }
+}
+
+
+/* ── Disconnect ────────────────────────────── */
 
 async function disconnectAccount(accountId) {
   if (!confirm('Отключить календарь?\nВсе привязки к расписаниям будут удалены.')) return;
@@ -412,7 +469,7 @@ async function disconnectAccount(accountId) {
 }
 
 
-/* ── Helpers ───────────────────────────── */
+/* ── Helpers ───────────────────────────────── */
 
 function providerIcon(provider) {
   if (provider === 'google') {
@@ -423,6 +480,9 @@ function providerIcon(provider) {
   }
   if (provider === 'apple') {
     return '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83" fill="#555"/><path d="M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="#555"/></svg>';
+  }
+  if (provider === 'outlook') {
+    return '<svg viewBox="0 0 24 24" width="22" height="22"><rect width="24" height="24" rx="4" fill="#0078D4"/><text x="12" y="17" text-anchor="middle" fill="#fff" font-size="11" font-weight="700" font-family="Arial">OL</text></svg>';
   }
   return '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>';
 }
@@ -439,7 +499,6 @@ function checkCalendarConnectParam() {
   var params = new URLSearchParams(window.location.search);
   if (params.get('calendar_connected')) {
     showToast('Календарь подключён!', 'success');
-    /* clean URL */
     var url = new URL(window.location);
     url.searchParams.delete('calendar_connected');
     history.replaceState(null, '', url.pathname + url.search);
@@ -459,3 +518,6 @@ function checkCalendarConnectParam() {
     history.replaceState(null, '', url2.pathname + url2.search);
   }
 }
+
+/* Legacy shim — kept for any remaining references */
+function showConnectProviders() {}

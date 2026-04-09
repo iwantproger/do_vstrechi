@@ -15,6 +15,7 @@ class CalendarConnectionResponse(BaseModel):
     calendar_color: Optional[str] = None
     is_read_enabled: bool = True
     is_write_target: bool = False
+    is_display_enabled: bool = False
     last_sync_at: Optional[datetime] = None
 
 
@@ -32,6 +33,7 @@ class CalendarAccountResponse(BaseModel):
 class CalendarConnectionToggle(BaseModel):
     is_read_enabled: Optional[bool] = None
     is_write_target: Optional[bool] = None
+    is_display_enabled: Optional[bool] = None
 
 
 class ScheduleCalendarRule(BaseModel):

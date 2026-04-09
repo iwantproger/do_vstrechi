@@ -198,6 +198,18 @@ async function loadMeetings() {
   if (error) { showToast('Ошибка загрузки встреч', 'error'); return; }
   if (data) state.bookings = data;
 
+  /* Load external calendar events (display-enabled) — non-blocking */
+  state.extEvents = [];
+  try {
+    var now = new Date();
+    var from = new Date(now); from.setDate(from.getDate() - 1);
+    var to = new Date(now); to.setDate(to.getDate() + 60);
+    var fromStr = from.toISOString().slice(0, 10);
+    var toStr = to.toISOString().slice(0, 10);
+    var extRes = await apiFetch('GET', '/api/calendar/external-events?from_date=' + fromStr + '&to_date=' + toStr);
+    if (extRes.data && extRes.data.events) state.extEvents = extRes.data.events;
+  } catch (e) { /* ignore — calendar integration is optional */ }
+
   /* FIX: умный дефолтный таб — confirm если есть pending, иначе all */
   var hasPending = (state.bookings || []).some(function(b) { return getMeetingStatus(b) === 'pending'; });
   _meetFilter = hasPending ? 'confirm' : 'all';
@@ -286,11 +298,24 @@ function renderMeetingsList() {
     return true;
   });
 
+  /* merge external events for all/ok tabs */
+  var showExt = _meetFilter === 'all' || _meetFilter === 'ok';
+  var extItems = [];
+  if (showExt && state.extEvents && state.extEvents.length) {
+    extItems = state.extEvents.map(function(e) {
+      return Object.assign({}, e, { _dt: new Date(e.start_time), _isExt: true });
+    });
+  }
+
   /* sort: upcoming asc, archive desc */
   var isArchive = _meetFilter === 'archive';
   filtered.sort(function(a, b) { return isArchive ? b._dt - a._dt : a._dt - b._dt; });
 
-  if (!filtered.length) {
+  /* merge and sort all items */
+  var allItems = filtered.concat(extItems);
+  allItems.sort(function(a, b) { return isArchive ? b._dt - a._dt : a._dt - b._dt; });
+
+  if (!allItems.length) {
     list.innerHTML = renderEmpty('Нет встреч', 'В этой категории пока ничего нет');
     return;
   }
@@ -300,10 +325,13 @@ function renderMeetingsList() {
   var groupOrder = [];
   var LMAP = { date: 'По дате', fmt: 'По расписаниям' };
 
-  filtered.forEach(function(m) {
-    var key = _meetGroup === 'date'
-      ? dateGroupLabel(m._dt, now)
-      : (m.schedule_title || 'Без расписания');
+  allItems.forEach(function(m) {
+    var key;
+    if (_meetGroup === 'date') {
+      key = dateGroupLabel(m._dt, now);
+    } else {
+      key = m._isExt ? (m.calendar_name || 'Внешний календарь') : (m.schedule_title || 'Без расписания');
+    }
     if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
     groups[key].push(m);
   });
@@ -325,9 +353,30 @@ function renderMeetingsList() {
     isFirst = false;
 
     groups[g].forEach(function(m) {
-      list.insertAdjacentHTML('beforeend', renderMeetingCard(m));
+      if (m._isExt) {
+        list.insertAdjacentHTML('beforeend', renderExtEventCard(m));
+      } else {
+        list.insertAdjacentHTML('beforeend', renderMeetingCard(m));
+      }
     });
   });
+}
+
+function renderExtEventCard(e) {
+  var startDt = new Date(e.start_time);
+  var endDt = new Date(e.end_time);
+  var timeStr = e.is_all_day ? 'Весь день' : (fmtTime(startDt) + ' – ' + fmtTime(endDt));
+  var color = e.calendar_color || '#888';
+  var calName = escHtml(e.calendar_name || e.provider || '');
+  var title = escHtml(e.summary || 'Занято');
+  return '<div class="ext-event-card">'
+    + '<div class="ext-event-badge">'
+    +   '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + escHtml(color) + ';flex-shrink:0"></span>'
+    +   calName
+    + '</div>'
+    + '<div class="ext-event-title">' + title + '</div>'
+    + '<div class="ext-event-time">' + timeStr + '</div>'
+    + '</div>';
 }
 
 /* ═══════════════════════════════════════════

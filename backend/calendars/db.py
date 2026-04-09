@@ -185,7 +185,7 @@ async def toggle_calendar_connection(
     """Переключить is_read_enabled / is_write_target."""
     sets, args = [], [connection_id]
     idx = 2
-    for col in ("is_read_enabled", "is_write_target"):
+    for col in ("is_read_enabled", "is_write_target", "is_display_enabled"):
         if col in fields and fields[col] is not None:
             sets.append(f"{col} = ${idx}")
             args.append(fields[col])
@@ -295,6 +295,28 @@ async def upsert_external_busy_slots(
         )
         count += 1
     return count
+
+
+async def get_display_enabled_events(
+    conn, user_id, start: datetime, end: datetime
+) -> list[dict]:
+    """Events from display-enabled calendars for the meetings screen."""
+    return rows_to_list(await conn.fetch(
+        """
+        SELECT ebs.external_event_id, ebs.summary, ebs.start_time, ebs.end_time,
+               ebs.is_all_day, cc.calendar_name, cc.calendar_color, ca.provider
+        FROM external_busy_slots ebs
+        JOIN calendar_connections cc ON cc.id = ebs.connection_id
+        JOIN calendar_accounts ca ON ca.id = cc.account_id
+        WHERE ca.user_id = $1
+          AND cc.is_display_enabled = TRUE
+          AND ca.status = 'active'
+          AND ebs.end_time > $2
+          AND ebs.start_time < $3
+        ORDER BY ebs.start_time
+        """,
+        user_id, start, end,
+    ))
 
 
 async def delete_stale_busy_slots(

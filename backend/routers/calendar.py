@@ -614,6 +614,31 @@ async def _subscribe_account_webhooks(account_id: str, account_data: dict):
         log.warning("subscribe_account_webhooks_error", account_id=account_id, error=str(e))
 
 
+@router.get("/external-events")
+async def get_external_events(
+    from_date: str = Query(..., description="YYYY-MM-DD"),
+    to_date: str = Query(..., description="YYYY-MM-DD"),
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """External calendar events for display-enabled connections (meetings screen)."""
+    try:
+        from datetime import date as dt_date
+        start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc)
+        end = datetime.fromisoformat(to_date).replace(tzinfo=timezone.utc) + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат даты")
+
+    user = await conn.fetchrow(
+        "SELECT id FROM users WHERE telegram_id = $1", auth_user["id"]
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    events = await cal_db.get_display_enabled_events(conn, user["id"], start, end)
+    return {"events": events}
+
+
 async def _verify_schedule_ownership(conn, schedule_id: str, telegram_id: int):
     """Проверить что расписание принадлежит пользователю."""
     row = await conn.fetchrow(
