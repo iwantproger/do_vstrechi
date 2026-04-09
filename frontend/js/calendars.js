@@ -9,7 +9,7 @@ var _calDAVProvider = null;
 /* ── Provider definitions ──────────────────── */
 
 var _PROVIDERS = [
-  { id: 'google',  name: 'Google Calendar',    connect: 'connectGoogle',           caldav: false, comingSoon: false },
+  { id: 'google',  name: 'Google Calendar',    connect: 'connectGoogle()',          caldav: false, comingSoon: false },
   { id: 'yandex',  name: 'Яндекс Календарь',   connect: "openCalDAVModal('yandex')", caldav: true,  comingSoon: false },
   { id: 'apple',   name: 'Apple Calendar',     connect: "openCalDAVModal('apple')",  caldav: true,  comingSoon: false },
   { id: 'outlook', name: 'Outlook / Microsoft', connect: null,                      caldav: false, comingSoon: true  },
