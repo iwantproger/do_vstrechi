@@ -362,17 +362,40 @@ function renderMeetingsList() {
   });
 }
 
+function _extProviderBadge(provider) {
+  if (provider === 'google') {
+    return '<div class="ext-prov-badge ext-prov-google">'
+      + '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09a6.97 6.97 0 0 1 0-4.17V7.07H2.18a11.01 11.01 0 0 0 0 9.86l3.66-2.84z" fill="#FBBC05"/><path d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.09 14.97 0 12 0 7.7 0 3.99 2.47 2.18 6.07l3.66 2.85c.87-2.6 3.3-4.17 6.16-4.17z" fill="#EA4335"/></svg>'
+      + '</div>';
+  }
+  if (provider === 'yandex') {
+    return '<div class="ext-prov-badge ext-prov-yandex">'
+      + '<svg viewBox="0 0 24 24" width="14" height="14"><rect width="24" height="24" rx="4" fill="#FC3F1D"/><text x="12" y="17" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Arial">Я</text></svg>'
+      + '</div>';
+  }
+  if (provider === 'apple') {
+    return '<div class="ext-prov-badge ext-prov-apple">'
+      + '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83" fill="#aaa"/><path d="M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="#aaa"/></svg>'
+      + '</div>';
+  }
+  return '<div class="ext-prov-badge">'
+    + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    + '</div>';
+}
+
 function renderExtEventCard(e) {
   var startDt = new Date(e.start_time);
   var endDt = new Date(e.end_time);
   var timeStr = e.is_all_day ? 'Весь день' : (fmtTime(startDt) + ' – ' + fmtTime(endDt));
   var color = e.calendar_color || '#888';
-  var calName = escHtml(e.calendar_name || e.provider || '');
+  var calName = escHtml(e.calendar_name || '');
   var title = escHtml(e.summary || 'Занято');
-  return '<div class="ext-event-card">'
-    + '<div class="ext-event-badge">'
-    +   '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + escHtml(color) + ';flex-shrink:0"></span>'
-    +   calName
+  var badge = _extProviderBadge(e.provider || '');
+  return '<div class="ext-event-card" style="position:relative">'
+    + badge
+    + '<div class="ext-event-cal-row">'
+    +   '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + escHtml(color) + ';flex-shrink:0;margin-top:1px"></span>'
+    +   '<span class="ext-event-cal-name">' + calName + '</span>'
     + '</div>'
     + '<div class="ext-event-title">' + title + '</div>'
     + '<div class="ext-event-time">' + timeStr + '</div>'

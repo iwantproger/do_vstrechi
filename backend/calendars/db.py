@@ -300,7 +300,11 @@ async def upsert_external_busy_slots(
 async def get_display_enabled_events(
     conn, user_id, start: datetime, end: datetime
 ) -> list[dict]:
-    """Events from display-enabled calendars for the meetings screen."""
+    """Events from display-enabled calendars for the meetings screen.
+
+    Excludes events created by this app (present in event_mapping) to avoid
+    showing duplicates of bookings that were written to external calendars.
+    """
     return rows_to_list(await conn.fetch(
         """
         SELECT ebs.external_event_id, ebs.summary, ebs.start_time, ebs.end_time,
@@ -313,6 +317,11 @@ async def get_display_enabled_events(
           AND ca.status = 'active'
           AND ebs.end_time > $2
           AND ebs.start_time < $3
+          AND NOT EXISTS (
+              SELECT 1 FROM event_mapping em
+              WHERE em.connection_id = ebs.connection_id
+                AND em.external_event_id = ebs.external_event_id
+          )
         ORDER BY ebs.start_time
         """,
         user_id, start, end,

@@ -109,14 +109,7 @@ function renderProviderCard(prov, connected) {
   /* Connected — one card per account */
   return connected.map(function(acc) {
     return renderConnectedCard(prov, acc);
-  }).join('') + renderProviderAddMore(prov, connected);
-}
-
-function renderProviderAddMore(prov, connected) {
-  /* Allow connecting additional accounts for the same provider */
-  return '<div class="cal-prov-add" onclick="' + escHtml(prov.connect) + '">'
-    + '<span>+ Добавить ещё ' + escHtml(prov.name) + '</span>'
-    + '</div>';
+  }).join('');
 }
 
 function renderConnectedCard(prov, acc) {
@@ -158,7 +151,8 @@ function renderConnectedCard(prov, acc) {
         ? '<div class="cal-exp-label">Календари</div>' + calendarsHtml
         : '<div class="cal-exp-empty">Нет доступных календарей</div>')
     +   '<div class="cal-exp-footer">'
-    +     '<button class="btn-text btn-danger" onclick="disconnectAccount(\'' + accId + '\')">Отключить аккаунт</button>'
+    +     '<button class="btn-text" onclick="' + escHtml(prov.connect) + '" style="color:var(--a)">+ Добавить ещё</button>'
+    +     '<button class="btn-text btn-danger" onclick="disconnectAccount(\'' + accId + '\')">Отключить</button>'
     +   '</div>'
     + '</div>'
     + '</div>';
