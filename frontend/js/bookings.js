@@ -40,7 +40,7 @@ async function loadHome() {
 
   const now = new Date();
   const todayStr = formatDate(now);
-  /* FIX: разделить на будущие и прошедшие для корректного отображения */
+
   const allToday = (state.bookings || [])
     .filter(b => formatDate(new Date(b.scheduled_time)) === todayStr && b.status !== 'cancelled')
     .sort((a, b) => new Date(a.scheduled_time) - new Date(b.scheduled_time));
@@ -49,10 +49,29 @@ async function loadHome() {
     return ds !== 'completed' && ds !== 'noans';
   });
 
+  /* External calendar events for today (display-enabled, deduped by backend) */
+  var todayExtEvents = [];
+  try {
+    var extRes = await apiFetch('GET', '/api/calendar/external-events?from_date=' + todayStr + '&to_date=' + todayStr);
+    if (extRes.data && extRes.data.events) {
+      todayExtEvents = extRes.data.events
+        .filter(function(e) { return formatDate(new Date(e.start_time)) === todayStr; })
+        .map(function(e) { return Object.assign({}, e, { _dt: new Date(e.start_time), _isExt: true }); });
+    }
+  } catch (e) { /* optional — ignore */ }
+
+  /* Merge and sort all items by time */
+  var todayAll = todayMeetings.map(function(m) {
+    return Object.assign({}, m, { _dt: new Date(m.scheduled_time) });
+  }).concat(todayExtEvents);
+  todayAll.sort(function(a, b) { return a._dt - b._dt; });
+
+  const totalCount = todayAll.length;
+
   /* subtitle */
   const sub = document.getElementById('home-subtitle');
   if (sub) {
-    const n = todayMeetings.length;
+    const n = totalCount;
     if (n === 0) {
       sub.innerHTML = '<span style="font-weight:800;color:var(--t1)">Нет встреч на сегодня</span>';
     } else {
@@ -63,7 +82,7 @@ async function loadHome() {
     }
   }
 
-  /* hero card — nearest meeting that hasn't ended yet */
+  /* hero card — nearest booking (not ext event) that hasn't ended yet */
   const nearest = todayMeetings.find(b => {
     const end = new Date(b.scheduled_time);
     end.setMinutes(end.getMinutes() + (b.schedule_duration || 60));
@@ -73,12 +92,14 @@ async function loadHome() {
   const heroEl = document.getElementById('home-hero');
   if (heroEl) heroEl.innerHTML = nearest ? renderHeroCard(nearest, now) : '';
 
-  /* meetings list */
+  /* meetings list — bookings + external events merged */
   const label = document.getElementById('home-section-label');
   const listEl = document.getElementById('home-meetings');
-  if (todayMeetings.length) {
+  if (todayAll.length) {
     if (label) label.classList.remove('hidden');
-    if (listEl) listEl.innerHTML = todayMeetings.map(m => renderMeetingCard(m)).join('');
+    if (listEl) listEl.innerHTML = todayAll.map(function(m) {
+      return m._isExt ? renderExtEventCard(m) : renderMeetingCard(m);
+    }).join('');
   } else {
     if (label) label.classList.add('hidden');
     if (listEl) listEl.innerHTML = renderEmpty('Нет встреч', 'На сегодня ничего не запланировано');
