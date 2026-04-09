@@ -22,9 +22,8 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 SCOPES = " ".join([
-    "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/calendar.readonly",
-    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/calendar.events",  # read + write events (covers readonly)
+    "https://www.googleapis.com/auth/userinfo.email",   # show connected account email
 ])
 
 STATE_MAX_AGE = 600  # 10 минут

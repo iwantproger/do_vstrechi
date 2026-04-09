@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Политика конфиденциальности — До встречи</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0D1A16;
+    --s1: #14221C;
+    --t1: #E8F0EC;
+    --t2: #8AA99A;
+    --a:  #00E5A8;
+    --b1: rgba(255,255,255,.08);
+    --r:  14px;
+  }
+  body {
+    background: var(--bg);
+    color: var(--t1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 0 0 60px;
+  }
+  header {
+    background: var(--s1);
+    border-bottom: 1px solid var(--b1);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header a { color: var(--a); text-decoration: none; font-size: 13px; }
+  header a:hover { text-decoration: underline; }
+  .logo { font-size: 18px; font-weight: 800; color: var(--t1); }
+  .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+  h1 { font-size: 26px; font-weight: 800; margin: 36px 0 6px; color: var(--t1); }
+  .meta { font-size: 13px; color: var(--t2); margin-bottom: 32px; }
+  h2 { font-size: 17px; font-weight: 700; color: var(--a); margin: 32px 0 10px; }
+  h3 { font-size: 15px; font-weight: 700; color: var(--t1); margin: 20px 0 6px; }
+  p { margin-bottom: 12px; color: var(--t1); }
+  ul, ol { margin: 8px 0 12px 20px; }
+  li { margin-bottom: 5px; }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--b1);
+    margin: 48px 0;
+  }
+  .lang-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0,229,168,.12);
+    color: var(--a);
+    margin-bottom: 8px;
+  }
+  a { color: var(--a); }
+  strong { color: var(--t1); }
+  @media (max-width: 500px) {
+    h1 { font-size: 22px; }
+    .container { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div style="flex:1">
+    <div class="logo">До встречи</div>
+    <div style="font-size:12px;color:var(--t2);margin-top:2px">dovstrechiapp.ru</div>
+  </div>
+  <a href="https://dovstrechiapp.ru">← На главную</a>
+</header>
+
+<div class="container">
+
+<!-- ═══════════════════ РУССКИЙ ═══════════════════ -->
+<div class="lang-badge" style="margin-top:36px">Русский</div>
+
+<h1>Политика конфиденциальности</h1>
+<div class="meta">
+  Приложение: <strong>До встречи</strong> &nbsp;·&nbsp;
+  Сайт: <a href="https://dovstrechiapp.ru">dovstrechiapp.ru</a> &nbsp;·&nbsp;
+  Дата: 9 апреля 2026 г.
+</div>
+
+<h2>1. Какие данные мы собираем</h2>
+<ul>
+  <li><strong>Telegram ID, имя, username</strong> — при авторизации через Telegram Mini App.</li>
+  <li><strong>Часовой пояс</strong> — устанавливается пользователем для корректного расчёта слотов.</li>
+  <li><strong>Email внешнего календаря</strong> — при добавлении Google, Яндекс или Apple Calendar (отображается в настройках).</li>
+  <li><strong>Данные о событиях в подключённых календарях</strong> — название, время начала и конца (для проверки занятости).</li>
+  <li><strong>OAuth-токены Google Calendar</strong> — зашифрованные access/refresh токены для доступа к вашему календарю.</li>
+  <li><strong>Данные бронирований</strong> — имя гостя, контакт, выбранное время встречи.</li>
+</ul>
+
+<h2>2. Как мы используем данные</h2>
+<ul>
+  <li><strong>Telegram ID и профиль</strong> — для идентификации пользователя и хранения расписаний.</li>
+  <li><strong>Google Calendar (события)</strong> — чтобы блокировать занятые слоты при создании расписаний и записывать подтверждённые встречи.</li>
+  <li><strong>Email календаря</strong> — только для отображения в настройках (какой аккаунт подключён).</li>
+  <li><strong>Данные бронирований</strong> — для управления встречами между организатором и гостем.</li>
+</ul>
+
+<h2>3. Google Calendar API — использование данных</h2>
+<p>Приложение «До встречи» использует Google Calendar API для следующих целей:</p>
+<ol>
+  <li><strong>Чтение событий</strong> — проверка занятости: когда гость выбирает время, мы проверяем ваш Google Calendar чтобы не предлагать уже занятые слоты.</li>
+  <li><strong>Создание событий</strong> — когда гость бронирует встречу, мы автоматически создаём событие в вашем Google Calendar с деталями встречи (название, время, контакт гостя, ссылка на видеозвонок).</li>
+  <li><strong>Удаление событий</strong> — когда встреча отменяется, мы удаляем соответствующее событие из вашего Google Calendar.</li>
+</ol>
+<p><strong>Мы обязуемся:</strong></p>
+<ul>
+  <li>НЕ передавать данные Google Calendar третьим лицам.</li>
+  <li>НЕ использовать данные Google Calendar в рекламных целях.</li>
+  <li>НЕ продавать данные Google Calendar.</li>
+  <li>Использовать данные исключительно для предоставления заявленного функционала.</li>
+  <li>Соблюдать <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, включая требования Limited Use.</li>
+</ul>
+
+<h2>4. Где хранятся данные</h2>
+<ul>
+  <li>Все данные хранятся на сервере в <strong>Российской Федерации</strong> (провайдер Timeweb).</li>
+  <li>Соответствие Федеральному закону № 152-ФЗ «О персональных данных».</li>
+  <li>OAuth-токены зашифрованы с использованием симметричного шифрования (Fernet/AES).</li>
+  <li>Пароли приложений CalDAV (Яндекс, Apple) хранятся в зашифрованном виде и не доступны персоналу в открытом виде.</li>
+</ul>
+
+<h2>5. Как удалить данные</h2>
+<ul>
+  <li><strong>Отключить Google Calendar:</strong> в приложении → Профиль → Внешние календари → Отключить. Все токены и кэшированные события удаляются немедленно.</li>
+  <li><strong>Удалить аккаунт полностью:</strong> напишите на <a href="mailto:support@dovstrechiapp.ru">support@dovstrechiapp.ru</a> или в Telegram <a href="https://t.me/do_vstrechi_bot">@do_vstrechi_bot</a>.</li>
+</ul>
+
+<h2>6. Безопасность</h2>
+<ul>
+  <li>HTTPS (TLS 1.2+) для всех соединений.</li>
+  <li>OAuth 2.0 для авторизации Google Calendar — мы никогда не видим ваш пароль Google.</li>
+  <li>HMAC-SHA256 для валидации данных Telegram.</li>
+  <li>HTTP-заголовки безопасности: HSTS, CSP, X-Content-Type-Options, Referrer-Policy.</li>
+</ul>
+
+<h2>7. Cookies и аналитика</h2>
+<p>Мы не используем cookies для отслеживания. В административной панели используется сессионный cookie исключительно для аутентификации администратора.</p>
+
+<h2>8. Контакты</h2>
+<ul>
+  <li>Email: <a href="mailto:support@dovstrechiapp.ru">support@dovstrechiapp.ru</a></li>
+  <li>Telegram: <a href="https://t.me/do_vstrechi_bot">@do_vstrechi_bot</a></li>
+  <li>Сайт: <a href="https://dovstrechiapp.ru">dovstrechiapp.ru</a></li>
+</ul>
+
+<hr class="divider">
+
+<!-- ═══════════════════ ENGLISH ═══════════════════ -->
+<div class="lang-badge">English</div>
+
+<h1>Privacy Policy</h1>
+<div class="meta">
+  Application: <strong>До встречи (Do Vstrechi)</strong> &nbsp;·&nbsp;
+  Website: <a href="https://dovstrechiapp.ru">dovstrechiapp.ru</a> &nbsp;·&nbsp;
+  Date: April 9, 2026
+</div>
+
+<h2>1. Data We Collect</h2>
+<ul>
+  <li><strong>Telegram ID, name, username</strong> — collected upon authorization via Telegram Mini App.</li>
+  <li><strong>Timezone</strong> — set by the user for correct time slot calculations.</li>
+  <li><strong>External calendar email address</strong> — when connecting Google, Yandex, or Apple Calendar (displayed in settings).</li>
+  <li><strong>Calendar event data</strong> — event title, start/end times (to check availability).</li>
+  <li><strong>Google Calendar OAuth tokens</strong> — encrypted access/refresh tokens for accessing your calendar.</li>
+  <li><strong>Booking data</strong> — guest name, contact, selected meeting time.</li>
+</ul>
+
+<h2>2. How We Use Your Data</h2>
+<ul>
+  <li><strong>Telegram profile</strong> — to identify the user and store their schedules.</li>
+  <li><strong>Google Calendar events</strong> — to block busy time slots and record confirmed meetings.</li>
+  <li><strong>Calendar email</strong> — displayed in settings only (to show which account is connected).</li>
+  <li><strong>Booking data</strong> — to manage meetings between organizer and guest.</li>
+</ul>
+
+<h2>3. Google Calendar API — Data Usage</h2>
+<p>Do Vstrechi uses the Google Calendar API for the following purposes:</p>
+<ol>
+  <li><strong>Reading events</strong> — availability checking: when a guest selects a time, we check your Google Calendar to ensure the slot is free.</li>
+  <li><strong>Creating events</strong> — when a guest books a meeting, we automatically create a calendar event in your Google Calendar with meeting details (title, time, guest name, video call link).</li>
+  <li><strong>Deleting events</strong> — when a meeting is cancelled by either party, we remove the corresponding event from your Google Calendar.</li>
+</ol>
+<p><strong>We commit to:</strong></p>
+<ul>
+  <li>NOT sharing Google Calendar data with third parties.</li>
+  <li>NOT using Google Calendar data for advertising purposes.</li>
+  <li>NOT selling Google Calendar data.</li>
+  <li>Using data solely to provide the stated functionality.</li>
+  <li>Complying with the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including Limited Use requirements.</li>
+</ul>
+
+<h2>4. Data Storage</h2>
+<ul>
+  <li>All data is stored on servers located in the <strong>Russian Federation</strong> (Timeweb provider).</li>
+  <li>Compliant with Federal Law No. 152-FZ "On Personal Data".</li>
+  <li>OAuth tokens are encrypted using symmetric encryption (Fernet/AES).</li>
+  <li>CalDAV application passwords (Yandex, Apple) are stored encrypted and are not accessible to personnel in plaintext.</li>
+</ul>
+
+<h2>5. Data Deletion</h2>
+<ul>
+  <li><strong>Disconnect Google Calendar:</strong> in the app → Profile → External Calendars → Disconnect. All tokens and cached events are deleted immediately.</li>
+  <li><strong>Delete your account entirely:</strong> contact us at <a href="mailto:support@dovstrechiapp.ru">support@dovstrechiapp.ru</a> or Telegram <a href="https://t.me/do_vstrechi_bot">@do_vstrechi_bot</a>.</li>
+</ul>
+
+<h2>6. Security</h2>
+<ul>
+  <li>HTTPS (TLS 1.2+) for all connections.</li>
+  <li>OAuth 2.0 for Google Calendar authorization — we never see your Google password.</li>
+  <li>HMAC-SHA256 validation for Telegram data.</li>
+  <li>Security headers: HSTS, CSP, X-Content-Type-Options, Referrer-Policy.</li>
+</ul>
+
+<h2>7. Cookies and Analytics</h2>
+<p>We do not use tracking cookies. The admin panel uses a session cookie solely for administrator authentication.</p>
+
+<h2>8. Contact</h2>
+<ul>
+  <li>Email: <a href="mailto:support@dovstrechiapp.ru">support@dovstrechiapp.ru</a></li>
+  <li>Telegram: <a href="https://t.me/do_vstrechi_bot">@do_vstrechi_bot</a></li>
+  <li>Website: <a href="https://dovstrechiapp.ru">dovstrechiapp.ru</a></li>
+</ul>
+
+</div><!-- /container -->
+</body>
+</html>
