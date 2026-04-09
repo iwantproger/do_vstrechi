@@ -262,6 +262,7 @@ function selectTime(time) {
   var formBlock = document.getElementById('cal-guest-form');
   if (formBlock) {
     formBlock.style.display = 'block';
+    checkBrowserAuth('browser-auth-block', 'tg-auth-link');
     /* autofill from Telegram user */
     var u = tg?.initDataUnsafe?.user;
     if (u) {
@@ -269,6 +270,9 @@ function selectTime(time) {
       if (nameInp && !nameInp.value) nameInp.value = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
       var contactInp = document.getElementById('cal-g-contact');
       if (contactInp && !contactInp.value && u.username) contactInp.value = '@' + u.username;
+    } else {
+      var nameInp2 = document.getElementById('cal-g-name');
+      if (nameInp2 && !nameInp2.value) nameInp2.placeholder = 'Имя Фамилия (или войдите через Telegram)';
     }
     setTimeout(function() {
       formBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -295,6 +299,21 @@ function changeMonth(dir) {
 }
 
 function hideMainButton() { /* MainButton отключён — используем собственные кнопки */ }
+
+function checkBrowserAuth(blockId, linkId) {
+  var authBlock = document.getElementById(blockId);
+  if (!authBlock) return;
+  var isTelegram = !!(tg && tg.initDataUnsafe && tg.initDataUnsafe.user);
+  if (isTelegram) { authBlock.style.display = 'none'; return; }
+  authBlock.style.display = 'block';
+  var schedId = (state.schedule && state.schedule.id) || state.scheduleId || '';
+  var authUrl = 'https://t.me/do_vstrechi_bot/app?startapp=' + schedId;
+  var linkEl = document.getElementById(linkId);
+  if (linkEl) {
+    linkEl.href = authUrl;
+    linkEl.onclick = function(e) { e.preventDefault(); window.open(authUrl, '_blank'); };
+  }
+}
 
 /* ── Form setup ── */
 function setupForm() {
@@ -335,6 +354,9 @@ function setupForm() {
   var contactInp = document.getElementById('guest-contact');
   if (nameInp && !nameInp.value && u) nameInp.value = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
   if (contactInp && !contactInp.value && u && u.username) contactInp.value = '@' + u.username;
+
+  checkBrowserAuth('browser-auth-block-form', 'tg-auth-link-form');
+  if (!u && nameInp && !nameInp.value) nameInp.placeholder = 'Имя Фамилия (или войдите через Telegram)';
 
   /* hide error */
   var errEl = document.getElementById('err-guest-name');

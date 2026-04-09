@@ -108,13 +108,14 @@ body{font-family:var(--font);color:var(--t1)}
   background:transparent;
 }
 .nav-pill{
-  flex:1 1 0%;min-width:0;display:flex;align-items:center;
+  flex:1 1 0%;min-width:0;display:flex;align-items:flex-end;
   background:rgba(10,14,13,.45);
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border:1px solid rgba(255,255,255,.09);
   border-radius:var(--rf);
   padding:5px;
   height:56px;
+  overflow:visible;
 }
 .nav-item{
   flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -134,16 +135,19 @@ body{font-family:var(--font);color:var(--t1)}
 .nav-item:active .nav-ic{background:rgba(0,229,168,.09)}
 
 .nav-ai-pill{
-  width:56px;height:56px;flex-shrink:0;flex-grow:0;align-self:center;
+  width:52px;height:52px;flex-shrink:0;flex-grow:0;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(15,22,21,.90);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(135deg,var(--a,#00E5A8) 0%,#00C896 100%);
+  border:3px solid var(--bg,#0a0f0e);
   border-radius:50%;
-  cursor:pointer;transition:all .15s;
+  cursor:pointer;
+  transition:transform .15s ease,box-shadow .15s ease;
+  box-shadow:0 4px 16px rgba(0,229,168,.35);
+  margin-top:-14px;
+  position:relative;
 }
-.nav-ai-pill svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.nav-ai-pill:active{transform:scale(.91);background:var(--as)}
+.nav-ai-pill svg{width:24px;height:24px;stroke:#07221A;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.nav-ai-pill:active{transform:scale(.92);box-shadow:0 2px 8px rgba(0,229,168,.25)}
 
 /* ── Notif badge ── */
 .notif-badge{
