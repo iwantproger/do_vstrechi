@@ -1,5 +1,6 @@
 """Handlers: /start, /help, reply-keyboard buttons, notify deep link."""
 import logging
+from datetime import timezone, datetime
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
@@ -13,7 +14,7 @@ from aiogram.types import (
 from api import api
 from config import MINI_APP_URL
 from keyboards import get_main_keyboard, kb_back_main
-from formatters import STATUS_EMOJI, format_dt
+from formatters import STATUS_EMOJI, STATUS_TEXT, format_dt
 from states import CreateSchedule
 
 log = logging.getLogger(__name__)
@@ -106,74 +107,218 @@ async def cmd_help(msg: Message):
 
 # ── Reply-кнопки нижней панели ────────────────────────────
 
-@router.message(F.text == "📅 Создать расписание")
-async def reply_create_schedule(msg: Message, state: FSMContext):
-    await state.clear()
-    await state.set_state(CreateSchedule.title)
-    await msg.answer(
-        "➕ <b>Создание нового расписания</b>\n\n"
-        "Шаг 1/5: Введи название расписания.\n"
-        "Например: <i>Консультация по маркетингу</i>",
-        parse_mode=ParseMode.HTML,
-    )
+@router.message(F.text == "🏠 Главная")
+async def reply_home(msg: Message):
+    tid = msg.from_user.id
+    now = datetime.now(timezone.utc)
 
+    stats    = await api("get", f"/api/stats?telegram_id={tid}")
+    bookings = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
 
-@router.message(F.text == "📋 Мои расписания")
-async def reply_my_schedules(msg: Message):
-    schedules = await api("get", f"/api/schedules?telegram_id={msg.from_user.id}")
+    upcoming = []
+    today_list = []
+    if isinstance(bookings, list):
+        for b in bookings:
+            try:
+                dt = datetime.fromisoformat(b["scheduled_time"].replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if dt > now and b.get("status") not in ("cancelled", "completed"):
+                upcoming.append((dt, b))
+                if dt.date() == now.date():
+                    today_list.append((dt, b))
+        upcoming.sort(key=lambda x: x[0])
+        today_list.sort(key=lambda x: x[0])
 
-    if not schedules:
-        await msg.answer(
-            "У тебя пока нет расписаний.\n\nСоздай первое!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="➕ Создать", callback_data="create_schedule")],
-            ])
+    text = f"🏠 <b>Главная</b>\n\n"
+
+    if upcoming:
+        _, b = upcoming[0]
+        tz = b.get("organizer_timezone") or "UTC"
+        text += (
+            f"📌 <b>Ближайшая встреча</b>\n"
+            f"👤 {b['guest_name']}\n"
+            f"📅 {format_dt(b['scheduled_time'], tz=tz)}\n"
+            f"📋 {b.get('schedule_title', '')}\n"
+            f"Статус: {STATUS_EMOJI.get(b['status'], '❓')} {STATUS_TEXT.get(b['status'], b['status'])}\n\n"
         )
+
+    if today_list:
+        text += f"📅 <b>Сегодня — {len(today_list)} встреч:</b>\n"
+        for _, b in today_list[:5]:
+            tz = b.get("organizer_timezone") or "UTC"
+            emoji = STATUS_EMOJI.get(b["status"], "❓")
+            t = format_dt(b["scheduled_time"], tz=tz)
+            text += f"  {emoji} {t} — {b['guest_name']}\n"
+    else:
+        text += "📅 Сегодня встреч нет\n"
+
+    if stats and isinstance(stats, dict):
+        text += (
+            f"\n📊 Расписаний: <b>{stats.get('active_schedules', 0)}</b>"
+            f" · Встреч: <b>{stats.get('total_bookings', 0)}</b>"
+        )
+
+    kb_rows = []
+    if upcoming:
+        _, b0 = upcoming[0]
+        kb_rows.append([InlineKeyboardButton(
+            text="📋 Подробнее о ближайшей",
+            callback_data=f"booking_{b0['id']}",
+        )])
+        if b0.get("meeting_link") and b0.get("schedule_platform") in ("jitsi", "zoom", "google_meet"):
+            kb_rows.append([InlineKeyboardButton(
+                text="🔗 Подключиться",
+                url=b0["meeting_link"],
+            )])
+
+    await msg.answer(text, parse_mode=ParseMode.HTML,
+                     reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows) if kb_rows else None)
+
+
+@router.message(F.text == "📋 Встречи")
+async def reply_meetings(msg: Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⏳ Нужно подтвердить", callback_data="meetings_pending"),
+            InlineKeyboardButton(text="📋 Все",               callback_data="meetings_all"),
+        ],
+        [
+            InlineKeyboardButton(text="✅ Всё в силе",  callback_data="meetings_confirmed"),
+            InlineKeyboardButton(text="❓ Нет ответа",  callback_data="meetings_noans"),
+        ],
+    ])
+    await msg.answer("📋 <b>Встречи</b>\nВыберите фильтр:", parse_mode=ParseMode.HTML, reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("meetings_"))
+async def cb_meetings_filter(cb: CallbackQuery):
+    filter_type = cb.data.replace("meetings_", "")
+    tid = cb.from_user.id
+    now = datetime.now(timezone.utc)
+
+    bookings = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
+    if not isinstance(bookings, list) or not bookings:
+        await cb.message.edit_text("📭 Встреч пока нет")
+        await cb.answer()
         return
 
-    buttons = [
-        [InlineKeyboardButton(
-            text=f"📅 {s['title']} ({s['duration']} мин)",
-            callback_data=f"schedule_{s['id']}",
-        )]
-        for s in schedules
-    ]
-    buttons.append([InlineKeyboardButton(text="➕ Создать новое", callback_data="create_schedule")])
-    await msg.answer(
-        f"📋 Твои расписания ({len(schedules)}):",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
-    )
+    def _dt(b):
+        try:
+            return datetime.fromisoformat(b["scheduled_time"].replace("Z", "+00:00"))
+        except Exception:
+            return None
 
+    if filter_type == "pending":
+        filtered = [b for b in bookings if b["status"] == "pending" and (_dt(b) or now) > now]
+    elif filter_type == "confirmed":
+        filtered = [b for b in bookings if b["status"] == "confirmed" and (_dt(b) or now) > now]
+    elif filter_type == "noans":
+        filtered = [b for b in bookings if b["status"] == "pending" and (_dt(b) or now) < now]
+    else:
+        filtered = [b for b in bookings if b.get("status") not in ("cancelled", "completed")]
 
-@router.message(F.text == "👥 Мои встречи")
-async def reply_my_bookings(msg: Message):
-    bookings = await api("get", f"/api/bookings?telegram_id={msg.from_user.id}")
-
-    if not bookings:
-        await msg.answer("У тебя пока нет встреч.")
+    if not filtered:
+        await cb.message.edit_text("📭 Нет встреч по этому фильтру")
+        await cb.answer()
         return
 
-    buttons = []
-    for b in bookings[:10]:
-        emoji = STATUS_EMOJI.get(b["status"], "?")
-        dt    = format_dt(b["scheduled_time"], tz=b.get("organizer_timezone") or "UTC")
-        role  = "📌" if b.get("my_role") == "organizer" else "👤"
-        buttons.append([InlineKeyboardButton(
-            text=f"{role}{emoji} {b.get('schedule_title','?')} · {dt}",
+    text = f"📋 <b>Встречи ({len(filtered)})</b>\n\n"
+    kb_rows = []
+    for b in filtered[:10]:
+        emoji = STATUS_EMOJI.get(b["status"], "❓")
+        tz    = b.get("organizer_timezone") or "UTC"
+        text += f"{emoji} <b>{b['guest_name']}</b>\n   {format_dt(b['scheduled_time'], tz=tz)} · {b.get('schedule_title', '')}\n\n"
+        kb_rows.append([InlineKeyboardButton(
+            text=f"📋 {b['guest_name']}",
             callback_data=f"booking_{b['id']}",
         )])
 
-    await msg.answer(
-        f"📋 <b>Твои встречи ({len(bookings)})</b>\n"
-        f"📌 = организатор, 👤 = гость",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    # Trim text to Telegram limit
+    if len(text) > 4000:
+        text = text[:4000] + "…"
+
+    await cb.message.edit_text(text, parse_mode=ParseMode.HTML,
+                                reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
+    await cb.answer()
+
+
+@router.message(F.text == "📅 Расписания")
+async def reply_schedules(msg: Message):
+    schedules = await api("get", f"/api/schedules?telegram_id={msg.from_user.id}")
+
+    if not isinstance(schedules, list) or not schedules:
+        await msg.answer(
+            "📅 <b>Расписания</b>\n\nУ вас пока нет расписаний.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule"),
+            ]]),
+        )
+        return
+
+    text = "📅 <b>Расписания</b>\n\n"
+    kb_rows = []
+    for s in schedules:
+        status = "🟢" if s.get("is_active", True) else "⏸"
+        text += f"{status} <b>{s['title']}</b>\n   ⏱ {s['duration']} мин · {s.get('platform', 'jitsi')}\n\n"
+        kb_rows.append([InlineKeyboardButton(
+            text=f"⚙️ {s['title']}",
+            callback_data=f"schedule_{s['id']}",
+        )])
+    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")])
+
+    await msg.answer(text, parse_mode=ParseMode.HTML,
+                     reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
+
+
+@router.message(F.text == "👤 Профиль")
+async def reply_profile(msg: Message):
+    u = msg.from_user
+    text = (
+        f"👤 <b>Профиль</b>\n\n"
+        f"Имя: {u.first_name} {u.last_name or ''}\n"
+        f"Username: @{u.username or '—'}\n"
+        f"ID: {u.id}\n"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔔 Настройки уведомлений", callback_data="profile_notifications")],
+        [InlineKeyboardButton(text="💬 Написать в поддержку",  url="https://t.me/iwantproger")],
+        [InlineKeyboardButton(text="❓ Помощь",                callback_data="profile_help")],
+    ])
+    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+
+
+@router.callback_query(F.data == "profile_help")
+async def cb_profile_help(cb: CallbackQuery):
+    await cb.message.answer(
+        "📖 <b>Как пользоваться ботом</b>\n\n"
+        "1. Создай расписание через «📅 Расписания» → «➕ Создать»\n"
+        "2. Поделись ссылкой с клиентами\n"
+        "3. Клиент бронирует → ты получаешь уведомление\n"
+        "4. Подтверди или отмени встречу\n\n"
+        "<b>Команды:</b>\n/start — главное меню\n/help — эта справка",
         parse_mode=ParseMode.HTML,
     )
+    await cb.answer()
 
 
-@router.message(F.text == "❓ Помощь")
-async def reply_help(msg: Message):
-    await cmd_help(msg)
+@router.callback_query(F.data == "profile_notifications")
+async def cb_profile_notifications(cb: CallbackQuery):
+    await cb.message.answer(
+        "🔔 <b>Настройки уведомлений</b>\n\n"
+        "Управляй напоминаниями в приложении:\n"
+        "• Выбери когда напоминать (за 24ч, 1ч, 30мин и т.д.)\n"
+        "• Добавь свои тайминги",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="📱 Открыть настройки",
+                web_app=WebAppInfo(url=MINI_APP_URL),
+            )
+        ]]),
+    )
+    await cb.answer()
 
 
 # ── Deep link: notify setup ────────────────────────────
