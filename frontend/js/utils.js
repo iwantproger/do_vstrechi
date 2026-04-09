@@ -187,6 +187,13 @@ function scheduleStatusHtml(isActive) {
   return '<div class="mst mst-pending"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/><rect x="14" y="5" width="4" height="14" rx="1" stroke-linejoin="round"/></svg><span class="mst-label">На паузе</span></div>';
 }
 
+function badgeParticipant() {
+  return '<span class="badge-participant">'
+    + '<svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    + 'Я участник'
+    + '</span>';
+}
+
 /* ═══════════════════════════════════════════
    IEO (Inline Edit Overlay)
 ═══════════════════════════════════════════ */

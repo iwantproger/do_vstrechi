@@ -237,10 +237,9 @@
     <div class="profile-sub" id="profile-sub"></div>
   </div>
 
-  <!-- МОЯ ССЫЛКА -->
-  <!-- FIX: Bug #1 — убрали section-gap (32px), profile-head уже имеет padding-bottom:20px + group-title padding-top:16px = 36px ≈ эталон -->
-  <div class="group-title">Моя ссылка</div>
-  <div style="padding:0 16px;margin-bottom:8px">
+  <!-- МОЯ ССЫЛКА — задизейблен до реализации публичной страницы /u/{slug} -->
+  <div class="group-title">Моя ссылка<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:rgba(124,92,252,.15);color:#7C5CFC;font-size:11px;font-weight:700;margin-left:8px;vertical-align:middle">Скоро</span></div>
+  <div style="padding:0 16px;margin-bottom:8px;opacity:0.45;pointer-events:none">
     <div style="background:var(--s1);border-radius:var(--r3);border:1px solid var(--b1);overflow:hidden">
       <div style="padding:14px 16px 12px">
         <div style="font-size:13px;color:var(--t2);word-break:break-all;margin-bottom:12px" id="profile-link-sub">—</div>
