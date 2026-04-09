@@ -105,15 +105,11 @@ function navTab(screenId, navId) {
 function hideNavbar() {
   const el = document.getElementById('navbar');
   if (el) el.style.display = 'none';
-  const pill = document.getElementById('nav-create');
-  if (pill) pill.style.display = 'none';
 }
 
 function showNavbar() {
   const el = document.getElementById('navbar');
   if (el) el.style.display = 'flex';
-  const pill = document.getElementById('nav-create');
-  if (pill) pill.style.display = 'flex';
 }
 
 function setActiveNav(tabId) {
