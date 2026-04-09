@@ -1,6 +1,20 @@
 /* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
+
+function toggleCollapsible(headerEl) {
+  var section = headerEl.closest('.collapsible-section');
+  var body = section.querySelector('.collapsible-body');
+  var isOpen = section.classList.contains('open');
+  if (isOpen) {
+    section.classList.remove('open');
+    body.style.display = 'none';
+  } else {
+    section.classList.add('open');
+    body.style.display = 'block';
+  }
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
 let _toastTimer;
 function showToast(msg, type = 'default', duration = 3000) {
   const el = document.getElementById('toast');

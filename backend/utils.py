@@ -25,10 +25,11 @@ def rows_to_list(rows) -> list:
     return [dict(r) for r in rows]
 
 
-def generate_meeting_link(platform: str) -> str:
+def generate_meeting_link(platform: str) -> str | None:
+    """Генерирует ссылку на конференцию. Возвращает None для offline и other."""
+    if platform in ("offline", "other"):
+        return None
     room = str(uuid.uuid4()).replace("-", "")[:12]
-    if platform == "jitsi":
-        return f"https://meet.jit.si/dovstrechi-{room}"
     return f"https://meet.jit.si/dovstrechi-{room}"
 
 

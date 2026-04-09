@@ -33,16 +33,16 @@ async def create_schedule(
         INSERT INTO schedules
             (user_id, title, description, duration, buffer_time,
              work_days, start_time, end_time, location_mode, platform,
-             min_booking_advance, requires_confirmation)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             location_address, min_booking_advance, requires_confirmation)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING *
         """,
         user["id"], data.title, data.description, data.duration, data.buffer_time,
         data.work_days,
         datetime.strptime(data.start_time, "%H:%M").time(),
         datetime.strptime(data.end_time, "%H:%M").time(),
-        data.location_mode, data.platform, data.min_booking_advance or 0,
-        data.requires_confirmation
+        data.location_mode, data.platform, data.location_address,
+        data.min_booking_advance or 0, data.requires_confirmation
     )
     await _track_event(conn, "schedule_created", telegram_id, {
         "schedule_id": str(row["id"]), "duration": data.duration, "platform": data.platform,

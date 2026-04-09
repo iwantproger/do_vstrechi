@@ -54,12 +54,15 @@ async def create_booking(
         """
         INSERT INTO bookings
             (schedule_id, guest_name, guest_contact, guest_telegram_id,
-             scheduled_time, status, meeting_link, notes)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             scheduled_time, status, meeting_link, notes,
+             platform, location_address)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         RETURNING *
         """,
         sid, data.guest_name, data.guest_contact, guest_telegram_id,
-        scheduled_time, initial_status, meeting_link, data.notes
+        scheduled_time, initial_status, meeting_link, data.notes,
+        schedule["platform"],               # снапшот платформы
+        schedule.get("location_address"),   # снапшот адреса
     )
 
     result = row_to_dict(row)
@@ -130,9 +133,12 @@ async def list_bookings(
             s.title        AS schedule_title,
             s.duration     AS schedule_duration,
             s.platform     AS schedule_platform,
+            COALESCE(b.platform, s.platform) AS platform,
+            COALESCE(b.location_address, s.location_address) AS location_address,
             u.first_name   AS organizer_first_name,
             u.username     AS organizer_username,
             u.timezone     AS organizer_timezone,
+            u.telegram_id  AS organizer_telegram_id,
             COALESCE(b.title, s.title) AS display_title,
             b.is_manual,
             b.end_time     AS booking_end_time,

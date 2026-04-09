@@ -472,10 +472,14 @@ function renderSuccess(booking) {
     html += '<div style="font-size:30px;font-weight:800;color:var(--t1);line-height:1.1">' + displayTime + '</div>';
 
     /* date + details */
+    var platLine = escHtml(PLAT_NAMES[sched.platform] || sched.platform);
+    if (sched.platform === 'offline' && sched.location_address) {
+      platLine += ' · ' + escHtml(sched.location_address);
+    }
     html += '<div style="font-size:13px;color:var(--t2);margin-top:4px;line-height:1.6">'
       + DAYS_FULL[dow] + ', ' + dd + ' ' + MONTHS_GEN[mm] + '<br>'
       + displayTime + ' – ' + endTime + ' · ' + sliderLabel(dur) + '<br>'
-      + escHtml(PLAT_NAMES[sched.platform] || sched.platform)
+      + platLine
       + '</div>';
 
     /* guest data section */

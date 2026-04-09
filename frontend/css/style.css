@@ -338,6 +338,22 @@ textarea.inp{height:auto;padding:13px 14px;resize:none;line-height:1.6}
 .info-hint{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;cursor:pointer;opacity:.6;transition:opacity .15s;vertical-align:middle;margin-left:4px}
 .info-hint:active{opacity:1}
 
+/* ── Collapsible sections ── */
+.collapsible-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.collapsible-header:active{opacity:.7}
+.collapsible-section.open .collapsible-chev{transform:rotate(180deg)}
+.collapsible-body{padding-bottom:8px}
+
+/* ── Calendar platform rows ── */
+.cal-platform-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0;border-bottom:1px solid var(--b1);
+}
+.cal-platform-row:last-child{border-bottom:none}
+
 /* ── Toggle row ── */
 .tog-row{
   display:flex;align-items:center;justify-content:space-between;
