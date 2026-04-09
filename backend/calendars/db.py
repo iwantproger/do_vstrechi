@@ -266,12 +266,15 @@ async def upsert_external_busy_slots(
     """Upsert busy-слотов (ON CONFLICT обновление). Возвращает кол-во."""
     count = 0
     for ev in events:
+        import json as _json
+        raw = ev.get("raw_data")
+        raw_json = _json.dumps(raw) if raw is not None else None
         await conn.execute(
             """
             INSERT INTO external_busy_slots
                 (connection_id, external_event_id, summary,
                  start_time, end_time, is_all_day, etag, raw_data, fetched_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
             ON CONFLICT (connection_id, external_event_id)
                 DO UPDATE SET summary = EXCLUDED.summary,
                               start_time = EXCLUDED.start_time,
@@ -288,7 +291,7 @@ async def upsert_external_busy_slots(
             ev["end_time"],
             ev.get("is_all_day", False),
             ev.get("etag"),
-            ev.get("raw_data"),
+            raw_json,
         )
         count += 1
     return count

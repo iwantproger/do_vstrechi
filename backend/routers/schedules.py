@@ -278,6 +278,22 @@ async def available_slots(
             from calendars.db import get_schedule_calendar_rules, get_external_busy_slots
             rules = await get_schedule_calendar_rules(conn, str(sid))
             blocking_ids = [str(r["connection_id"]) for r in rules if r.get("use_for_blocking")]
+
+            # Zero-config: если правил нет — блокируем всеми read-enabled календарями
+            if not blocking_ids:
+                organizer_id = schedule["user_id"]
+                all_conns = await conn.fetch(
+                    """
+                    SELECT cc.id FROM calendar_connections cc
+                    JOIN calendar_accounts ca ON ca.id = cc.account_id
+                    WHERE ca.user_id = $1
+                      AND ca.status = 'active'
+                      AND cc.is_read_enabled = TRUE
+                    """,
+                    organizer_id,
+                )
+                blocking_ids = [str(c["id"]) for c in all_conns]
+
             if blocking_ids:
                 ext_busy = await get_external_busy_slots(
                     conn, blocking_ids, slot_start_utc, slot_end_utc,
