@@ -394,3 +394,12 @@ async function shareMyLink() {
   }
 }
 
+/* ── Legal pages (privacy / terms) ──────── */
+function showLegal(url, title) {
+  var el = document.getElementById('legal-title');
+  if (el) el.textContent = title;
+  var frame = document.getElementById('legal-frame');
+  if (frame) frame.src = url;
+  showScreen('s-legal');
+}
+
