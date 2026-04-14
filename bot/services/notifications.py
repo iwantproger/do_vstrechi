@@ -1,6 +1,7 @@
 """Внутренний HTTP-сервер для приёма уведомлений от backend."""
 import hmac
 import logging
+from datetime import datetime, timezone
 
 from aiohttp import web
 from aiogram import Bot
@@ -68,6 +69,15 @@ async def handle_new_booking(request: web.Request) -> web.Response:
 
         guest_tid = payload.get("guest_telegram_id")
         if guest_tid:
+            # Calculate hours until meeting for reminder text
+            try:
+                scheduled_dt = datetime.fromisoformat(
+                    payload.get("scheduled_time", "").replace("Z", "+00:00")
+                )
+                hours_until = (scheduled_dt - datetime.now(timezone.utc)).total_seconds() / 3600
+            except Exception:
+                hours_until = 999
+
             guest_text = (
                 "✅ <b>Вы записались!</b>\n\n"
                 f"📋 {schedule_title}\n"
@@ -75,12 +85,32 @@ async def handle_new_booking(request: web.Request) -> web.Response:
             )
             if meeting_link:
                 guest_text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>\n"
-            guest_text += "\nОжидайте подтверждения от организатора."
+            guest_text += "\n⏳ Ожидайте подтверждения от организатора.\n"
+
+            if hours_until > 24:
+                guest_text += "\n🔔 Мы напомним вам о встрече за 24 часа и за 1 час.\n"
+            elif hours_until > 1:
+                guest_text += "\n🔔 Мы напомним вам о встрече за 1 час.\n"
+
+            guest_text += "\n💡 Здесь вы будете получать напоминания и обновления по этой встрече."
+
+            # Inline buttons for guest
+            guest_buttons = []
+            if booking_id:
+                notify_url = f"https://t.me/do_vstrechi_bot?start=notify_{booking_id}"
+                guest_buttons.append([
+                    InlineKeyboardButton(text="🔔 Настроить уведомления", url=notify_url)
+                ])
+            guest_buttons.append([
+                InlineKeyboardButton(text="📅 Принимать записи самому →", callback_data="how_it_works")
+            ])
+            guest_kb = InlineKeyboardMarkup(inline_keyboard=guest_buttons)
 
             await bot.send_message(
                 chat_id=guest_tid,
                 text=guest_text,
                 parse_mode=ParseMode.HTML,
+                reply_markup=guest_kb,
                 disable_web_page_preview=True,
             )
 
