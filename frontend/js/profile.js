@@ -395,11 +395,21 @@ async function shareMyLink() {
 }
 
 /* ── Legal pages (privacy / terms) ──────── */
-function showLegal(url, title) {
+async function showLegal(url, title) {
   var el = document.getElementById('legal-title');
   if (el) el.textContent = title;
-  var frame = document.getElementById('legal-frame');
-  if (frame) frame.src = url;
+  var box = document.getElementById('legal-content');
+  if (box) box.innerHTML = '<p style="padding:20px;color:var(--t2)">Загрузка...</p>';
   showScreen('s-legal');
+  try {
+    var resp = await fetch(url);
+    var html = await resp.text();
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    /* Extract only .container content (skip header and inline styles) */
+    var container = doc.querySelector('.container');
+    if (box) box.innerHTML = container ? container.innerHTML : doc.body.innerHTML;
+  } catch (e) {
+    if (box) box.innerHTML = '<p style="padding:20px;color:var(--t2)">Не удалось загрузить. <a href="' + url + '" target="_blank">Открыть в браузере</a></p>';
+  }
 }
 
