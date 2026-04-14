@@ -702,10 +702,111 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 }
 /* Скрыть Telegram MainButton — используем собственные кнопки */
 .tgme_main_button_wrap,.tgme_main_button,[data-testid="main-button"],[class*="main-button"],[class*="MainButton"]{display:none!important;height:0!important;overflow:hidden!important}
-/* ── Quick Add Mode Chips ── */
-.qa-mode{flex:1;text-align:center;padding:10px 12px;border-radius:var(--rf);font-size:13px;font-weight:700;background:var(--s2);color:var(--t2);border:1px solid var(--b1);cursor:pointer;transition:all .15s}
-.qa-mode:active{transform:scale(.97)}
-.qa-mode.on{background:var(--a);color:#07221A;border-color:transparent}
+/* ═══════════════════════════════════════
+   QUICK ADD — Apple Calendar Style
+═══════════════════════════════════════ */
+.qa-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:var(--bg, #0a0f0e);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  animation:qa-slide-up .3s cubic-bezier(.4,0,.2,1);
+}
+@keyframes qa-slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+.qa-screen{min-height:100%;display:flex;flex-direction:column}
+
+/* Header */
+.qa-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;
+  padding-top:calc(env(safe-area-inset-top, 44px) + 8px);
+  position:sticky;top:0;z-index:2;
+  background:var(--bg, #0a0f0e);
+}
+.qa-header-title{font-size:17px;font-weight:700;color:var(--t1)}
+.qa-header-btn{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--s2);border:none;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--t1);transition:all .15s;
+}
+.qa-header-btn:active{transform:scale(.9);opacity:.7}
+.qa-save-btn{background:var(--s2);color:var(--t2)}
+.qa-save-btn.active{background:var(--a);color:#07221A}
+
+/* Body */
+.qa-body{flex:1;padding:8px 16px calc(env(safe-area-inset-bottom, 8px) + 16px)}
+
+/* Sections (Apple-style grouped) */
+.qa-section{background:var(--s1);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.qa-divider{height:1px;background:var(--b1);margin:0 16px}
+
+/* Fields */
+.qa-field{
+  width:100%;background:transparent;border:none;outline:none;
+  padding:14px 16px;font-family:inherit;font-size:16px;color:var(--t1);
+  resize:none;box-sizing:border-box;
+}
+.qa-field::placeholder{color:var(--t3)}
+.qa-title-input{font-size:17px;font-weight:600}
+.qa-notes-input{font-size:15px;min-height:44px}
+
+/* Rows */
+.qa-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:background .1s;
+}
+.qa-row:active{background:rgba(255,255,255,.04)}
+.qa-row-label{font-size:15px;font-weight:500;color:var(--t1)}
+.qa-row-value{font-size:15px;color:var(--t2)}
+.qa-row-right{display:flex;align-items:center;gap:8px}
+.qa-chevron{
+  width:16px;height:16px;stroke:var(--t3);fill:none;
+  stroke-width:2;stroke-linecap:round;margin-left:4px;flex-shrink:0;
+}
+
+/* Date/Time chips */
+.qa-date-chip,.qa-time-chip{
+  padding:6px 12px;border-radius:8px;background:var(--s2);
+  font-size:14px;font-weight:600;color:var(--t1);
+  cursor:pointer;transition:background .15s;
+}
+.qa-date-chip:active,.qa-time-chip:active{background:var(--s3, #243330)}
+.qa-date-chip.active,.qa-time-chip.active{color:var(--a)}
+
+/* Native picker wrapper */
+.qa-picker-wrap{padding:8px 16px 12px;overflow:hidden;animation:qa-expand .2s ease}
+@keyframes qa-expand{from{max-height:0;opacity:0}to{max-height:400px;opacity:1}}
+.qa-native-picker{
+  width:100%;background:var(--s2);border:1px solid var(--b1);
+  border-radius:12px;padding:12px;font-size:16px;color:var(--t1);
+  color-scheme:dark;-webkit-appearance:none;appearance:none;box-sizing:border-box;
+}
+.qa-native-picker::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer}
+
+/* Badge "Скоро" */
+.qa-badge-soon{
+  padding:2px 8px;border-radius:99px;
+  background:rgba(124,92,252,.15);color:#7C5CFC;
+  font-size:11px;font-weight:700;
+}
+
+/* Schedule picker list */
+.qa-sched-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;cursor:pointer;
+  border-bottom:1px solid var(--b1);
+  -webkit-tap-highlight-color:transparent;
+}
+.qa-sched-item:last-child{border-bottom:none}
+.qa-sched-item:active{background:rgba(255,255,255,.04)}
+.qa-sched-item-title{font-size:15px;font-weight:500;color:var(--t1)}
+.qa-sched-item-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.qa-sched-check{
+  width:22px;height:22px;stroke:var(--a);fill:none;
+  stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;
+}
 
 /* ═══════════════════════════════════════════════════
    7. CALENDAR INTEGRATION
@@ -837,6 +938,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 
 .badge-participant{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;background:rgba(91,142,255,.15);color:#7AAAFF;font-size:11px;font-weight:700}
 
-.app-footer{text-align:center;padding:12px 16px 24px;font-size:12px;color:var(--t2)}
+.app-footer{display:none;text-align:center;padding:12px 16px 24px;font-size:12px;color:var(--t2)}
 .app-footer a{color:var(--t2);text-decoration:none}
 .app-footer a:hover{color:var(--a)}

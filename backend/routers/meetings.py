@@ -65,14 +65,18 @@ async def create_quick_meeting(
     if data.end_time:
         try:
             end_h, end_m = map(int, data.end_time.split(":"))
+            end_date_val = date.fromisoformat(data.end_date) if data.end_date else meeting_date
             end_dt = datetime(
-                meeting_date.year, meeting_date.month, meeting_date.day,
+                end_date_val.year, end_date_val.month, end_date_val.day,
                 end_h, end_m, tzinfo=timezone.utc,
             )
         except (ValueError, IndexError):
-            raise HTTPException(400, "Неверный формат end_time")
+            raise HTTPException(400, "Неверный формат end_time/end_date")
+        # Ночная встреча: 23:00→01:00 — если end <= start и end_date не задан, +1 день
+        if end_dt <= scheduled_dt and not data.end_date:
+            end_dt += timedelta(days=1)
         if end_dt <= scheduled_dt:
-            raise HTTPException(400, "end_time должен быть позже start_time")
+            raise HTTPException(400, "Время окончания должно быть позже начала")
 
     if data.schedule_id:
         try:
@@ -107,7 +111,9 @@ async def create_quick_meeting(
             raise HTTPException(409, "Это время уже занято")
 
         platform = schedule["platform"]
-        end_dt = None
+        # Если end_time не передан — вычислить из duration расписания
+        if end_dt is None:
+            end_dt = scheduled_dt + timedelta(minutes=duration)
     else:
         default_schedule = await get_or_create_default_schedule(conn, telegram_id)
         schedule_uuid = default_schedule["id"]
