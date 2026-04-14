@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
 from config import BOT_TOKEN, MINI_APP_URL
-from handlers import start, navigation, schedules, bookings, create
+from handlers import start, navigation, schedules, bookings, create, inline
 from services.reminders import reminder_loop
 from services.notifications import start_internal_server
 
@@ -49,6 +49,7 @@ async def main():
     dp.include_router(schedules.router)
     dp.include_router(bookings.router)
     dp.include_router(create.router)
+    dp.include_router(inline.router)
 
     await setup_bot_commands(bot)
 
