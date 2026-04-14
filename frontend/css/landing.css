@@ -1,0 +1,186 @@
+/* ═══════════════════════════════════════════════════
+   LANDING PAGE — browser context only
+   Tokens use var() with fallbacks from style.css
+═══════════════════════════════════════════════════ */
+
+/* ── Body override for landing (style.css sets overflow:hidden) ── */
+body.landing-mode {
+  overflow: auto;
+  height: auto;
+  min-height: 100vh;
+}
+
+/* ── Landing container ── */
+#landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg, #0A0E0D);
+  color: var(--t1, #EDF2F0);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+/* ── Hero ── */
+.landing-hero {
+  text-align: center;
+  padding: 80px 20px 48px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.landing-logo {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--a, #00E5A8);
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+
+.landing-title {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--t1, #EDF2F0);
+  margin-bottom: 16px;
+}
+
+.landing-desc {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--t2, #7B9490);
+  max-width: 480px;
+  margin: 0 auto 32px;
+}
+
+.landing-cta {
+  display: inline-block;
+  padding: 14px 28px;
+  background: var(--a, #00E5A8);
+  color: #07221A;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: filter 0.15s;
+}
+.landing-cta:hover {
+  filter: brightness(0.92);
+}
+
+/* ── Steps ── */
+.landing-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 60px 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .landing-steps {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 900px;
+  }
+}
+
+.landing-step {
+  background: var(--s1, #121918);
+  border: 1px solid var(--b1, rgba(255,255,255,.06));
+  border-radius: var(--r2, 14px);
+  padding: 24px;
+}
+
+.landing-step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ad, rgba(0,229,168,.14));
+  color: var(--a, #00E5A8);
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landing-step-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 12px;
+  color: var(--t1, #EDF2F0);
+}
+
+.landing-step-desc {
+  font-size: 14px;
+  color: var(--t2, #7B9490);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* ── Auth section ── */
+.landing-auth {
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.landing-auth-label {
+  font-size: 14px;
+  color: var(--t2, #7B9490);
+  margin-bottom: 16px;
+}
+
+/* ── Footer ── */
+.landing-footer {
+  padding: 40px 20px;
+  border-top: 1px solid var(--b1, rgba(255,255,255,.06));
+  text-align: center;
+  margin-top: auto;
+}
+
+.landing-footer-links a {
+  color: var(--t2, #7B9490);
+  font-size: 13px;
+  margin: 0 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.landing-footer-links a:hover {
+  color: var(--t1, #EDF2F0);
+}
+
+.landing-footer-copy {
+  color: var(--t3, #435450);
+  font-size: 12px;
+  margin-top: 16px;
+}
+
+.landing-footer-contact {
+  color: var(--t2, #7B9490);
+  font-size: 13px;
+  margin-top: 8px;
+}
+.landing-footer-contact a {
+  color: var(--a, #00E5A8);
+  text-decoration: none;
+}
+.landing-footer-contact a:hover {
+  text-decoration: underline;
+}
+
+/* ── Mobile adjustments ── */
+@media (max-width: 480px) {
+  .landing-hero {
+    padding: 56px 16px 36px;
+  }
+  .landing-title {
+    font-size: 26px;
+  }
+  .landing-desc {
+    font-size: 15px;
+  }
+  .landing-steps {
+    padding: 40px 16px;
+  }
+}
