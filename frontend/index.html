@@ -13,8 +13,64 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="До встречи">
 <meta name="theme-color" content="#0D1A16">
+<meta name="description" content="До встречи — бесплатный сервис бронирования встреч в Telegram. Создайте расписание, поделитесь ссылкой, получайте бронирования.">
+<meta property="og:title" content="До встречи — бронирование встреч в Telegram">
+<meta property="og:description" content="Создайте расписание, поделитесь ссылкой — клиенты бронируют удобное время прямо в Telegram.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dovstrechiapp.ru">
+<link rel="stylesheet" href="/css/landing.css">
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════
+     LANDING PAGE — shown in browser, hidden in Telegram
+═══════════════════════════════════════════════════ -->
+<div id="landing" style="display:none">
+  <section class="landing-hero">
+    <div class="landing-logo">До встречи</div>
+    <h1 class="landing-title">Планируйте встречи<br>прямо в Telegram</h1>
+    <p class="landing-desc">
+      Создавайте расписания, делитесь ссылкой — клиенты бронируют удобное время.
+      Без регистрации, без лишних приложений. Все внутри Telegram.
+    </p>
+    <a href="https://t.me/do_vstrechi_bot" class="landing-cta" target="_blank" rel="noopener">
+      Открыть в Telegram
+    </a>
+  </section>
+
+  <section class="landing-steps">
+    <div class="landing-step">
+      <div class="landing-step-num">1</div>
+      <div class="landing-step-title">Создайте расписание</div>
+      <div class="landing-step-desc">Укажите название, длительность, рабочие дни и время</div>
+    </div>
+    <div class="landing-step">
+      <div class="landing-step-num">2</div>
+      <div class="landing-step-title">Поделитесь ссылкой</div>
+      <div class="landing-step-desc">Отправьте клиентам — они откроют бронирование в Telegram</div>
+    </div>
+    <div class="landing-step">
+      <div class="landing-step-num">3</div>
+      <div class="landing-step-title">Получите бронирование</div>
+      <div class="landing-step-desc">Уведомление придет в бота. Ссылка на звонок — автоматически</div>
+    </div>
+  </section>
+
+  <section class="landing-auth" id="landing-auth">
+    <p class="landing-auth-label">Или войдите через Telegram:</p>
+    <div id="telegram-login-widget"></div>
+  </section>
+
+  <footer class="landing-footer">
+    <div class="landing-footer-links">
+      <a href="/privacy">Политика конфиденциальности</a>
+      <a href="/terms">Пользовательское соглашение</a>
+    </div>
+    <div class="landing-footer-copy">&copy; 2025&ndash;2026 До встречи &middot; dovstrechiapp.ru</div>
+    <div class="landing-footer-contact">Связаться: <a href="https://t.me/do_vstrechi_bot">@do_vstrechi_bot</a></div>
+  </footer>
+</div>
+
 <div id="app">
 <!-- FIX: Bug #2 — маскирует скроллящийся контент под зоной Telegram UI -->
 <div class="tg-header-blur" aria-hidden="true"></div>
@@ -940,7 +996,54 @@
 <script src="/js/calendars.js"></script>
 <script src="/js/quickadd.js"></script>
 <script>
+/* ── Landing page helpers (browser context only) ── */
+function initLandingPage() {
+  var container = document.getElementById('telegram-login-widget');
+  if (container) {
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://telegram.org/js/telegram-widget.js?22';
+    s.setAttribute('data-telegram-login', 'do_vstrechi_bot');
+    s.setAttribute('data-size', 'large');
+    s.setAttribute('data-radius', '12');
+    s.setAttribute('data-request-access', 'write');
+    s.setAttribute('data-userpic', 'true');
+    s.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    container.appendChild(s);
+  }
+}
+function onTelegramAuth(user) {
+  window.open('https://t.me/do_vstrechi_bot', '_blank');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  /* ── Context detection: Telegram Mini App vs Browser ── */
+  var tgInitData = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
+  var isInTelegram = typeof tgInitData === 'string' && tgInitData.length > 0;
+
+  var landingEl = document.getElementById('landing');
+  var appEl = document.getElementById('app');
+
+  if (!isInTelegram) {
+    /* Browser context → show landing, completely disable Mini App */
+    if (appEl) {
+      appEl.style.display = 'none';
+      appEl.style.animation = 'none';
+    }
+    var appFooter = document.querySelector('footer.app-footer');
+    if (appFooter) appFooter.style.display = 'none';
+    if (landingEl) landingEl.style.display = '';
+    document.documentElement.style.overflow = 'auto';
+    document.documentElement.style.height = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.height = 'auto';
+    document.body.classList.add('landing-mode');
+    initLandingPage();
+    return; /* STOP: do not execute any Mini App code below */
+  }
+
+  /* Telegram context → landing stays hidden, continue Mini App */
+
   /* ── Telegram SDK init — wrapped in try/catch to guarantee app visibility ── */
   try {
     if (tg) {
