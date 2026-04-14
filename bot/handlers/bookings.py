@@ -71,17 +71,21 @@ async def cb_cancel_booking(cb: CallbackQuery):
 
 @router.callback_query(F.data.startswith("guest_confirm_"))
 async def cb_guest_confirm(cb: CallbackQuery):
-    """Участник подтверждает что встреча в силе."""
+    """Участник подтверждает что встреча в силе (ответ на утренний вопрос)."""
     booking_id = cb.data.replace("guest_confirm_", "", 1)
+    result = await api("patch", f"/api/bookings/{booking_id}/guest-confirm?telegram_id={cb.from_user.id}")
     try:
         await cb.message.edit_text(
-            cb.message.text + "\n\n✅ <b>Вы подтвердили встречу!</b>",
+            cb.message.text + "\n\n✅ <b>Отлично, ждём вас!</b>",
             parse_mode=ParseMode.HTML,
             reply_markup=None,
         )
     except Exception:
         pass
-    await cb.answer("Встреча подтверждена!")
+    if result:
+        await cb.answer("Встреча подтверждена! 🎉")
+    else:
+        await cb.answer("Не удалось подтвердить", show_alert=True)
     log.info(f"Guest {cb.from_user.id} confirmed booking {booking_id}")
 
 
@@ -89,7 +93,7 @@ async def cb_guest_confirm(cb: CallbackQuery):
 async def cb_guest_cancel(cb: CallbackQuery):
     """Участник отменяет встречу через утреннее сообщение."""
     booking_id = cb.data.replace("guest_cancel_", "", 1)
-    result = await api("patch", f"/api/bookings/{booking_id}/cancel")
+    result = await api("patch", f"/api/bookings/{booking_id}/cancel?telegram_id={cb.from_user.id}")
     try:
         await cb.message.edit_text(
             cb.message.text + "\n\n❌ <b>Встреча отменена</b>",

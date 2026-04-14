@@ -90,16 +90,14 @@ async def send_confirmation_request(bot: Bot, booking: dict):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Да, всё в силе", callback_data=f"guest_confirm_{bid}"),
-        InlineKeyboardButton(text="❌ Отменить",        callback_data=f"guest_cancel_{bid}"),
+        InlineKeyboardButton(text="✅ Да, буду!", callback_data=f"guest_confirm_{bid}"),
+        InlineKeyboardButton(text="❌ Отменить",  callback_data=f"guest_cancel_{bid}"),
     ]])
 
     try:
         await bot.send_message(guest_tid, text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
-        await api("post", "/api/sent-reminders", json={
-            "booking_id":    bid,
-            "reminder_type": "confirmation_request",
-        })
+        # Mark confirmation as asked on backend (sets confirmation_asked + confirmation_asked_at)
+        await api("patch", f"/api/bookings/{bid}/confirmation-asked")
     except Exception as e:
         log.warning(f"Confirmation request to {guest_tid} failed: {e}")
 
@@ -126,6 +124,14 @@ async def reminder_loop(bot: Bot):
                 if resp2 and resp2.get("bookings"):
                     for b in resp2["bookings"]:
                         await send_confirmation_request(bot, b)
+                        await asyncio.sleep(0.3)
+
+                # 3. Check for no-answer: guest didn't respond within 1h
+                resp3 = await api("get", "/api/bookings/no-answer-candidates")
+                if resp3 and resp3.get("bookings"):
+                    for b in resp3["bookings"]:
+                        bid = str(b.get("id", ""))
+                        await api("patch", f"/api/bookings/{bid}/set-no-answer")
                         await asyncio.sleep(0.3)
 
         except Exception as e:

@@ -180,6 +180,27 @@ async def handle_status_change(request: web.Request) -> web.Response:
                     )
                     await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
 
+        elif new_status == "guest_confirmed":
+            # Guest pressed "Да, буду!" → notify organizer
+            if organizer_tid:
+                text = (
+                    f"✅ <b>{guest_name} подтвердил(а) встречу!</b>\n\n"
+                    f"📋 {schedule_title}\n"
+                    f"📅 {dt}"
+                )
+                await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+
+        elif new_status == "no_answer":
+            # Guest didn't respond to morning confirmation → notify organizer
+            if organizer_tid:
+                text = (
+                    f"⚠️ <b>{guest_name} не подтвердил(а) встречу</b>\n\n"
+                    f"📋 {schedule_title}\n"
+                    f"📅 {dt}\n\n"
+                    "Участник не ответил на утреннее подтверждение."
+                )
+                await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+
         return web.json_response({"ok": True})
 
     except Exception as e:
