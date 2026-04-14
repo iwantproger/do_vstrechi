@@ -141,14 +141,15 @@ function renderHeroCard(m, now) {
   const time = fmtTime(dt);
   const dur = m.schedule_duration || 60;
   const datePart = dt.getDate() + ' ' + MONTHS_GEN[dt.getMonth()].slice(0, 3);
-  const plat = PLAT_NAMES[m.schedule_platform] || m.schedule_platform || '';
+  const heroIsDefault = m.is_manual && (!m.schedule_title || m.schedule_title === 'Личные встречи');
+  const plat = heroIsDefault ? '' : (PLAT_NAMES[m.platform || m.schedule_platform] || m.schedule_platform || '');
   const meta = datePart + ' · ' + dur + ' мин' + (plat ? ' · ' + plat : '');
   const isGuest = m.my_role === 'guest';
   /* For guest meetings show the organizer's name; for organizer meetings show the guest's name */
   const name = isGuest
     ? escHtml(m.organizer_first_name || 'Организатор')
     : escHtml(m.guest_name || '');
-  const title = escHtml(m.schedule_title || '');
+  const title = m.is_manual ? escHtml(m.title || m.display_title || '') : escHtml(m.schedule_title || '');
   const withinHour = (dt - now) > 0 && (dt - now) < 3600000;
   const heroStatus = getMeetingStatus(m);
   const guestBadge = isGuest ? '<div style="margin-bottom:6px">' + badgeParticipant() + '</div>' : '';
@@ -237,7 +238,8 @@ function renderMeetingCard(m) {
   const dt = new Date(m.scheduled_time);
   const dur = m.schedule_duration || 60;
   const timeStart = fmtTime(dt);
-  const timeEnd = fmtTimeOffset(dt, dur);
+  const cardEndDt = m.booking_end_time || m.end_time;
+  const timeEnd = cardEndDt ? fmtTime(new Date(cardEndDt)) : fmtTimeOffset(dt, dur);
   const isGuest = isGuestBooking(m);
   /* for guest bookings: show organizer name instead of guest name */
   const personName = isGuest ? (m.organizer_first_name || 'Организатор') : (m.guest_name || (m.is_manual ? 'Личная встреча' : ''));
@@ -532,8 +534,12 @@ function renderMeetDetailHtml(m, dStatus) {
     initials = getInitials(m.guest_name);
     contact = escHtml(m.guest_contact || '');
   }
-  var schedTitle = escHtml(m.is_manual ? (m.title || 'Личная встреча') : (m.schedule_title || ''));
-  var platform = escHtml(m.is_manual ? 'Личная встреча' : (m.schedule_platform || 'Jitsi Meet'));
+  var isDefaultSchedule = m.is_manual && (!m.schedule_title || m.schedule_title === 'Личные встречи');
+  var schedTitle = m.is_manual
+    ? escHtml(isDefaultSchedule ? 'Без расписания' : (m.schedule_title || m.title || ''))
+    : escHtml(m.schedule_title || '');
+  var bPlatKey = m.platform || m.schedule_platform || '';
+  var platform = isDefaultSchedule ? '' : escHtml(PLAT_NAMES[bPlatKey] || bPlatKey || '');
   var notes = m.notes ? escHtml(m.notes) : '';
   var link = m.meeting_link || '';
   var linkDisplay = link.replace(/^https?:\/\//, '');
@@ -559,7 +565,19 @@ function renderMeetDetailHtml(m, dStatus) {
   } else {
     dayLabel = fmtDateFull(dt);
   }
-  var dateVal = dayLabel + ' · ' + fmtTime(dt) + ' – ' + fmtTimeOffset(dt, dur);
+  var endTimeStr;
+  var bookingEnd = m.booking_end_time || m.end_time;
+  if (bookingEnd) {
+    var endDt = new Date(bookingEnd);
+    endTimeStr = fmtTime(endDt);
+    /* Multi-day: show end date too */
+    if (endDt.toDateString() !== dt.toDateString()) {
+      endTimeStr = endDt.getDate() + ' ' + MONTHS_GEN[endDt.getMonth()].slice(0, 3) + ' ' + fmtTime(endDt);
+    }
+  } else {
+    endTimeStr = fmtTimeOffset(dt, dur);
+  }
+  var dateVal = dayLabel + ' · ' + fmtTime(dt) + ' – ' + endTimeStr;
 
   /* contact "Написать" button */
   var contactUsername = contact.replace(/^@/, '');
@@ -609,12 +627,16 @@ function renderMeetDetailHtml(m, dStatus) {
   + '</div>';
 
   /* detail card */
+  var platformRow = platform
+    ? '<div class="detail-row"><div class="dr-label">Платформа</div><div class="dr-val">' + platform + '</div></div>'
+    : '';
+  var linkRowFinal = isDefaultSchedule ? '' : linkRow;
   html += '<div class="detail-card" style="border-color:' + borderColor + '">'
     + '<div class="detail-row"><div class="dr-label">Расписание</div><div class="dr-val">' + schedTitle + '</div></div>'
     + '<div class="detail-row"><div class="dr-label">Дата и время</div><div class="dr-val">' + dateVal + '</div></div>'
     + '<div class="detail-row"><div class="dr-label">Статус</div><div class="dr-val">' + meetingStatusHtml(dStatus) + '</div></div>'
-    + '<div class="detail-row"><div class="dr-label">Платформа</div><div class="dr-val">' + platform + '</div></div>'
-    + linkRow
+    + platformRow
+    + linkRowFinal
     + '<div class="detail-row" style="border-bottom:none"><div class="dr-label">Контакт</div>' + contactHtml + '</div>'
     + notesRow
   + '</div>';

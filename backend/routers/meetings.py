@@ -119,7 +119,8 @@ async def create_quick_meeting(
         schedule_uuid = default_schedule["id"]
         platform = default_schedule["platform"]
 
-    meeting_link = generate_meeting_link(platform)
+    # Личная встреча (без расписания) — не генерировать ссылку
+    meeting_link = None if not data.schedule_id else generate_meeting_link(platform)
     guest_name = data.guest_name or data.title
     guest_contact = data.guest_contact or ""
 

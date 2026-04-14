@@ -61,15 +61,13 @@ document.addEventListener('input', function(e) {
 
 /* ── Date/Time pickers ── */
 function toggleQaPicker(pickerId) {
-  var wrap = document.getElementById('qa-picker-' + pickerId);
-  if (!wrap) return;
+  var inputId = 'qa-' + pickerId + '-input';
+  var inputEl = document.getElementById(inputId);
 
-  var isOpen = wrap.style.display !== 'none';
   _qaCloseAllPickers();
 
-  if (!isOpen) {
-    wrap.style.display = '';
-    _qaOpenPicker = pickerId;
+  if (inputEl) {
+    /* Highlight the chip */
     var chips = {
       'start-date': 'qa-start-date-label',
       'start-time': 'qa-start-time-label',
@@ -78,6 +76,14 @@ function toggleQaPicker(pickerId) {
     };
     var chipEl = document.getElementById(chips[pickerId]);
     if (chipEl) chipEl.classList.add('active');
+    _qaOpenPicker = pickerId;
+
+    /* Show the picker-wrap as fallback for devices where showPicker fails */
+    var wrap = document.getElementById('qa-picker-' + pickerId);
+    if (wrap) wrap.style.display = '';
+
+    /* Try to open native picker immediately */
+    try { inputEl.showPicker(); } catch(e) { inputEl.focus(); inputEl.click(); }
   }
   if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
@@ -130,7 +136,12 @@ function _qaSyncEnd() {
 }
 
 /* ── Schedule picker ── */
-function openSchedulePicker() {
+async function openSchedulePicker() {
+  /* Ensure schedules are loaded */
+  if (!state.schedules || state.schedules.length === 0) {
+    var resp = await apiFetch('GET', '/api/schedules');
+    if (resp.data) state.schedules = resp.data;
+  }
   var list = document.getElementById('qa-schedule-list');
   var schedules = state.schedules || [];
 
