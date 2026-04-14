@@ -69,24 +69,75 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         "last_name":  user.last_name,
     })
 
-    await msg.answer(
-        f"👋 Привет, <b>{user.first_name}</b>!\n\n"
-        "Я помогу тебе управлять встречами:\n"
-        "• создавать расписания\n"
-        "• принимать бронирования\n"
-        "• отправлять ссылки клиентам\n\n"
-        "Выбери действие:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=get_main_keyboard(),
-    )
+    # Fetch stats to determine new vs returning user
+    stats = await api("get", f"/api/stats?telegram_id={user.id}")
+    active_schedules = 0
+    upcoming_bookings = 0
+    if stats and isinstance(stats, dict):
+        active_schedules = stats.get("active_schedules", 0) or 0
+        upcoming_bookings = stats.get("upcoming_bookings", 0) or 0
 
-    inline_kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="🌐 Открыть приложение",
-            web_app=WebAppInfo(url=MINI_APP_URL),
+    # 1. Set reply keyboard (short message)
+    await msg.answer("👋", reply_markup=get_main_keyboard())
+
+    # 2. Main message with inline keyboard
+    if active_schedules == 0:
+        # New user — onboarding
+        text = (
+            "📅 <b>До встречи!</b> — это поиск свободного времени "
+            "между тобой и другим человеком\n\n"
+            "1. Создай расписание — укажи название, время и дни\n"
+            "2. Отправь ссылку другому человеку\n"
+            "3. Он выбирает слот и записывается\n"
+            "4. Ты получаешь уведомление и подтверждаешь\n\n"
+            "Без сайтов, без регистрации — всё внутри Telegram."
         )
-    ]])
-    await msg.answer("👇 Или открой приложение:", reply_markup=inline_kb)
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Создать первое расписание", callback_data="create_schedule")],
+            [InlineKeyboardButton(text="❓ Как это работает?", callback_data="how_it_works")],
+        ])
+    elif upcoming_bookings > 0:
+        # Returning user with upcoming bookings
+        text = (
+            f"👋 {user.first_name}, с возвращением!\n\n"
+            f"У тебя {upcoming_bookings} предстоящих встреч."
+        )
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
+            [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+        ])
+    else:
+        # Returning user without upcoming bookings
+        text = (
+            f"👋 {user.first_name}, с возвращением!\n\n"
+            "Пока нет предстоящих встреч. Поделись ссылкой на расписание — и записи появятся."
+        )
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="🔗 Мои расписания", callback_data="my_schedules")],
+            [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+        ])
+
+    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
+
+
+@router.callback_query(F.data == "how_it_works")
+async def cb_how_it_works(cb: CallbackQuery):
+    text = (
+        "📖 <b>Как это работает:</b>\n\n"
+        "Шаг 1 — Создаёшь расписание в боте или приложении\n"
+        "Шаг 2 — Делишься ссылкой (в чат, в stories, куда угодно)\n"
+        "Шаг 3 — Человек открывает, выбирает дату и время\n"
+        "Шаг 4 — Тебе приходит уведомление, подтверждаешь в один клик\n\n"
+        "Готов попробовать?"
+    )
+    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+        [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
+    ])
+    await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
+    await cb.answer()
 
 
 @router.message(Command("help"))
