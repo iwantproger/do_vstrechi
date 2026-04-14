@@ -546,23 +546,38 @@ function openShareSheet(schedId) {
   showSheet('sheet-share');
 }
 
-/* FIX: Bug #10 — шаринг через нативный Telegram без перехода в браузер */
+/* Общий текст для шаринга (формат как в inline-режиме бота) */
+function buildShareText(schedule) {
+  if (!schedule) return '';
+  var title = schedule.title || 'Встреча';
+  var dur = schedule.duration || 60;
+  var plat = PLAT_NAMES[schedule.platform] || schedule.platform || '';
+  var days = formatWorkDays(schedule.work_days);
+  var start = fmtTimeStr(schedule.start_time) || '';
+  var end = fmtTimeStr(schedule.end_time) || '';
+  var desc = schedule.description || '';
+
+  var text = '📅 ' + title + '\n\n'
+    + '⏱ ' + dur + ' мин · ' + plat + '\n';
+  if (days) text += '📆 ' + days + ', ' + start + '–' + end + '\n';
+  if (desc) text += '📝 ' + desc + '\n';
+  text += '\n👉 Записаться на встречу';
+  return text;
+}
+
 function shareTelegram() {
   var schedId = state._shareScheduleId || _editScheduleId || '';
   var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
   closeSheet('sheet-share');
   if (!url) return;
 
-  /* Красивый текст: название расписания + ссылка */
   var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
-  var title = schedule ? schedule.title : 'встречу';
-  var text = '📅 Запишись ко мне — ' + title;
+  var text = buildShareText(schedule) || '📅 Запишись ко мне';
 
   var shareUrl = 'https://t.me/share/url'
     + '?url=' + encodeURIComponent(url)
     + '&text=' + encodeURIComponent(text);
 
-  /* tg.openTelegramLink() открывает t.me ссылки нативно, без браузера */
   if (tg?.openTelegramLink) {
     tg.openTelegramLink(shareUrl);
   } else {

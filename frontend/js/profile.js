@@ -347,10 +347,13 @@ function copyProfileLink() {
 }
 
 function shareProfileLink() {
-  var url = state._profileLink;
+  var url = state._profileTgUrl || state._profileLink;
   if (!url) return;
+  var defaultSched = (state.schedules || []).find(function(s) { return s.is_default === true; })
+                  || (state.schedules || [])[0];
+  var text = buildShareText(defaultSched) || '📅 Запишись ко мне';
   if (tg?.openTelegramLink) {
-    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url));
+    tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text));
   } else {
     navigator.clipboard?.writeText(url).catch(function() {});
     showToast('Ссылка скопирована ✓', 'success');
@@ -365,9 +368,9 @@ async function shareMyLink() {
     await loadProfile();
   }
   var tgUrl = state._profileTgUrl || 'https://t.me/do_vstrechi_bot';
-  var webUrl = state._profileLink || tgUrl;
-  var title = state._profileSchedTitle || 'встречу';
-  var text = '📅 Запишись ко мне — ' + title;
+  var defaultSched = (state.schedules || []).find(function(s) { return s.is_default === true; })
+                  || (state.schedules || [])[0];
+  var text = buildShareText(defaultSched) || '📅 Запишись ко мне';
 
   if (navigator.share) {
     try {
