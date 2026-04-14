@@ -781,81 +781,118 @@
 <div class="toast" id="toast"></div>
 
 <!-- ═══════════════════════════════
-     QUICK ADD MEETING SHEET
+     QUICK ADD — Apple Calendar Style
 ════════════════════════════════ -->
-<div class="overlay" id="sheet-quick-add" onclick="closeSheet('sheet-quick-add')">
-  <div class="sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title" style="padding:0 20px">Новая встреча</div>
+<div class="qa-overlay" id="qa-overlay" style="display:none">
+  <div class="qa-screen">
 
-    <!-- Mode chips -->
-    <div style="display:flex;gap:8px;padding:0 20px;margin-bottom:18px">
-      <div class="qa-mode on" id="qa-mode-personal" onclick="setQaMode('personal')">Личная встреча</div>
-      <div class="qa-mode" id="qa-mode-schedule" onclick="setQaMode('schedule')">В расписание</div>
+    <!-- Header -->
+    <div class="qa-header">
+      <button class="qa-header-btn" onclick="closeQuickAdd()">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="qa-header-title">Новое</div>
+      <button class="qa-header-btn qa-save-btn" id="qa-save-btn" onclick="submitQuickAdd()">
+        <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>
     </div>
 
-    <!-- Personal mode fields -->
-    <div id="qa-personal-fields" style="padding:0 20px">
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Название встречи</div>
-        <input id="qa-title" type="text" placeholder="Встреча с командой" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
+    <div class="qa-body">
+
+      <!-- Секция 1: Название + Заметки -->
+      <div class="qa-section">
+        <input class="qa-field qa-title-input" id="qa-title" type="text" placeholder="Название">
+        <div class="qa-divider"></div>
+        <textarea class="qa-field qa-notes-input" id="qa-notes" rows="2" placeholder="Заметки"></textarea>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <div style="flex:1">
-          <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Дата</div>
-          <input id="qa-date" type="date" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
-        </div>
-        <div style="flex:1">
-          <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Время</div>
-          <input id="qa-time" type="time" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
+
+      <!-- Секция 2: Расписание -->
+      <div class="qa-section">
+        <div class="qa-row" onclick="openSchedulePicker()">
+          <span class="qa-row-label">Расписание</span>
+          <div class="qa-row-right">
+            <span class="qa-row-value" id="qa-schedule-label">Без расписания</span>
+            <svg class="qa-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
         </div>
       </div>
+
+      <!-- Секция 3: Начало / Конец -->
+      <div class="qa-section">
+        <!-- Начало -->
+        <div class="qa-row" onclick="toggleQaPicker('start-date')">
+          <span class="qa-row-label">Начало</span>
+          <div class="qa-row-right">
+            <span class="qa-date-chip" id="qa-start-date-label">15 апр. 2026</span>
+            <span class="qa-time-chip" id="qa-start-time-label" onclick="event.stopPropagation();toggleQaPicker('start-time')">15:00</span>
+          </div>
+        </div>
+
+        <!-- Start date picker -->
+        <div class="qa-picker-wrap" id="qa-picker-start-date" style="display:none">
+          <input type="date" class="qa-native-picker" id="qa-start-date-input"
+                 onchange="onQaDateChange('start')">
+        </div>
+
+        <!-- Start time picker -->
+        <div class="qa-picker-wrap" id="qa-picker-start-time" style="display:none">
+          <input type="time" class="qa-native-picker" id="qa-start-time-input"
+                 onchange="onQaTimeChange('start')">
+        </div>
+
+        <div class="qa-divider"></div>
+
+        <!-- Конец -->
+        <div class="qa-row" onclick="toggleQaPicker('end-date')">
+          <span class="qa-row-label">Конец</span>
+          <div class="qa-row-right">
+            <span class="qa-date-chip" id="qa-end-date-label">15 апр. 2026</span>
+            <span class="qa-time-chip" id="qa-end-time-label" onclick="event.stopPropagation();toggleQaPicker('end-time')">16:00</span>
+          </div>
+        </div>
+
+        <!-- End date picker -->
+        <div class="qa-picker-wrap" id="qa-picker-end-date" style="display:none">
+          <input type="date" class="qa-native-picker" id="qa-end-date-input"
+                 onchange="onQaDateChange('end')">
+        </div>
+
+        <!-- End time picker -->
+        <div class="qa-picker-wrap" id="qa-picker-end-time" style="display:none">
+          <input type="time" class="qa-native-picker" id="qa-end-time-input"
+                 onchange="onQaTimeChange('end')">
+        </div>
+      </div>
+
+      <!-- Секция 4: Повтор (disabled) -->
+      <div class="qa-section" style="opacity:0.45;pointer-events:none">
+        <div class="qa-row">
+          <span class="qa-row-label">Повтор</span>
+          <div class="qa-row-right">
+            <span class="qa-row-value">Никогда</span>
+            <span class="qa-badge-soon">Скоро</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /qa-body -->
+  </div><!-- /qa-screen -->
+</div><!-- /qa-overlay -->
+
+<!-- Schedule picker (отдельный overlay) -->
+<div class="qa-overlay" id="qa-schedule-picker" style="display:none">
+  <div class="qa-screen">
+    <div class="qa-header">
+      <button class="qa-header-btn" onclick="closeSchedulePicker()">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="qa-header-title">Расписание</div>
+      <div style="width:40px"></div>
     </div>
-
-    <!-- Schedule mode fields -->
-    <div id="qa-schedule-fields" style="display:none;padding:0 20px">
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Расписание</div>
-        <select id="qa-schedule-sel" onchange="onQaScheduleChange()" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none;appearance:none">
-          <option value="">Выберите расписание…</option>
-        </select>
+    <div class="qa-body">
+      <div class="qa-section" id="qa-schedule-list">
+        <!-- Заполняется через JS -->
       </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Дата</div>
-        <input id="qa-sched-date" type="date" onchange="onQaScheduleChange()" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
-      </div>
-      <div id="qa-slots-wrap" style="display:none;margin-bottom:12px">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Доступные слоты</div>
-        <div class="slots-grid" id="qa-slots"></div>
-      </div>
-    </div>
-
-    <!-- Extra fields (participant + notes) -->
-    <div style="margin-bottom:10px;padding:0 20px">
-      <div onclick="toggleQaExtra()" style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:600;padding:4px 0">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span id="qa-extra-lbl">Участник и заметки</span>
-      </div>
-      <div id="qa-extra-fields" style="display:none;margin-top:10px">
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Имя участника</div>
-          <input id="qa-guest-name" type="text" placeholder="Иван Петров" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
-        </div>
-        <div style="margin-bottom:12px">
-          <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Telegram или email</div>
-          <input id="qa-guest-contact" type="text" placeholder="@username" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none">
-        </div>
-        <div>
-          <div style="font-size:12px;color:var(--t2);margin-bottom:6px">Заметка (необязательно)</div>
-          <textarea id="qa-notes" placeholder="Тема встречи или ссылка…" rows="3" style="width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-size:15px;color:var(--t1);outline:none;resize:none;font-family:inherit"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <div id="qa-error" style="display:none;color:var(--red);font-size:13px;margin-bottom:10px;padding:10px 12px;background:rgba(240,100,73,.1);border-radius:10px;margin-left:20px;margin-right:20px"></div>
-
-    <div style="padding:12px 20px calc(env(safe-area-inset-bottom,8px) + 12px)">
-      <button id="qa-submit-btn" class="btn btn-primary" onclick="submitQuickAdd()" style="width:100%;height:50px;font-size:16px;font-weight:700">Создать встречу</button>
     </div>
   </div>
 </div>

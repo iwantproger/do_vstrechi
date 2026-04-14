@@ -46,6 +46,7 @@ class QuickMeetingCreate(BaseModel):
     date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     start_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    end_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     schedule_id: Optional[str] = Field(None, max_length=50)
     guest_name: Optional[str] = Field(None, max_length=200)
     guest_contact: Optional[str] = Field(None, max_length=200)
