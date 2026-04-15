@@ -29,6 +29,9 @@ async function openQuickAdd() {
   _qaScheduleId = null;
   document.getElementById('qa-schedule-label').textContent = 'Без расписания';
 
+  var togEl = document.getElementById('qa-block-slots');
+  if (togEl && !togEl.classList.contains('on')) togEl.classList.add('on');
+
   showScreen('s-quick-add');
   hideNavbar();
   if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -130,6 +133,8 @@ async function submitQuickAdd() {
     return;
   }
 
+  var blocksSlots = document.getElementById('qa-block-slots').classList.contains('on');
+
   var body = {
     title: title,
     date: startDate,
@@ -137,7 +142,8 @@ async function submitQuickAdd() {
     end_time: endTime || null,
     end_date: endDate !== startDate ? endDate : null,
     schedule_id: _qaScheduleId || null,
-    notes: notes || null
+    notes: notes || null,
+    blocks_slots: blocksSlots
   };
 
   var btn = document.getElementById('qa-submit-btn');

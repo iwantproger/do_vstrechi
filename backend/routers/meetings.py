@@ -124,16 +124,20 @@ async def create_quick_meeting(
     guest_name = data.guest_name or data.title
     guest_contact = data.guest_contact or ""
 
+    blocks_slots = data.blocks_slots if data.blocks_slots is not None else True
+
     booking = await conn.fetchrow(
         """
         INSERT INTO bookings
             (schedule_id, guest_name, guest_contact, scheduled_time,
-             status, meeting_link, notes, title, end_time, is_manual, created_by)
-        VALUES ($1, $2, $3, $4, 'confirmed', $5, $6, $7, $8, TRUE, $9)
+             status, meeting_link, notes, title, end_time, is_manual, created_by,
+             blocks_slots)
+        VALUES ($1, $2, $3, $4, 'confirmed', $5, $6, $7, $8, TRUE, $9, $10)
         RETURNING *
         """,
         schedule_uuid, guest_name, guest_contact, scheduled_dt,
         meeting_link, data.notes, data.title, end_dt, telegram_id,
+        blocks_slots,
     )
 
     log.info("quick_meeting_created", booking_id=str(booking["id"]), telegram_id=telegram_id)

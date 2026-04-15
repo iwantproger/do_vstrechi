@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
     confirmation_asked    BOOLEAN NOT NULL DEFAULT FALSE,
     confirmation_asked_at TIMESTAMPTZ,
+    blocks_slots        BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
