@@ -11,7 +11,6 @@ async function checkSession() {
 }
 
 function onTelegramAuth(user) {
-  console.log('[ADMIN AUTH] Telegram callback received, id=' + user.id + ' fields=' + Object.keys(user).join(','));
   const errorEl = document.getElementById('loginError');
   const loadingEl = document.getElementById('loginLoading');
   errorEl.classList.remove('visible');
@@ -19,7 +18,6 @@ function onTelegramAuth(user) {
 
   api('POST', '/api/admin/auth/login', user)
     .then(data => {
-      console.log('[ADMIN AUTH] Login success');
       loadingEl.classList.remove('visible');
       sessionData = { telegram_id: user.id };
       showApp();

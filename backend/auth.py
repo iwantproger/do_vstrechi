@@ -5,7 +5,6 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
-from typing import Optional
 
 import asyncpg
 import structlog
