@@ -117,6 +117,11 @@ services:
   # Support Bot
   # ─────────────────────────────────────────────
   support_bot_beta:
+    # Gated behind the "support" profile — beta does not set SUPPORT_BOT_TOKEN
+    # so the container was stuck in a restart loop. Start explicitly with
+    # `docker compose --profile support up -d support_bot_beta` when needed.
+    profiles:
+      - support
     build:
       context: ${BETA_DIR:-/opt/dovstrechi-beta}/support-bot
       dockerfile: Dockerfile

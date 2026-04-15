@@ -24,6 +24,10 @@ async def init_pool():
         min_size=5,
         max_size=20,
         command_timeout=30,
+        # Disable idle-connection auto-close (default 300s). Low-traffic beta
+        # was shrinking the pool to 1 and then noisily "reopening" on next request,
+        # which triggered spurious db_pool_exhausted warnings.
+        max_inactive_connection_lifetime=0,
     )
     log.info("PostgreSQL pool ready", min_size=5, max_size=20, command_timeout=30)
 
