@@ -53,7 +53,7 @@ async def cb_share_schedule(cb: CallbackQuery):
         f"<code>{booking_url}</code>\n\n"
         f"Отправь эту ссылку клиентам — они смогут выбрать время и записаться.",
         parse_mode=ParseMode.HTML,
-        reply_markup=kb_back_main(),
+        reply_markup=kb_back_main,
     )
     await cb.answer()
 
@@ -64,6 +64,6 @@ async def cb_delete_schedule(cb: CallbackQuery):
     result = await api("delete", f"/api/schedules/{schedule_id}?telegram_id={cb.from_user.id}")
 
     if result:
-        await cb.message.edit_text("✅ Расписание удалено.", reply_markup=kb_back_main())
+        await cb.message.edit_text("✅ Расписание удалено.", reply_markup=kb_back_main)
     else:
         await cb.answer("Не удалось удалить", show_alert=True)

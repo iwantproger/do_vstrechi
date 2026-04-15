@@ -24,6 +24,34 @@ import time as _time
 log = structlog.get_logger()
 router = APIRouter()
 
+# ─────────────────────────────────────────────────────────
+# SQL column whitelists (defense-in-depth against injection
+# via dynamically-built UPDATE/WHERE clauses)
+# ─────────────────────────────────────────────────────────
+ALLOWED_TASK_COLUMNS = {
+    "title", "description", "description_plain",
+    "status", "tags", "priority",
+}
+ALLOWED_EVENT_FILTERS = {"event_type", "severity", "anonymous_id"}
+
+# Simple module-level TTL cache for expensive queries (5 minutes).
+_TTL_CACHE: dict[str, tuple[float, Any]] = {}
+_TTL_SECONDS = 300.0
+
+
+def _cache_get(key: str) -> Any:
+    entry = _TTL_CACHE.get(key)
+    if entry is None:
+        return None
+    ts, value = entry
+    if _time.time() - ts > _TTL_SECONDS:
+        return None
+    return value
+
+
+def _cache_set(key: str, value: Any) -> None:
+    _TTL_CACHE[key] = (_time.time(), value)
+
 
 # ─────────────────────────────────────────────────────────
 # Admin auth
@@ -422,6 +450,10 @@ async def admin_update_task(
     set_parts = []
     values: list[Any] = []
     for i, (col, val) in enumerate(updates.items(), start=1):
+        # Defense-in-depth: even though `updates` comes from a validated
+        # Pydantic model, reject anything not in the explicit whitelist.
+        if col not in ALLOWED_TASK_COLUMNS:
+            raise HTTPException(400, f"Invalid field: {col}")
         set_parts.append(f"{col} = ${i}")
         values.append(val)
 
@@ -511,23 +543,32 @@ async def admin_system_info(
 ):
     pool = await get_pool()
     owner_id = ADMIN_TELEGRAM_ID or 0
+    # Single SQL with CTE filtering non-owner users once, reused by subqueries.
     counts = await conn.fetchrow("""
+        WITH non_owner_users AS (
+            SELECT id FROM users WHERE telegram_id != $1
+        )
         SELECT
-            (SELECT COUNT(*) FROM users WHERE telegram_id != $1)   AS users,
+            (SELECT COUNT(*) FROM non_owner_users) AS users,
             (SELECT COUNT(*) FROM schedules s
-             JOIN users u ON u.id = s.user_id
-             WHERE s.is_active = TRUE AND u.telegram_id != $1)     AS schedules_active,
+             WHERE s.is_active = TRUE
+               AND s.user_id IN (SELECT id FROM non_owner_users)) AS schedules_active,
             (SELECT COUNT(*) FROM bookings b
-             JOIN schedules s ON s.id = b.schedule_id
-             JOIN users u ON u.id = s.user_id
-             WHERE u.telegram_id != $1
+             WHERE b.schedule_id IN (
+                 SELECT s.id FROM schedules s
+                 WHERE s.user_id IN (SELECT id FROM non_owner_users)
+             )
              AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS bookings_total,
-            (SELECT COUNT(*) FROM app_events)                      AS events_total,
-            (SELECT COUNT(*) FROM admin_tasks)                     AS tasks_total
+            (SELECT COUNT(*) FROM app_events) AS events_total,
+            (SELECT COUNT(*) FROM admin_tasks) AS tasks_total
     """, owner_id)
-    tables_count = await conn.fetchval(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
-    )
+    # Static information_schema lookup — cache 5 min to avoid per-request pg_catalog scan.
+    tables_count = _cache_get("tables_count")
+    if tables_count is None:
+        tables_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+        )
+        _cache_set("tables_count", tables_count)
     return {
         "version": APP_VERSION,
         "python_version": sys.version.split()[0],
@@ -609,19 +650,16 @@ async def cleanup_events(
 async def receive_event(
     data: AppEvent,
     request: Request,
-    conn: asyncpg.Connection = Depends(db),
     auth_user: dict | None = Depends(get_optional_user),
 ):
     telegram_id = auth_user["id"] if auth_user else 0
-    anon_id = anonymize_id(telegram_id)
-
-    await conn.execute(
-        """
-        INSERT INTO app_events (event_type, anonymous_id, session_id, metadata, severity)
-        VALUES ($1, $2, $3, $4::jsonb, $5)
-        """,
-        data.event_type, anon_id, data.session_id,
-        json.dumps(data.metadata) if data.metadata else None,
-        data.severity,
+    # Route through the in-memory EventBuffer — no DB roundtrip on hot path.
+    from event_buffer import event_buffer
+    event_buffer.add(
+        event_type=data.event_type,
+        telegram_id=telegram_id,
+        metadata=data.metadata,
+        severity=data.severity,
+        session_id=data.session_id,
     )
     return {"status": "ok"}

@@ -19,8 +19,13 @@ async def get_pool() -> asyncpg.Pool:
 async def init_pool():
     global _pool
     log.info("Connecting to PostgreSQL…")
-    _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
-    log.info("PostgreSQL pool ready")
+    _pool = await asyncpg.create_pool(
+        DATABASE_URL,
+        min_size=5,
+        max_size=20,
+        command_timeout=30,
+    )
+    log.info("PostgreSQL pool ready", min_size=5, max_size=20, command_timeout=30)
 
 
 async def close_pool():

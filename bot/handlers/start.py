@@ -152,7 +152,7 @@ async def cmd_help(msg: Message):
         "/start — главное меню\n"
         "/help — эта справка\n",
         parse_mode=ParseMode.HTML,
-        reply_markup=kb_back_main(),
+        reply_markup=kb_back_main,
     )
 
 
@@ -164,11 +164,12 @@ async def reply_home(msg: Message):
     now = datetime.now(timezone.utc)
 
     stats    = await api("get", f"/api/stats?telegram_id={tid}")
-    bookings = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
+    resp     = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
+    bookings = resp.get("bookings", []) if isinstance(resp, dict) else (resp or [])
 
     upcoming = []
     today_list = []
-    if isinstance(bookings, list):
+    if bookings:
         for b in bookings:
             try:
                 dt = datetime.fromisoformat(b["scheduled_time"].replace("Z", "+00:00"))
@@ -248,8 +249,9 @@ async def cb_meetings_filter(cb: CallbackQuery):
     tid = cb.from_user.id
     now = datetime.now(timezone.utc)
 
-    bookings = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
-    if not isinstance(bookings, list) or not bookings:
+    resp     = await api("get", f"/api/bookings?telegram_id={tid}&role=organizer")
+    bookings = resp.get("bookings", []) if isinstance(resp, dict) else (resp or [])
+    if not bookings:
         await cb.message.edit_text("📭 Встреч пока нет")
         await cb.answer()
         return
@@ -296,9 +298,10 @@ async def cb_meetings_filter(cb: CallbackQuery):
 
 @router.message(F.text == "📅 Расписания")
 async def reply_schedules(msg: Message):
-    schedules = await api("get", f"/api/schedules?telegram_id={msg.from_user.id}")
+    resp = await api("get", f"/api/schedules?telegram_id={msg.from_user.id}")
+    schedules = resp.get("schedules", []) if isinstance(resp, dict) else (resp or [])
 
-    if not isinstance(schedules, list) or not schedules:
+    if not schedules:
         await msg.answer(
             "📅 <b>Расписания</b>\n\nУ вас пока нет расписаний.",
             parse_mode=ParseMode.HTML,
@@ -402,14 +405,6 @@ async def handle_notify_setup(msg: Message, booking_id: str):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="⏰ Добавить за 30 минут",
-            callback_data=f"remind_30m_{booking_id}",
-        )],
-        [InlineKeyboardButton(
-            text="⏰ Добавить за 15 минут",
-            callback_data=f"remind_15m_{booking_id}",
-        )],
-        [InlineKeyboardButton(
             text="📱 Настроить в приложении",
             web_app=WebAppInfo(url=MINI_APP_URL),
         )],
@@ -420,15 +415,21 @@ async def handle_notify_setup(msg: Message, booking_id: str):
 
 @router.callback_query(F.data.startswith("remind_"))
 async def cb_remind_setup(callback: CallbackQuery):
-    """Заглушка: настройка дополнительных напоминаний."""
-    parts = callback.data.split("_")  # remind_30m_BOOKING_ID
-    interval = parts[1] if len(parts) > 1 else ""
-
-    interval_text = {
-        "30m": "30 минут",
-        "15m": "15 минут",
-        "5m": "5 минут",
-    }.get(interval, interval)
-
-    await callback.answer(f"✅ Напоминание за {interval_text} добавлено!")
-    # TODO: сохранить в БД через API
+    """Настройка произвольных напоминаний — направляем в Mini App."""
+    await callback.answer(
+        "Настройки напоминаний в приложении",
+        show_alert=False,
+    )
+    try:
+        await callback.message.answer(
+            "🔔 Произвольные тайминги напоминаний настраиваются в приложении.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="📱 Открыть настройки",
+                    web_app=WebAppInfo(url=MINI_APP_URL),
+                )
+            ]]),
+        )
+    except Exception:
+        pass

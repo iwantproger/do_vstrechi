@@ -16,9 +16,8 @@ router = Router()
 @router.callback_query(F.data.startswith("booking_"))
 async def cb_booking_detail(cb: CallbackQuery):
     booking_id = cb.data.split("_", 1)[1]
-    bookings = await api("get", f"/api/bookings?telegram_id={cb.from_user.id}")
+    booking = await api("get", f"/api/bookings/{booking_id}?telegram_id={cb.from_user.id}")
 
-    booking = next((b for b in (bookings or []) if b["id"] == booking_id), None)
     if not booking:
         await cb.answer("Встреча не найдена", show_alert=True)
         return

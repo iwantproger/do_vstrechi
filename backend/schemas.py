@@ -124,3 +124,8 @@ class AppEvent(BaseModel):
 class CleanupRequest(BaseModel):
     older_than_days: int = Field(default=30, ge=7, le=365)
     severity: str = Field(default="info", pattern=r"^(info|warn)$")
+
+
+# Month slots response — dict[date_str, list of slot dicts]
+# Example: {"2026-04-01": [{"time":"09:00","datetime":"2026-04-01T09:00:00+03:00"}]}
+# Kept as plain dict in code; no strict Pydantic model to avoid per-day schema overhead.

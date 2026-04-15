@@ -60,12 +60,20 @@ async function loadHome() {
     if (state.currentScreen === 's-home') loadHome();
   }, 60000);
 
-  var { data, error } = await apiFetch('GET', '/api/bookings?role=all');
-  if (error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
-  if (data) state.bookings = data.bookings || data;
-
   const now = new Date();
   const todayStr = formatDate(now);
+
+  /* Parallelize: bookings is critical, external-events is optional.
+     Promise.all fires both simultaneously; wrap the optional one so a
+     rejection never blocks the critical path. */
+  var [bookingsRes, extRes] = await Promise.all([
+    apiFetch('GET', '/api/bookings?role=all'),
+    apiFetch('GET', '/api/calendar/external-events?from_date=' + todayStr + '&to_date=' + todayStr)
+      .catch(function() { return { data: null, error: 'ignored' }; })
+  ]);
+
+  if (bookingsRes.error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
+  if (bookingsRes.data) state.bookings = bookingsRes.data.bookings || bookingsRes.data;
 
   const allToday = (state.bookings || [])
     .filter(b => formatDate(new Date(b.scheduled_time)) === todayStr && b.status !== 'cancelled')
@@ -77,14 +85,11 @@ async function loadHome() {
 
   /* External calendar events for today (display-enabled, deduped by backend) */
   var todayExtEvents = [];
-  try {
-    var extRes = await apiFetch('GET', '/api/calendar/external-events?from_date=' + todayStr + '&to_date=' + todayStr);
-    if (extRes.data && extRes.data.events) {
-      todayExtEvents = extRes.data.events
-        .filter(function(e) { return formatDate(new Date(e.start_time)) === todayStr; })
-        .map(function(e) { return Object.assign({}, e, { _dt: new Date(e.start_time), _isExt: true }); });
-    }
-  } catch (e) { /* optional — ignore */ }
+  if (extRes && extRes.data && extRes.data.events) {
+    todayExtEvents = extRes.data.events
+      .filter(function(e) { return formatDate(new Date(e.start_time)) === todayStr; })
+      .map(function(e) { return Object.assign({}, e, { _dt: new Date(e.start_time), _isExt: true }); });
+  }
 
   /* Merge and sort all items by time */
   var todayAll = todayMeetings.map(function(m) {
@@ -284,31 +289,32 @@ var _bookingsTotal = 0;
 async function loadMeetings(append) {
   if (!append) _bookingsOffset = 0;
 
-  /* FIX: role=all — показывать и организаторские, и гостевые встречи */
-  var { data, error } = await apiFetch('GET', '/api/bookings?role=all&limit=20&offset=' + _bookingsOffset);
-  if (error) { showToast('Ошибка загрузки встреч', 'error'); return; }
-  if (data) {
-    var list = data.bookings || data;
+  var now = new Date();
+  var from = new Date(now); from.setDate(from.getDate() - 1);
+  var to = new Date(now); to.setDate(to.getDate() + 60);
+  var fromStr = from.toISOString().slice(0, 10);
+  var toStr = to.toISOString().slice(0, 10);
+
+  /* Parallelize: bookings (critical) + external-events (optional) */
+  var [bookingsRes, extRes] = await Promise.all([
+    apiFetch('GET', '/api/bookings?role=all&limit=20&offset=' + _bookingsOffset),
+    apiFetch('GET', '/api/calendar/external-events?from_date=' + fromStr + '&to_date=' + toStr)
+      .catch(function() { return { data: null, error: 'ignored' }; })
+  ]);
+
+  if (bookingsRes.error) { showToast('Ошибка загрузки встреч', 'error'); return; }
+  if (bookingsRes.data) {
+    var list = bookingsRes.data.bookings || bookingsRes.data;
     if (append) {
       state.bookings = (state.bookings || []).concat(list);
     } else {
       state.bookings = list;
     }
-    _bookingsTotal = data.total != null ? data.total : list.length;
+    _bookingsTotal = bookingsRes.data.total != null ? bookingsRes.data.total : list.length;
     _bookingsOffset += list.length;
   }
 
-  /* Load external calendar events (display-enabled) — non-blocking */
-  state.extEvents = [];
-  try {
-    var now = new Date();
-    var from = new Date(now); from.setDate(from.getDate() - 1);
-    var to = new Date(now); to.setDate(to.getDate() + 60);
-    var fromStr = from.toISOString().slice(0, 10);
-    var toStr = to.toISOString().slice(0, 10);
-    var extRes = await apiFetch('GET', '/api/calendar/external-events?from_date=' + fromStr + '&to_date=' + toStr);
-    if (extRes.data && extRes.data.events) state.extEvents = extRes.data.events;
-  } catch (e) { /* ignore — calendar integration is optional */ }
+  state.extEvents = (extRes && extRes.data && extRes.data.events) ? extRes.data.events : [];
 
   /* FIX: умный дефолтный таб — confirm если есть pending, иначе all */
   var hasPending = (state.bookings || []).some(function(b) { return getMeetingStatus(b) === 'pending'; });
@@ -761,11 +767,8 @@ async function confirmCancelMeeting() {
   var origText = btn ? btn.textContent : 'Отменить встречу';
   if (btn) { btn.disabled = true; btn.textContent = 'Отменяем…'; }
 
-  console.log('[cancel] id=', id, 'hasInitData=', !!tg?.initData, 'url=', '/api/bookings/' + id + '/cancel');
-
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
   var { data, error } = await apiFetch('PATCH', '/api/bookings/' + id + '/cancel');
-  console.log('[cancel] response data=', data, 'error=', error);
 
   if (error) {
     if (btn) { btn.disabled = false; btn.textContent = origText; }

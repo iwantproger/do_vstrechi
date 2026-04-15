@@ -1,4 +1,5 @@
 """Внутренний HTTP-сервер для приёма уведомлений от backend."""
+import asyncio
 import hmac
 import logging
 from datetime import datetime, timezone
@@ -6,12 +7,52 @@ from datetime import datetime, timezone
 from aiohttp import web
 from aiogram import Bot
 from aiogram.enums import ParseMode
+from aiogram.exceptions import (
+    TelegramForbiddenError,
+    TelegramRetryAfter,
+    TelegramAPIError,
+)
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from config import INTERNAL_API_KEY, MINI_APP_URL
 from formatters import format_dt
 
 log = logging.getLogger(__name__)
+
+
+async def _safe_send(bot: Bot, chat_id: int, text: str, **kwargs) -> bool:
+    """Send message with graceful handling of 403/429/timeout. Returns True on success."""
+    try:
+        await asyncio.wait_for(
+            bot.send_message(chat_id=chat_id, text=text, **kwargs),
+            timeout=10,
+        )
+        return True
+    except asyncio.TimeoutError:
+        log.error(f"send_message timeout for chat {chat_id}")
+        return False
+    except TelegramForbiddenError:
+        log.warning(f"Bot blocked by user {chat_id}, skipping")
+        return False
+    except TelegramRetryAfter as e:
+        wait = getattr(e, "retry_after", 5)
+        log.warning(f"Rate limited on chat {chat_id}, sleeping {wait}s and retrying once")
+        try:
+            await asyncio.sleep(wait)
+            await asyncio.wait_for(
+                bot.send_message(chat_id=chat_id, text=text, **kwargs),
+                timeout=10,
+            )
+            return True
+        except Exception as e2:
+            log.error(f"Retry after rate-limit failed for {chat_id}: {e2}")
+            return False
+    except TelegramAPIError as e:
+        log.error(f"Telegram API error for {chat_id}: {e}")
+        return False
+    except Exception as e:
+        log.error(f"Unexpected send error for {chat_id}: {e}")
+        return False
 
 
 async def handle_new_booking(request: web.Request) -> web.Response:
@@ -61,9 +102,8 @@ async def handle_new_booking(request: web.Request) -> web.Response:
                 InlineKeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL)),
             ]])
 
-        await bot.send_message(
-            chat_id=organizer_tid,
-            text=org_text,
+        await _safe_send(
+            bot, organizer_tid, org_text,
             parse_mode=ParseMode.HTML,
             reply_markup=kb,
             disable_web_page_preview=True,
@@ -108,9 +148,8 @@ async def handle_new_booking(request: web.Request) -> web.Response:
             ])
             guest_kb = InlineKeyboardMarkup(inline_keyboard=guest_buttons)
 
-            await bot.send_message(
-                chat_id=guest_tid,
-                text=guest_text,
+            await _safe_send(
+                bot, guest_tid, guest_text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=guest_kb,
                 disable_web_page_preview=True,
@@ -155,8 +194,8 @@ async def handle_status_change(request: web.Request) -> web.Response:
                 )
                 if meeting_link:
                     text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
-                await bot.send_message(
-                    guest_tid, text,
+                await _safe_send(
+                    bot, guest_tid, text,
                     parse_mode=ParseMode.HTML,
                     disable_web_page_preview=True,
                 )
@@ -170,7 +209,7 @@ async def handle_status_change(request: web.Request) -> web.Response:
                         f"📋 {schedule_title}\n"
                         f"📅 {dt}"
                     )
-                    await bot.send_message(guest_tid, text, parse_mode=ParseMode.HTML)
+                    await _safe_send(bot, guest_tid, text, parse_mode=ParseMode.HTML)
             else:
                 # Guest cancelled → notify organizer
                 if organizer_tid:
@@ -180,7 +219,7 @@ async def handle_status_change(request: web.Request) -> web.Response:
                         f"📋 {schedule_title}\n"
                         f"📅 {dt}"
                     )
-                    await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+                    await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
 
         elif new_status == "guest_confirmed":
             # Guest pressed "Да, буду!" → notify organizer
@@ -190,7 +229,7 @@ async def handle_status_change(request: web.Request) -> web.Response:
                     f"📋 {schedule_title}\n"
                     f"📅 {dt}"
                 )
-                await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
 
         elif new_status == "no_answer":
             # Guest didn't respond to morning confirmation → notify organizer
@@ -201,7 +240,7 @@ async def handle_status_change(request: web.Request) -> web.Response:
                     f"📅 {dt}\n\n"
                     "Участник не ответил на утреннее подтверждение."
                 )
-                await bot.send_message(organizer_tid, text, parse_mode=ParseMode.HTML)
+                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
 
         return web.json_response({"ok": True})
 

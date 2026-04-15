@@ -1,9 +1,10 @@
 """Роуты расписаний и доступных слотов."""
 import uuid
 import asyncio
+import calendar as _calendar
 import asyncpg
 import structlog
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as _date
 from zoneinfo import ZoneInfo, available_timezones
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -55,9 +56,23 @@ async def list_schedules(
     auth_user: dict = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    page: Optional[int] = Query(None, ge=1),
+    per_page: Optional[int] = Query(None, ge=1, le=100),
     conn: asyncpg.Connection = Depends(db),
 ):
     telegram_id = auth_user["id"]
+
+    # If caller opted into page/per_page, translate to limit/offset.
+    # Otherwise keep existing limit/offset contract.
+    if page is not None or per_page is not None:
+        pp = per_page or 100
+        pg = page or 1
+        limit = pp
+        offset = (pg - 1) * pp
+    else:
+        pp = limit
+        pg = (offset // limit) + 1 if limit else 1
+
     total_row = await conn.fetchrow(
         """
         SELECT COUNT(*) FROM schedules s
@@ -77,7 +92,18 @@ async def list_schedules(
         """,
         telegram_id, limit, offset
     )
-    return {"schedules": rows_to_list(rows), "total": total, "limit": limit, "offset": offset}
+    items = rows_to_list(rows)
+    has_more = (offset + len(items)) < total
+    # Preserve existing fields (schedules/total/limit/offset) + add paginated metadata.
+    return {
+        "schedules": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "page": pg,
+        "per_page": pp,
+        "has_more": has_more,
+    }
 
 
 @router.get("/api/schedules/{schedule_id}")
@@ -369,3 +395,156 @@ async def available_slots(
     log.debug("available_slots_ok", schedule_id=schedule_id, date=date,
               slots_count=len(slots), org_tz=org_tz_str)
     return {"available_slots": slots, "date": date}
+
+
+# ─────────────────────────────────────────────────────────
+# Month batch endpoint
+# Single SQL for all bookings in the month; Python loop per work-day.
+# Response shape: {"YYYY-MM-DD": [{"time":"HH:MM","datetime":"ISO"}, ...], ...}
+# ─────────────────────────────────────────────────────────
+@router.get("/api/available-slots/{schedule_id}/month")
+async def available_slots_month(
+    schedule_id: str,
+    year: int = Query(..., ge=2020, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    viewer_tz: str = Query("UTC", description="Viewer IANA timezone"),
+    conn: asyncpg.Connection = Depends(db),
+):
+    try:
+        sid = uuid.UUID(schedule_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат ID")
+
+    row = await conn.fetchrow(
+        """
+        SELECT s.*, u.timezone AS organizer_timezone
+        FROM schedules s JOIN users u ON u.id = s.user_id
+        WHERE s.id = $1 AND s.is_active = TRUE
+        """,
+        sid,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Расписание не найдено")
+    schedule = dict(row)
+
+    try:
+        org_tz_str = schedule.get("organizer_timezone") or "UTC"
+        org_tz = ZoneInfo(org_tz_str)
+    except Exception:
+        log.warning("unknown_organizer_tz", schedule_id=schedule_id, tz=schedule.get("organizer_timezone"))
+        org_tz = ZoneInfo("UTC")
+
+    vtz = ZoneInfo(viewer_tz) if viewer_tz in available_timezones() else ZoneInfo("UTC")
+
+    # Month window in organizer TZ → UTC bounds (±24h safety margin).
+    _, last_day = _calendar.monthrange(year, month)
+    month_first = datetime(year, month, 1, 0, 0, tzinfo=org_tz)
+    month_last = datetime(year, month, last_day, 23, 59, tzinfo=org_tz)
+    month_first_utc = month_first.astimezone(ZoneInfo("UTC")) - timedelta(hours=24)
+    month_last_utc = month_last.astimezone(ZoneInfo("UTC")) + timedelta(hours=24)
+
+    # ONE query for all organizer's bookings in the month window
+    organizer_bookings = await conn.fetch(
+        """
+        SELECT b.scheduled_time,
+               b.end_time                 AS booking_end_time,
+               COALESCE(s.duration, 60)   AS duration,
+               COALESCE(s.buffer_time, 0) AS buffer_time
+        FROM bookings b
+        JOIN schedules s ON s.id = b.schedule_id
+        WHERE s.user_id = $1
+          AND b.status NOT IN ('cancelled')
+          AND b.blocks_slots = TRUE
+          AND b.scheduled_time >= $2::timestamptz
+          AND b.scheduled_time <  $3::timestamptz
+        """,
+        schedule["user_id"], month_first_utc, month_last_utc,
+    )
+
+    occupied: list[tuple[datetime, datetime]] = []
+    for r in organizer_bookings:
+        occ_start = r["scheduled_time"].replace(second=0, microsecond=0)
+        if r["booking_end_time"]:
+            occ_end = r["booking_end_time"].replace(second=0, microsecond=0)
+        else:
+            occ_end = occ_start + timedelta(minutes=int(r["duration"]))
+        occ_end += timedelta(minutes=int(r["buffer_time"]))
+        occupied.append((occ_start, occ_end))
+
+    # External busy slots across the month (one call)
+    try:
+        from calendars.db import get_schedule_calendar_rules, get_external_busy_slots
+        rules = await get_schedule_calendar_rules(conn, str(sid))
+        blocking_ids = [str(r["connection_id"]) for r in rules if r.get("use_for_blocking")]
+
+        if not blocking_ids:
+            organizer_id = schedule["user_id"]
+            all_conns = await conn.fetch(
+                """
+                SELECT cc.id FROM calendar_connections cc
+                JOIN calendar_accounts ca ON ca.id = cc.account_id
+                WHERE ca.user_id = $1
+                  AND ca.status = 'active'
+                  AND cc.is_read_enabled = TRUE
+                """,
+                organizer_id,
+            )
+            blocking_ids = [str(c["id"]) for c in all_conns]
+
+        if blocking_ids:
+            ext_busy = await get_external_busy_slots(
+                conn, blocking_ids, month_first_utc, month_last_utc,
+            )
+            for eb in ext_busy:
+                occupied.append((eb["start_time"], eb["end_time"]))
+    except Exception as e:
+        log.warning("month_external_busy_slots_error", schedule_id=schedule_id, error=str(e))
+
+    duration_min = int(schedule["duration"])
+    buffer_min = int(schedule["buffer_time"] or 0)
+    step = timedelta(minutes=duration_min + buffer_min)
+    slot_duration = timedelta(minutes=duration_min)
+    if slot_duration.total_seconds() <= 0:
+        log.warning("invalid_slot_duration", schedule_id=schedule_id, duration=duration_min)
+        return {}
+
+    start_h, start_m = map(int, schedule["start_time"].strftime("%H:%M").split(":"))
+    end_h, end_m = map(int, schedule["end_time"].strftime("%H:%M").split(":"))
+    work_days = schedule["work_days"] or []
+
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    min_advance = int(schedule.get("min_booking_advance") or 0)
+    earliest_bookable_utc = now_utc + timedelta(minutes=min_advance)
+
+    result: dict[str, list] = {}
+    for day in range(1, last_day + 1):
+        d = _date(year, month, day)
+        if d.weekday() not in work_days:
+            continue
+        slot_start = datetime(d.year, d.month, d.day, start_h, start_m, tzinfo=org_tz)
+        slot_end = datetime(d.year, d.month, d.day, end_h, end_m, tzinfo=org_tz)
+
+        day_slots = []
+        current = slot_start
+        while current + slot_duration <= slot_end:
+            current_utc = current.astimezone(ZoneInfo("UTC")).replace(second=0, microsecond=0)
+            candidate_end_utc = current_utc + slot_duration
+            if current_utc > earliest_bookable_utc:
+                conflict = any(
+                    current_utc < occ_end and candidate_end_utc > occ_start
+                    for occ_start, occ_end in occupied
+                )
+                if not conflict:
+                    viewer_dt = current.astimezone(vtz)
+                    day_slots.append({
+                        "time": current.strftime("%H:%M"),
+                        "datetime": current_utc.isoformat(),
+                        "datetime_utc": current_utc.isoformat(),
+                        "datetime_local": viewer_dt.strftime("%H:%M"),
+                    })
+            current += step
+
+        if day_slots:
+            result[d.isoformat()] = day_slots
+
+    return result

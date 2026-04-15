@@ -37,7 +37,7 @@ async def cb_create_schedule(cb: CallbackQuery, state: FSMContext):
 async def fsm_title(msg: Message, state: FSMContext):
     await state.update_data(title=msg.text.strip())
     await state.set_state(CreateSchedule.duration)
-    await msg.answer("Шаг 2/5: Выбери длительность встречи:", reply_markup=kb_duration())
+    await msg.answer("Шаг 2/5: Выбери длительность встречи:", reply_markup=kb_duration)
 
 
 @router.callback_query(CreateSchedule.duration, F.data.startswith("dur_"))
@@ -49,7 +49,7 @@ async def fsm_duration(cb: CallbackQuery, state: FSMContext):
         f"✓ Длительность: {duration} мин\n\n"
         "Шаг 3/5: Буфер между встречами\n"
         "(время на отдых/подготовку):",
-        reply_markup=kb_buffer(),
+        reply_markup=kb_buffer,
     )
     await cb.answer()
 
@@ -121,7 +121,7 @@ async def fsm_end_time(msg: Message, state: FSMContext):
     await msg.answer(
         f"✓ Конец: {t}\n\n"
         "Шаг 5/5: Платформа для встреч:",
-        reply_markup=kb_platform(),
+        reply_markup=kb_platform,
     )
 
 
@@ -155,6 +155,6 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
     else:
         await cb.message.edit_text(
             "❌ Ошибка создания расписания. Попробуй ещё раз.",
-            reply_markup=kb_back_main(),
+            reply_markup=kb_back_main,
         )
     await cb.answer()

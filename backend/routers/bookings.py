@@ -119,9 +119,22 @@ async def list_bookings(
     future_only: bool = Query(False, description="Only future non-cancelled bookings"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    page: Optional[int] = Query(None, ge=1),
+    per_page: Optional[int] = Query(None, ge=1, le=100),
     conn: asyncpg.Connection = Depends(db),
 ):
     telegram_id = auth_user["id"]
+
+    # Translate page/per_page to limit/offset if explicitly given; preserve
+    # existing limit/offset contract otherwise.
+    if page is not None or per_page is not None:
+        pp = per_page or 100
+        pg = page or 1
+        limit = pp
+        offset = (pg - 1) * pp
+    else:
+        pp = limit
+        pg = (offset // limit) + 1 if limit else 1
 
     rows = await conn.fetch(
         """
@@ -184,7 +197,16 @@ async def list_bookings(
 
     total = len(result)
     paginated = result[offset:offset + limit]
-    return {"bookings": paginated, "total": total, "limit": limit, "offset": offset}
+    has_more = (offset + len(paginated)) < total
+    return {
+        "bookings": paginated,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "page": pg,
+        "per_page": pp,
+        "has_more": has_more,
+    }
 
 
 _REMINDER_CFG = {

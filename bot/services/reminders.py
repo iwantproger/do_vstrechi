@@ -170,66 +170,92 @@ async def send_morning_organizer_summary(bot: Bot, organizer: dict):
         log.warning(f"Morning organizer summary to {org_tid} failed: {e}")
 
 
+async def _reminder_tick(bot: Bot, state: dict) -> None:
+    """One iteration of the reminder loop. Raises on errors so outer loop can back off."""
+    # 1. Пользовательские напоминания по настройкам
+    resp = await api("get", "/api/bookings/pending-reminders-v2")
+    if resp and resp.get("reminders"):
+        for r in resp["reminders"]:
+            await send_reminder(bot, r, str(r.get("reminder_min", "")))
+            await asyncio.sleep(0.3)
+
+    # 2. Утренние проверки — каждые 5 мин
+    state["conf_tick"] += 1
+    if state["conf_tick"] >= 5:
+        state["conf_tick"] = 0
+
+        resp2 = await api("get", "/api/bookings/confirmation-requests")
+        if resp2 and resp2.get("bookings"):
+            for b in resp2["bookings"]:
+                await send_confirmation_request(bot, b)
+                await asyncio.sleep(0.3)
+
+        resp_pending = await api("get", "/api/bookings/morning-pending-guest-notice")
+        if resp_pending and resp_pending.get("bookings"):
+            for b in resp_pending["bookings"]:
+                await send_pending_guest_notice(bot, b)
+                await asyncio.sleep(0.3)
+
+        resp_org = await api("get", "/api/bookings/morning-organizer-summary")
+        if resp_org and resp_org.get("organizers"):
+            for org in resp_org["organizers"]:
+                await send_morning_organizer_summary(bot, org)
+                await asyncio.sleep(0.3)
+
+        resp3 = await api("get", "/api/bookings/no-answer-candidates")
+        if resp3 and resp3.get("bookings"):
+            for b in resp3["bookings"]:
+                bid = str(b.get("id", ""))
+                await api("patch", f"/api/bookings/{bid}/set-no-answer")
+                await asyncio.sleep(0.3)
+
+    # 3. Автозавершение прошедших встреч — каждые 15 мин
+    state["complete_tick"] += 1
+    if state["complete_tick"] >= 15:
+        state["complete_tick"] = 0
+        resp_c = await api("post", "/api/bookings/complete-past")
+        if resp_c and resp_c.get("completed", 0) > 0:
+            log.info(f"Auto-completed {resp_c['completed']} past bookings")
+
+
 async def reminder_loop(bot: Bot):
-    """Проверять напоминания каждые 60 секунд (v2: по настройкам пользователя)."""
+    """Robust reminder loop: exponential backoff on errors, heartbeat log, clean cancel."""
     await asyncio.sleep(10)
     log.info("Reminder loop v2 started (1-min cycle)")
-    _conf_tick = 0
-    _complete_tick = 0
-    while True:
-        try:
-            # 1. Пользовательские напоминания по настройкам
-            resp = await api("get", "/api/bookings/pending-reminders-v2")
-            if resp and resp.get("reminders"):
-                for r in resp["reminders"]:
-                    await send_reminder(bot, r, str(r.get("reminder_min", "")))
-                    await asyncio.sleep(0.3)
 
-            # 2. Утренние проверки — каждые 5 мин
-            _conf_tick += 1
-            if _conf_tick >= 5:
-                _conf_tick = 0
+    state = {"conf_tick": 0, "complete_tick": 0}
+    consecutive_errors = 0
+    backoff = 60
+    BACKOFF_MAX = 300
+    heartbeat_counter = 0
+    HEARTBEAT_EVERY = 30  # ~30 минут при нормальном 60-сек цикле
 
-                # 2a. Запросы подтверждения участникам (confirmed-бронирования, встреча сегодня)
-                resp2 = await api("get", "/api/bookings/confirmation-requests")
-                if resp2 and resp2.get("bookings"):
-                    for b in resp2["bookings"]:
-                        await send_confirmation_request(bot, b)
-                        await asyncio.sleep(0.3)
+    try:
+        while True:
+            try:
+                await _reminder_tick(bot, state)
+                consecutive_errors = 0
+                backoff = 60
 
-                # 2b. Уведомление участников о том, что встреча ещё не подтверждена (pending)
-                resp_pending = await api("get", "/api/bookings/morning-pending-guest-notice")
-                if resp_pending and resp_pending.get("bookings"):
-                    for b in resp_pending["bookings"]:
-                        await send_pending_guest_notice(bot, b)
-                        await asyncio.sleep(0.3)
+                heartbeat_counter += 1
+                if heartbeat_counter >= HEARTBEAT_EVERY:
+                    heartbeat_counter = 0
+                    log.info("reminder_loop alive")
 
-                # 2c. Утренняя сводка организаторам о pending-встречах сегодня
-                resp_org = await api("get", "/api/bookings/morning-organizer-summary")
-                if resp_org and resp_org.get("organizers"):
-                    for org in resp_org["organizers"]:
-                        await send_morning_organizer_summary(bot, org)
-                        await asyncio.sleep(0.3)
-
-                # 2d. Перевод в no_answer: участник не ответил больше 1 часа
-                resp3 = await api("get", "/api/bookings/no-answer-candidates")
-                if resp3 and resp3.get("bookings"):
-                    for b in resp3["bookings"]:
-                        bid = str(b.get("id", ""))
-                        # Belt-and-suspenders: re-check that guest hasn't already responded
-                        # (backend also guards via confirmation_asked_at IS NOT NULL)
-                        await api("patch", f"/api/bookings/{bid}/set-no-answer")
-                        await asyncio.sleep(0.3)
-
-            # 3. Автозавершение прошедших встреч — каждые 15 мин
-            _complete_tick += 1
-            if _complete_tick >= 15:
-                _complete_tick = 0
-                resp_c = await api("post", "/api/bookings/complete-past")
-                if resp_c and resp_c.get("completed", 0) > 0:
-                    log.info(f"Auto-completed {resp_c['completed']} past bookings")
-
-        except Exception as e:
-            log.error(f"Reminder loop error: {e}")
-
-        await asyncio.sleep(60)
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                consecutive_errors += 1
+                if consecutive_errors >= 5:
+                    log.critical(
+                        f"reminder_loop: {consecutive_errors} consecutive errors, "
+                        f"latest: {e}"
+                    )
+                else:
+                    log.error(f"reminder_loop error ({consecutive_errors}): {e}")
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, BACKOFF_MAX)
+    except asyncio.CancelledError:
+        log.info("reminder_loop_cancelled")
+        raise

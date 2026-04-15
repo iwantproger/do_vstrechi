@@ -11,6 +11,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
+from api import close_session
 from config import BOT_TOKEN, MINI_APP_URL, REDIS_URL
 from handlers import start, navigation, schedules, bookings, create, inline
 from services.reminders import reminder_loop
@@ -66,7 +67,7 @@ async def main():
 
     await setup_bot_commands(bot)
 
-    asyncio.create_task(reminder_loop(bot))
+    reminder_task = asyncio.create_task(reminder_loop(bot))
     runner = await start_internal_server(bot)
 
     try:
@@ -80,7 +81,14 @@ async def main():
     try:
         await dp.start_polling(bot, skip_updates=True)
     finally:
+        reminder_task.cancel()
+        try:
+            await reminder_task
+        except (asyncio.CancelledError, Exception):
+            pass
         await runner.cleanup()
+        await close_session()
+        log.info("session closed")
 
 
 if __name__ == "__main__":
