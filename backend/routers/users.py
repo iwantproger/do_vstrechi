@@ -60,6 +60,16 @@ async def update_notification_settings(
     return {"ok": True}
 
 
+@router.patch("/api/users/{telegram_id}/morning-summary-sent")
+async def mark_morning_summary_sent(telegram_id: int, conn: asyncpg.Connection = Depends(db)):
+    """Mark that the morning organizer summary was sent today (prevents duplicate sends)."""
+    await conn.execute(
+        "UPDATE users SET morning_summary_sent_date = CURRENT_DATE WHERE telegram_id = $1",
+        telegram_id,
+    )
+    return {"ok": True}
+
+
 @router.get("/api/users/{telegram_id}/avatar")
 async def get_user_avatar(telegram_id: int):
     """Проксирует аватарку пользователя из Telegram Bot API. Cache-Control: 1 час."""

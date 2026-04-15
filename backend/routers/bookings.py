@@ -345,6 +345,7 @@ async def get_no_answer_candidates(conn: asyncpg.Connection = Depends(db)):
         JOIN users u ON s.user_id = u.id
         WHERE b.status = 'confirmed'
           AND b.confirmation_asked = TRUE
+          AND b.confirmation_asked_at IS NOT NULL
           AND b.confirmation_asked_at < NOW() - INTERVAL '1 hour'
           AND b.scheduled_time > NOW()
     """)
@@ -364,7 +365,10 @@ async def set_no_answer(
     row = await conn.fetchrow(
         """
         UPDATE bookings SET status = 'no_answer'
-        WHERE id = $1 AND status = 'confirmed' AND confirmation_asked = TRUE
+        WHERE id = $1
+          AND status = 'confirmed'
+          AND confirmation_asked = TRUE
+          AND confirmation_asked_at IS NOT NULL
         RETURNING *
         """,
         bid,
@@ -408,6 +412,78 @@ async def record_sent_reminder(request: Request, conn: asyncpg.Connection = Depe
         bid, str(data.get("reminder_type", "")),
     )
     return {"ok": True}
+
+
+@router.get("/api/bookings/morning-organizer-summary")
+async def morning_organizer_summary(conn: asyncpg.Connection = Depends(db)):
+    """Organizers who have today's pending bookings and haven't received a morning summary yet."""
+    rows = await conn.fetch("""
+        SELECT
+            u.telegram_id   AS organizer_telegram_id,
+            u.timezone      AS organizer_timezone,
+            b.id            AS booking_id,
+            b.guest_name,
+            b.scheduled_time,
+            s.title         AS schedule_title,
+            s.duration
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'pending'
+          AND b.scheduled_time > NOW()
+          AND DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+              = DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          AND EXTRACT(HOUR FROM NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC')) >= 9
+          AND (
+              u.morning_summary_sent_date IS NULL
+              OR u.morning_summary_sent_date < DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          )
+        ORDER BY u.telegram_id, b.scheduled_time
+    """)
+    # Group bookings by organizer
+    organizers: dict = {}
+    for r in rows:
+        tid = r["organizer_telegram_id"]
+        if tid not in organizers:
+            organizers[tid] = {
+                "organizer_telegram_id": tid,
+                "organizer_timezone": r["organizer_timezone"],
+                "bookings": [],
+            }
+        organizers[tid]["bookings"].append({
+            "id": str(r["booking_id"]),
+            "guest_name": r["guest_name"],
+            "scheduled_time": str(r["scheduled_time"]),
+            "schedule_title": r["schedule_title"],
+            "duration": r["duration"],
+        })
+    return {"organizers": list(organizers.values())}
+
+
+@router.get("/api/bookings/morning-pending-guest-notice")
+async def morning_pending_guest_notice(conn: asyncpg.Connection = Depends(db)):
+    """Today's pending bookings where guest has a Telegram account but hasn't been notified yet."""
+    rows = await conn.fetch("""
+        SELECT b.id, b.guest_name, b.guest_telegram_id,
+               b.scheduled_time,
+               s.title    AS schedule_title,
+               s.duration,
+               u.timezone AS organizer_timezone
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'pending'
+          AND b.guest_telegram_id IS NOT NULL
+          AND b.confirmation_asked = FALSE
+          AND b.scheduled_time > NOW()
+          AND DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+              = DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          AND (
+              EXTRACT(HOUR FROM NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC')) >= 9
+              OR b.scheduled_time <= NOW() + INTERVAL '1 hour'
+          )
+    """)
+    return {"bookings": [dict(r) for r in rows]}
 
 
 @router.get("/api/bookings/{booking_id}")
@@ -469,7 +545,10 @@ async def confirm_booking(
 
     row = await conn.fetchrow(
         """
-        UPDATE bookings SET status = 'confirmed'
+        UPDATE bookings
+        SET status = 'confirmed',
+            confirmation_asked = FALSE,
+            confirmation_asked_at = NULL
         WHERE id = $1
           AND schedule_id IN (
               SELECT s.id FROM schedules s
@@ -530,7 +609,9 @@ async def guest_confirm_booking(
 
     row = await conn.fetchrow(
         """
-        UPDATE bookings SET status = 'confirmed'
+        UPDATE bookings
+        SET status = 'confirmed',
+            confirmation_asked_at = NULL
         WHERE id = $1
           AND guest_telegram_id = $2
           AND status IN ('confirmed', 'no_answer')

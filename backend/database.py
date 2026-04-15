@@ -96,6 +96,11 @@ async def run_migrations():
             """)
         except Exception:
             pass  # constraint may already be correct
+        # 013: morning summary tracking per organizer
+        await conn.execute("""
+            ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS morning_summary_sent_date DATE;
+        """)
     log.info("Migrations applied")
 
 

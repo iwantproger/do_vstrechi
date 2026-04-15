@@ -9,14 +9,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Пользователи (организаторы)
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
-    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    telegram_id   BIGINT UNIQUE NOT NULL,
-    username      TEXT,
-    first_name    TEXT,
-    last_name     TEXT,
-    timezone      TEXT NOT NULL DEFAULT 'UTC',
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    telegram_id               BIGINT UNIQUE NOT NULL,
+    username                  TEXT,
+    first_name                TEXT,
+    last_name                 TEXT,
+    timezone                  TEXT NOT NULL DEFAULT 'UTC',
+    morning_summary_sent_date DATE,
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
 

@@ -102,6 +102,74 @@ async def send_confirmation_request(bot: Bot, booking: dict):
         log.warning(f"Confirmation request to {guest_tid} failed: {e}")
 
 
+async def send_pending_guest_notice(bot: Bot, booking: dict):
+    """Сообщить участнику утром, что встреча ещё ожидает подтверждения организатора."""
+    guest_tid = booking.get("guest_telegram_id")
+    if not guest_tid:
+        return
+
+    org_tz   = booking.get("organizer_timezone") or "UTC"
+    time_str = format_dt(str(booking["scheduled_time"]), tz=org_tz)
+    bid      = str(booking.get("id") or booking.get("booking_id"))
+
+    text = (
+        f"⏳ <b>Ваша встреча сегодня ещё не подтверждена.</b>\n\n"
+        f"📋 {booking['schedule_title']}\n"
+        f"📅 {time_str}\n"
+        f"⏱ {booking.get('duration', 60)} мин\n\n"
+        "Ожидайте — мы уведомим вас, как только организатор подтвердит встречу."
+    )
+
+    try:
+        await bot.send_message(guest_tid, text, parse_mode=ParseMode.HTML)
+        # Mark confirmation_asked=TRUE so this notice isn't re-sent,
+        # and so confirmation-requests won't send "still coming?" until organizer confirms
+        # (confirm_booking resets confirmation_asked=FALSE, then loop picks it up)
+        await api("patch", f"/api/bookings/{bid}/confirmation-asked")
+    except Exception as e:
+        log.warning(f"Pending guest notice to {guest_tid} failed: {e}")
+
+
+async def send_morning_organizer_summary(bot: Bot, organizer: dict):
+    """Отправить организатору сводку о встречах, ожидающих подтверждения сегодня."""
+    org_tid  = organizer.get("organizer_telegram_id")
+    org_tz   = organizer.get("organizer_timezone") or "UTC"
+    bookings = organizer.get("bookings", [])
+    if not org_tid or not bookings:
+        return
+
+    text_lines = ["📋 <b>Ожидают вашего подтверждения сегодня:</b>\n"]
+    buttons = []
+
+    for b in bookings:
+        time_str = format_dt(str(b["scheduled_time"]), tz=org_tz)
+        dur      = b.get("duration", 60)
+        text_lines.append(
+            f"👤 {b['guest_name']} — {time_str}, {b['schedule_title']} ({dur} мин)"
+        )
+        bid = b["id"]
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"✅ {b['guest_name']} {time_str}",
+                callback_data=f"confirm_{bid}",
+            ),
+            InlineKeyboardButton(text="❌", callback_data=f"cancel_{bid}"),
+        ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    try:
+        await bot.send_message(
+            org_tid,
+            "\n".join(text_lines),
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard,
+        )
+        # Mark that summary was sent today (prevents re-sending in same day)
+        await api("patch", f"/api/users/{org_tid}/morning-summary-sent")
+    except Exception as e:
+        log.warning(f"Morning organizer summary to {org_tid} failed: {e}")
+
+
 async def reminder_loop(bot: Bot):
     """Проверять напоминания каждые 60 секунд (v2: по настройкам пользователя)."""
     await asyncio.sleep(10)
@@ -116,21 +184,39 @@ async def reminder_loop(bot: Bot):
                     await send_reminder(bot, r, str(r.get("reminder_min", "")))
                     await asyncio.sleep(0.3)
 
-            # 2. Утренние запросы подтверждения — каждые 5 мин
+            # 2. Утренние проверки — каждые 5 мин
             _conf_tick += 1
             if _conf_tick >= 5:
                 _conf_tick = 0
+
+                # 2a. Запросы подтверждения участникам (confirmed-бронирования, встреча сегодня)
                 resp2 = await api("get", "/api/bookings/confirmation-requests")
                 if resp2 and resp2.get("bookings"):
                     for b in resp2["bookings"]:
                         await send_confirmation_request(bot, b)
                         await asyncio.sleep(0.3)
 
-                # 3. Check for no-answer: guest didn't respond within 1h
+                # 2b. Уведомление участников о том, что встреча ещё не подтверждена (pending)
+                resp_pending = await api("get", "/api/bookings/morning-pending-guest-notice")
+                if resp_pending and resp_pending.get("bookings"):
+                    for b in resp_pending["bookings"]:
+                        await send_pending_guest_notice(bot, b)
+                        await asyncio.sleep(0.3)
+
+                # 2c. Утренняя сводка организаторам о pending-встречах сегодня
+                resp_org = await api("get", "/api/bookings/morning-organizer-summary")
+                if resp_org and resp_org.get("organizers"):
+                    for org in resp_org["organizers"]:
+                        await send_morning_organizer_summary(bot, org)
+                        await asyncio.sleep(0.3)
+
+                # 2d. Перевод в no_answer: участник не ответил больше 1 часа
                 resp3 = await api("get", "/api/bookings/no-answer-candidates")
                 if resp3 and resp3.get("bookings"):
                     for b in resp3["bookings"]:
                         bid = str(b.get("id", ""))
+                        # Belt-and-suspenders: re-check that guest hasn't already responded
+                        # (backend also guards via confirmation_asked_at IS NOT NULL)
                         await api("patch", f"/api/bookings/{bid}/set-no-answer")
                         await asyncio.sleep(0.3)
 
