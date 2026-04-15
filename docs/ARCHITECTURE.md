@@ -1,5 +1,7 @@
 # Архитектура системы «До встречи»
 
+> Последнее обновление: 15.04.2026
+
 ## Обзор
 
 «До встречи» — Telegram Mini App для бронирования встреч, аналог Calendly.
@@ -36,7 +38,7 @@ graph LR
 
 **Технологии:** aiogram 3.6.0, aiohttp 3.9.5, Python 3.12
 
-**Модули:** `bot.py` (инициализация), `handlers/` (команды, callbacks, FSM),
+**Модули:** `bot.py` (инициализация), `handlers/` (команды, callbacks, FSM, `inline.py` — inline query handler для шаринга расписаний),
 `services/` (notifications.py — aiohttp сервер :8080, reminders.py — фоновые напоминания),
 `keyboards.py`, `formatters.py`, `states.py`, `api.py`, `config.py`
 
@@ -82,7 +84,8 @@ CRUD расписаний и бронирований, рассчитывает 
 **Технологии:** FastAPI 0.111.0, asyncpg 0.29.0, pydantic 2.7.1, Python 3.12
 
 **Модули:** `main.py` (app, lifespan, middleware), `routers/` (users, schedules, bookings,
-meetings, stats, admin), `auth.py` (initData HMAC + admin sessions), `database.py` (pool),
+meetings, stats, admin, `calendar.py` — 12 эндпоинтов календарной интеграции: OAuth, accounts, connections, sync, webhooks, CalDAV),
+`auth.py` (initData HMAC + admin sessions), `database.py` (pool),
 `schemas.py` (Pydantic-модели), `utils.py` (row_to_dict, generate_meeting_link, _notify_bot), `config.py`
 
 **Все эндпоинты:**
@@ -92,21 +95,42 @@ meetings, stats, admin), `auth.py` (initData HMAC + admin sessions), `database.p
 | GET | `/` | — | Healthcheck | — |
 | GET | `/health` | — | Проверка подключения к БД | — |
 | POST | `/api/users/auth` | initData | Upsert пользователя | body: `UserAuth` |
+| PATCH | `/api/users/notification-settings` | initData | Обновить настройки напоминаний | body: `{settings}` |
+| GET | `/api/users/{telegram_id}/avatar` | — | Проксирование аватарки из Telegram | path: telegram_id |
 | GET | `/api/users/{telegram_id}` | — | Получить пользователя | path: telegram_id |
 | POST | `/api/schedules` | initData | Создать расписание | body: `ScheduleCreate` |
 | GET | `/api/schedules` | initData | Список расписаний пользователя | — |
 | GET | `/api/schedules/{schedule_id}` | — | Детали расписания (публичный) | path: schedule_id (UUID) |
+| PATCH | `/api/schedules/{schedule_id}` | initData | Обновить расписание | path: schedule_id, body: `ScheduleUpdate` |
 | DELETE | `/api/schedules/{schedule_id}` | initData | Мягкое удаление (is_active=FALSE) | path: schedule_id |
 | GET | `/api/available-slots/{schedule_id}` | — | Свободные слоты на дату | query: date, viewer_tz |
 | POST | `/api/bookings` | optional | Создать бронирование + push | body: `BookingCreate` |
 | GET | `/api/bookings` | initData | Список бронирований | query: role (organizer/guest/all) |
 | GET | `/api/bookings/{booking_id}` | optional | Детали бронирования + my_role | path: booking_id |
 | POST | `/api/meetings/quick` | initData | Создать встречу вручную (личная или в расписание) | body: `QuickMeetingCreate` |
-| PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить | path: booking_id |
+| PATCH | `/api/bookings/{booking_id}/confirm` | initData | Подтвердить (организатор) | path: booking_id |
+| PATCH | `/api/bookings/{booking_id}/guest-confirm` | initData | Гость подтверждает присутствие | path: booking_id |
 | PATCH | `/api/bookings/{booking_id}/cancel` | initData | Отменить | path: booking_id |
-| GET | `/api/bookings/pending-reminders` | — | Бронирования для напоминаний | query: reminder_type (24h/1h) |
+| GET | `/api/bookings/confirmation-requests` | — | Встречи на сегодня для утреннего подтверждения | — |
+| GET | `/api/bookings/no-answer-candidates` | — | Бронирования без ответа (>1ч после запроса) | — |
+| PATCH | `/api/bookings/{booking_id}/set-no-answer` | — | Перевести в статус no_answer | path: booking_id |
+| PATCH | `/api/bookings/{booking_id}/confirmation-asked` | — | Отметить что запрос подтверждения отправлен | path: booking_id |
+| GET | `/api/bookings/pending-reminders` | — | Бронирования для напоминаний | query: reminder_type (24h/1h/15m/5m/morning) |
+| GET | `/api/bookings/pending-reminders-v2` | — | Напоминания v2 (по настройкам пользователя) | — |
 | PATCH | `/api/bookings/{booking_id}/reminder-sent` | — | Пометить напоминание отправленным | query: reminder_type |
+| POST | `/api/sent-reminders` | — | Записать отправленное напоминание (v2) | body: `{booking_id, reminder_type}` |
 | GET | `/api/stats` | initData | Статистика пользователя | — |
+| GET | `/api/calendar/google/auth-url` | initData | URL для Google OAuth | — |
+| GET | `/api/calendar/google/callback` | — | OAuth callback от Google (redirect) | query: code, state |
+| GET | `/api/calendar/accounts` | initData | Список подключённых календарных аккаунтов | — |
+| DELETE | `/api/calendar/accounts/{account_id}` | initData | Отключить календарный аккаунт | path: account_id |
+| POST | `/api/calendar/connections/{id}/toggle` | initData | Переключить read/write для календаря | path: id, body: `CalendarConnectionToggle` |
+| GET | `/api/calendar/schedules/{id}/calendar-config` | initData | Привязки календарей к расписанию | path: id |
+| PUT | `/api/calendar/schedules/{id}/calendar-config` | initData | Заменить привязки календарей | path: id, body: `ScheduleCalendarConfig` |
+| POST | `/api/calendar/accounts/{id}/sync` | initData | Принудительная синхронизация аккаунта | path: id |
+| POST | `/api/calendar/webhook/google` | — | Webhook от Google Calendar push notifications | headers: X-Goog-* |
+| POST | `/api/calendar/caldav/connect` | initData | Подключить CalDAV-провайдер (Yandex/Apple) | body: `CalDAVConnectRequest` |
+| GET | `/api/calendar/external-events` | initData | Внешние события для отображения | query: from_date, to_date |
 
 **Аутентификация:** двухканальная.
 - **Mini App → Backend:** заголовок `X-Init-Data` с Telegram initData. Backend валидирует HMAC-SHA256 подпись
@@ -117,6 +141,21 @@ meetings, stats, admin), `auth.py` (initData HMAC + admin sessions), `database.p
 
 **Connection pool:** asyncpg, min_size=2, max_size=10. Создаётся при старте через lifespan,
 закрывается при остановке. Dependency `db()` выдаёт соединение из пула на каждый запрос.
+
+### Support Bot (`support-bot/`)
+
+**Назначение:** Отдельный aiogram-бот для обратной связи — пересылка сообщений пользователей
+администратору и ответов обратно. Работает как relay: пользователь пишет боту, сообщение
+пересылается в admin-чат, admin отвечает reply на forward — ответ уходит пользователю.
+
+**Технологии:** aiogram 3.x, Python 3.12
+
+**Модули:** `bot.py` (инициализация, handlers), `config.py` (BOT_TOKEN, ADMIN_CHAT_ID, ADMIN_IDS)
+
+**Команды:** `/start` (приветствие или admin-панель), `/stats` (статистика обращений, только admin),
+`/broadcast` (рассылка всем пользователям, только admin)
+
+**Деплой:** только в beta-стеке (`docker-compose.beta.yml`, сервис `support_bot_beta`).
 
 ### Frontend Mini App (`frontend/`)
 
@@ -188,7 +227,15 @@ flowchart TD
 ```mermaid
 erDiagram
     users ||--o{ schedules : "has"
+    users ||--o{ calendar_accounts : "connects"
     schedules ||--o{ bookings : "receives"
+    schedules ||--o{ schedule_calendar_rules : "configured"
+    calendar_accounts ||--o{ calendar_connections : "contains"
+    calendar_connections ||--o{ schedule_calendar_rules : "linked"
+    calendar_connections ||--o{ external_busy_slots : "caches"
+    calendar_connections ||--o{ event_mapping : "maps"
+    bookings ||--o{ event_mapping : "synced"
+    bookings ||--o{ sent_reminders : "tracked"
 
     users {
         UUID id PK
@@ -213,6 +260,8 @@ erDiagram
         TIME end_time
         TEXT location_mode
         TEXT platform
+        TEXT location_address
+        BOOLEAN requires_confirmation
         BOOLEAN is_active
         BOOLEAN is_default
         INTEGER min_booking_advance
@@ -227,17 +276,118 @@ erDiagram
         TEXT guest_contact
         BIGINT guest_telegram_id
         TIMESTAMPTZ scheduled_time
-        TEXT status
+        TEXT status "pending|confirmed|cancelled|completed|no_answer"
         TEXT meeting_link
         TEXT notes
+        TEXT platform
+        TEXT location_address
+        BOOLEAN blocks_slots
+        BOOLEAN confirmation_asked
+        TIMESTAMPTZ confirmation_asked_at
         BOOLEAN reminder_24h_sent
         BOOLEAN reminder_1h_sent
+        BOOLEAN reminder_15m_sent
+        BOOLEAN reminder_5m_sent
+        BOOLEAN morning_reminder_sent
         TEXT title
         TIMESTAMPTZ end_time
         BOOLEAN is_manual
         BIGINT created_by
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+
+    calendar_accounts {
+        UUID id PK
+        UUID user_id FK
+        TEXT provider "google|yandex|apple|outlook"
+        TEXT provider_email
+        TEXT access_token_encrypted
+        TEXT refresh_token_encrypted
+        TIMESTAMPTZ token_expires_at
+        TEXT caldav_url
+        TEXT caldav_username
+        TEXT caldav_password_encrypted
+        TEXT status "active|expired|revoked|error"
+        TEXT last_error
+        TIMESTAMPTZ last_sync_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    calendar_connections {
+        UUID id PK
+        UUID account_id FK
+        TEXT external_calendar_id
+        TEXT calendar_name
+        TEXT calendar_color
+        BOOLEAN is_visible
+        BOOLEAN is_read_enabled
+        BOOLEAN is_write_target
+        BOOLEAN is_display_enabled
+        TEXT sync_token
+        TIMESTAMPTZ last_sync_at
+        TEXT webhook_channel_id
+        TEXT webhook_resource_id
+        TIMESTAMPTZ webhook_expires_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    schedule_calendar_rules {
+        UUID id PK
+        UUID schedule_id FK
+        UUID connection_id FK
+        BOOLEAN use_for_blocking
+        BOOLEAN use_for_writing
+        TIMESTAMPTZ created_at
+    }
+
+    external_busy_slots {
+        UUID id PK
+        UUID connection_id FK
+        TEXT external_event_id
+        TEXT summary
+        TIMESTAMPTZ start_time
+        TIMESTAMPTZ end_time
+        BOOLEAN is_all_day
+        TEXT etag
+        JSONB raw_data
+        TIMESTAMPTZ fetched_at
+        TIMESTAMPTZ updated_at
+    }
+
+    event_mapping {
+        UUID id PK
+        UUID booking_id FK
+        UUID connection_id FK
+        TEXT external_event_id
+        TEXT external_event_url
+        TEXT sync_status "synced|pending|error|deleted"
+        TEXT sync_direction "outbound|inbound"
+        TIMESTAMPTZ last_synced_at
+        TEXT last_error
+        TEXT etag
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    sync_log {
+        UUID id PK
+        UUID account_id FK
+        UUID connection_id FK
+        TEXT action
+        TEXT status
+        JSONB details
+        TEXT error_message
+        TIMESTAMPTZ created_at
+    }
+
+    sent_reminders {
+        UUID id PK
+        UUID booking_id FK
+        TEXT reminder_type
+        TIMESTAMPTZ sent_at
     }
 ```
 
@@ -258,6 +408,7 @@ erDiagram
 | bot | python:3.12-slim (custom, non-root) | 8080 (internal) | — |
 | nginx | nginx:1.25-alpine (custom) | 80, 443 | nginx.conf, frontend/, admin/, certbot certs |
 | certbot | certbot/certbot:latest | — (профиль ssl) | certbot_www, certbot_certs |
+| support_bot_beta | python:3.12-slim (custom) | — | — (только в beta docker-compose) |
 
 **nginx routing:**
 
@@ -445,6 +596,46 @@ sequenceDiagram
 
 > **Примечание:** BOT2/TG2 в диаграмме — это бот-сервис и Telegram API,
 > показаны отдельно для наглядности потока уведомлений.
+
+### Утреннее подтверждение (Morning Confirmation Flow)
+
+```mermaid
+sequenceDiagram
+    participant BOT as Bot (reminder_loop)
+    participant API as Backend (FastAPI)
+    participant DB as PostgreSQL
+    participant G as Гость
+    participant O as Организатор
+
+    Note over BOT: Каждые 5 мин, после 09:00 в TZ организатора
+
+    BOT->>API: GET /api/bookings/confirmation-requests
+    API->>DB: SELECT confirmed bookings на сегодня<br/>WHERE confirmation_asked = FALSE
+    DB-->>API: bookings list
+    API-->>BOT: {bookings: [...]}
+
+    loop Для каждого бронирования
+        BOT->>G: "Вы придёте на встречу?" (кнопки: Да / Отменить)
+        BOT->>API: PATCH /api/bookings/{id}/confirmation-asked
+    end
+
+    alt Гость подтверждает
+        G->>BOT: callback "Да, приду"
+        BOT->>API: PATCH /api/bookings/{id}/guest-confirm
+        API->>DB: UPDATE status = 'confirmed'
+        BOT->>O: "Гость подтвердил присутствие"
+    else Гость отменяет
+        G->>BOT: callback "Отменить"
+        BOT->>API: PATCH /api/bookings/{id}/cancel
+        BOT->>O: "Гость отменил встречу"
+    else Нет ответа >1ч
+        BOT->>API: GET /api/bookings/no-answer-candidates
+        API-->>BOT: bookings без ответа
+        BOT->>API: PATCH /api/bookings/{id}/set-no-answer
+        API->>DB: UPDATE status = 'no_answer'
+        BOT->>O: "Гость не ответил на подтверждение"
+    end
+```
 
 ### Подтверждение / отмена встречи
 

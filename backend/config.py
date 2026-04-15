@@ -37,7 +37,7 @@ if MINI_APP_URL and MINI_APP_URL not in CORS_ORIGINS:
     CORS_ORIGINS.append(MINI_APP_URL)
 
 APP_START_TIME = _time.time()
-APP_VERSION = "2.0.0"
+APP_VERSION = "1.2.0"
 
 # Pre-compute owner anonymous_id for filtering in admin dashboards
 import hashlib as _hashlib

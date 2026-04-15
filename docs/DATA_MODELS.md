@@ -1,11 +1,23 @@
 # Модели данных
 
+> Последнее обновление: 15.04.2026
+
 ## ER-диаграмма
 
 ```mermaid
 erDiagram
     users ||--o{ schedules : "создаёт"
     schedules ||--o{ bookings : "принимает"
+    users ||--o{ calendar_accounts : "подключает"
+    calendar_accounts ||--o{ calendar_connections : "содержит"
+    calendar_connections ||--o{ schedule_calendar_rules : "правила"
+    schedules ||--o{ schedule_calendar_rules : "правила"
+    calendar_connections ||--o{ external_busy_slots : "занятость"
+    bookings ||--o{ event_mapping : "синхронизация"
+    calendar_connections ||--o{ event_mapping : "синхронизация"
+    calendar_accounts ||--o{ sync_log : "логирование"
+    calendar_connections ||--o{ sync_log : "логирование"
+    bookings ||--o{ sent_reminders : "напоминания"
 
     users {
         UUID id PK "uuid_generate_v4()"
@@ -14,6 +26,7 @@ erDiagram
         TEXT first_name "NULL"
         TEXT last_name "NULL"
         TEXT timezone "NOT NULL DEFAULT UTC"
+        JSONB reminder_settings "NOT NULL DEFAULT reminders+customReminders"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
@@ -30,6 +43,8 @@ erDiagram
         TIME end_time "DEFAULT 18:00"
         TEXT location_mode "DEFAULT fixed"
         TEXT platform "DEFAULT jitsi"
+        TEXT location_address "NULL"
+        BOOLEAN requires_confirmation "DEFAULT TRUE"
         BOOLEAN is_active "DEFAULT TRUE"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
@@ -42,11 +57,19 @@ erDiagram
         TEXT guest_contact "NOT NULL"
         BIGINT guest_telegram_id "NULL"
         TIMESTAMPTZ scheduled_time "NOT NULL"
-        TEXT status "CHECK pending confirmed cancelled completed"
+        TEXT status "CHECK pending confirmed cancelled completed no_answer"
         TEXT meeting_link "NULL"
         TEXT notes "NULL"
+        TEXT platform "NULL (snapshot from schedule)"
+        TEXT location_address "NULL (snapshot from schedule)"
+        BOOLEAN blocks_slots "DEFAULT TRUE"
         BOOLEAN reminder_24h_sent "DEFAULT FALSE"
         BOOLEAN reminder_1h_sent "DEFAULT FALSE"
+        BOOLEAN reminder_15m_sent "DEFAULT FALSE"
+        BOOLEAN reminder_5m_sent "DEFAULT FALSE"
+        BOOLEAN morning_reminder_sent "DEFAULT FALSE"
+        BOOLEAN confirmation_asked "DEFAULT FALSE"
+        TIMESTAMPTZ confirmation_asked_at "NULL"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
@@ -93,6 +116,99 @@ erDiagram
         TIMESTAMPTZ created_at "DEFAULT NOW()"
         TIMESTAMPTZ updated_at "DEFAULT NOW()"
     }
+
+    calendar_accounts {
+        UUID id PK "uuid_generate_v4()"
+        UUID user_id FK "NOT NULL, CASCADE"
+        TEXT provider "CHECK google yandex apple outlook"
+        TEXT provider_email "NULL"
+        TEXT access_token_encrypted "NULL"
+        TEXT refresh_token_encrypted "NULL"
+        TIMESTAMPTZ token_expires_at "NULL"
+        TEXT caldav_url "NULL"
+        TEXT caldav_username "NULL"
+        TEXT caldav_password_encrypted "NULL"
+        TEXT status "CHECK active expired revoked error DEFAULT active"
+        TEXT last_error "NULL"
+        TIMESTAMPTZ last_sync_at "NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "DEFAULT NOW()"
+    }
+
+    calendar_connections {
+        UUID id PK "uuid_generate_v4()"
+        UUID account_id FK "NOT NULL, CASCADE"
+        TEXT external_calendar_id "NOT NULL"
+        TEXT calendar_name "NOT NULL"
+        TEXT calendar_color "NULL"
+        BOOLEAN is_visible "DEFAULT TRUE"
+        BOOLEAN is_read_enabled "DEFAULT TRUE"
+        BOOLEAN is_write_target "DEFAULT FALSE"
+        BOOLEAN is_display_enabled "DEFAULT FALSE"
+        TEXT sync_token "NULL"
+        TIMESTAMPTZ last_sync_at "NULL"
+        TEXT webhook_channel_id "NULL"
+        TEXT webhook_resource_id "NULL"
+        TIMESTAMPTZ webhook_expires_at "NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "DEFAULT NOW()"
+    }
+
+    schedule_calendar_rules {
+        UUID id PK "uuid_generate_v4()"
+        UUID schedule_id FK "NOT NULL, CASCADE"
+        UUID connection_id FK "NOT NULL, CASCADE"
+        BOOLEAN use_for_blocking "DEFAULT TRUE"
+        BOOLEAN use_for_writing "DEFAULT FALSE"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+    }
+
+    external_busy_slots {
+        UUID id PK "uuid_generate_v4()"
+        UUID connection_id FK "NOT NULL, CASCADE"
+        TEXT external_event_id "NOT NULL"
+        TEXT summary "NULL"
+        TIMESTAMPTZ start_time "NOT NULL"
+        TIMESTAMPTZ end_time "NOT NULL"
+        BOOLEAN is_all_day "DEFAULT FALSE"
+        TEXT etag "NULL"
+        JSONB raw_data "NULL"
+        TIMESTAMPTZ fetched_at "DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "DEFAULT NOW()"
+    }
+
+    event_mapping {
+        UUID id PK "uuid_generate_v4()"
+        UUID booking_id FK "NOT NULL, CASCADE"
+        UUID connection_id FK "NOT NULL, CASCADE"
+        TEXT external_event_id "NOT NULL"
+        TEXT external_event_url "NULL"
+        TEXT sync_status "CHECK synced pending error deleted DEFAULT synced"
+        TEXT sync_direction "CHECK outbound inbound DEFAULT outbound"
+        TIMESTAMPTZ last_synced_at "NULL"
+        TEXT last_error "NULL"
+        TEXT etag "NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+        TIMESTAMPTZ updated_at "DEFAULT NOW()"
+    }
+
+    sync_log {
+        UUID id PK "uuid_generate_v4()"
+        UUID account_id FK "NULL, ON DELETE SET NULL"
+        UUID connection_id FK "NULL, ON DELETE SET NULL"
+        TEXT action "NOT NULL"
+        TEXT status "NOT NULL"
+        JSONB details "NULL"
+        TEXT error_message "NULL"
+        TIMESTAMPTZ created_at "DEFAULT NOW()"
+    }
+
+    sent_reminders {
+        UUID id PK "uuid_generate_v4()"
+        UUID booking_id FK "NOT NULL, CASCADE"
+        TEXT reminder_type "NOT NULL"
+        TIMESTAMPTZ sent_at "DEFAULT NOW()"
+    }
 ```
 
 ## Таблицы базы данных
@@ -111,6 +227,7 @@ erDiagram
 | first_name | TEXT | NULL | Имя из Telegram |
 | last_name | TEXT | NULL | Фамилия из Telegram |
 | timezone | TEXT | NOT NULL, DEFAULT 'UTC' | IANA-таймзона пользователя |
+| reminder_settings | JSONB | NOT NULL, DEFAULT '{"reminders":["1440","60"],"customReminders":[]}' | Настройки напоминаний пользователя |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время регистрации |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время последнего обновления |
 
@@ -137,6 +254,8 @@ erDiagram
 | end_time | TIME | NOT NULL, DEFAULT '18:00' | Конец рабочего дня |
 | location_mode | TEXT | NOT NULL, DEFAULT 'fixed' | Режим выбора платформы (fixed / user_choice) |
 | platform | TEXT | NOT NULL, DEFAULT 'jitsi' | Платформа по умолчанию |
+| location_address | TEXT | NULL | Адрес для офлайн-встреч |
+| requires_confirmation | BOOLEAN | NOT NULL, DEFAULT TRUE | Требуется ли подтверждение организатора |
 | is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Активно ли расписание |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
@@ -163,11 +282,19 @@ erDiagram
 | guest_contact | TEXT | NOT NULL | Контакт (email или @username) |
 | guest_telegram_id | BIGINT | NULL | Telegram ID гостя (если есть) |
 | scheduled_time | TIMESTAMPTZ | NOT NULL | Дата и время встречи |
-| status | TEXT | NOT NULL, DEFAULT 'pending', CHECK (IN pending/confirmed/cancelled/completed) | Статус бронирования |
+| status | TEXT | NOT NULL, DEFAULT 'pending', CHECK (IN pending/confirmed/cancelled/completed/no_answer) | Статус бронирования |
 | meeting_link | TEXT | NULL | Ссылка на видеозвонок |
 | notes | TEXT | NULL | Заметки от гостя |
+| platform | TEXT | NULL | Платформа (snapshot из расписания на момент бронирования) |
+| location_address | TEXT | NULL | Адрес (snapshot из расписания на момент бронирования) |
+| blocks_slots | BOOLEAN | NOT NULL, DEFAULT TRUE | Блокирует ли слоты в расписании |
 | reminder_24h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 24ч |
 | reminder_1h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 1ч |
+| reminder_15m_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 15 мин |
+| reminder_5m_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 5 мин |
+| morning_reminder_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли утреннее напоминание |
+| confirmation_asked | BOOLEAN | NOT NULL, DEFAULT FALSE | Был ли отправлен запрос подтверждения |
+| confirmation_asked_at | TIMESTAMPTZ | NULL | Время отправки запроса подтверждения |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
 
@@ -186,11 +313,13 @@ stateDiagram-v2
     [*] --> pending: POST /api/bookings
     pending --> confirmed: PATCH .../confirm (организатор)
     pending --> cancelled: PATCH .../cancel (организатор или гость)
+    pending --> no_answer: Нет ответа от организатора
     confirmed --> cancelled: PATCH .../cancel (организатор или гость)
 
     note right of pending: Создано гостем,<br/>ожидает подтверждения
     note right of confirmed: Организатор подтвердил
     note right of cancelled: Отменено любой стороной
+    note right of no_answer: Организатор не ответил<br/>на запрос подтверждения
 ```
 
 **Кто меняет статус:**
@@ -303,9 +432,144 @@ stateDiagram-v2
 
 **Миграция:** `database/migrations/004_admin_tables.sql`
 
+## Таблицы интеграции с календарями
+
+### calendar_accounts
+
+Аккаунты внешних календарных сервисов, подключённые пользователями.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор аккаунта |
+| user_id | UUID | FK → users(id) ON DELETE CASCADE, NOT NULL | Владелец аккаунта |
+| provider | TEXT | NOT NULL, CHECK (IN google/yandex/apple/outlook) | Провайдер календаря |
+| provider_email | TEXT | NULL | Email аккаунта провайдера |
+| access_token_encrypted | TEXT | NULL | Зашифрованный access token (OAuth) |
+| refresh_token_encrypted | TEXT | NULL | Зашифрованный refresh token (OAuth) |
+| token_expires_at | TIMESTAMPTZ | NULL | Время истечения access token |
+| caldav_url | TEXT | NULL | URL для CalDAV-подключения |
+| caldav_username | TEXT | NULL | Имя пользователя CalDAV |
+| caldav_password_encrypted | TEXT | NULL | Зашифрованный пароль CalDAV |
+| status | TEXT | NOT NULL, DEFAULT 'active', CHECK (IN active/expired/revoked/error) | Статус подключения |
+| last_error | TEXT | NULL | Последняя ошибка |
+| last_sync_at | TIMESTAMPTZ | NULL | Время последней синхронизации |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
+
+**Уникальное ограничение:** UNIQUE(user_id, provider, provider_email)
+
+### calendar_connections
+
+Конкретные календари внутри подключённого аккаунта.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор подключения |
+| account_id | UUID | FK → calendar_accounts(id) ON DELETE CASCADE, NOT NULL | Аккаунт провайдера |
+| external_calendar_id | TEXT | NOT NULL | ID календаря во внешней системе |
+| calendar_name | TEXT | NOT NULL | Отображаемое имя календаря |
+| calendar_color | TEXT | NULL | Цвет календаря |
+| is_visible | BOOLEAN | NOT NULL, DEFAULT TRUE | Видим ли календарь пользователю |
+| is_read_enabled | BOOLEAN | NOT NULL, DEFAULT TRUE | Читать события для блокировки слотов |
+| is_write_target | BOOLEAN | NOT NULL, DEFAULT FALSE | Записывать ли новые бронирования |
+| is_display_enabled | BOOLEAN | NOT NULL, DEFAULT FALSE | Показывать ли в UI |
+| sync_token | TEXT | NULL | Токен инкрементальной синхронизации |
+| last_sync_at | TIMESTAMPTZ | NULL | Время последней синхронизации |
+| webhook_channel_id | TEXT | NULL | ID канала push-уведомлений |
+| webhook_resource_id | TEXT | NULL | ID ресурса push-уведомлений |
+| webhook_expires_at | TIMESTAMPTZ | NULL | Время истечения webhook |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
+
+**Уникальное ограничение:** UNIQUE(account_id, external_calendar_id)
+
+### schedule_calendar_rules
+
+Правила привязки календарей к расписаниям (какие календари блокируют слоты, в какие записывать).
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор правила |
+| schedule_id | UUID | FK → schedules(id) ON DELETE CASCADE, NOT NULL | Расписание |
+| connection_id | UUID | FK → calendar_connections(id) ON DELETE CASCADE, NOT NULL | Подключение к календарю |
+| use_for_blocking | BOOLEAN | NOT NULL, DEFAULT TRUE | Использовать для блокировки слотов |
+| use_for_writing | BOOLEAN | NOT NULL, DEFAULT FALSE | Записывать бронирования в этот календарь |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
+
+**Уникальное ограничение:** UNIQUE(schedule_id, connection_id)
+
+### external_busy_slots
+
+Кеш занятых слотов из внешних календарей для быстрой проверки доступности.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор слота |
+| connection_id | UUID | FK → calendar_connections(id) ON DELETE CASCADE, NOT NULL | Подключение к календарю |
+| external_event_id | TEXT | NOT NULL | ID события во внешней системе |
+| summary | TEXT | NULL | Название события |
+| start_time | TIMESTAMPTZ | NOT NULL | Начало события |
+| end_time | TIMESTAMPTZ | NOT NULL | Конец события |
+| is_all_day | BOOLEAN | NOT NULL, DEFAULT FALSE | Событие на весь день |
+| etag | TEXT | NULL | ETag для проверки изменений |
+| raw_data | JSONB | NULL | Исходные данные события |
+| fetched_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время загрузки |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
+
+**Уникальное ограничение:** UNIQUE(connection_id, external_event_id)
+
+### event_mapping
+
+Связь между бронированиями и событиями во внешних календарях (двусторонняя синхронизация).
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор маппинга |
+| booking_id | UUID | FK → bookings(id) ON DELETE CASCADE, NOT NULL | Бронирование |
+| connection_id | UUID | FK → calendar_connections(id) ON DELETE CASCADE, NOT NULL | Подключение к календарю |
+| external_event_id | TEXT | NOT NULL | ID события во внешней системе |
+| external_event_url | TEXT | NULL | URL события во внешней системе |
+| sync_status | TEXT | NOT NULL, DEFAULT 'synced', CHECK (IN synced/pending/error/deleted) | Статус синхронизации |
+| sync_direction | TEXT | NOT NULL, DEFAULT 'outbound', CHECK (IN outbound/inbound) | Направление синхронизации |
+| last_synced_at | TIMESTAMPTZ | NULL | Время последней синхронизации |
+| last_error | TEXT | NULL | Последняя ошибка |
+| etag | TEXT | NULL | ETag для проверки изменений |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |
+| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время обновления |
+
+**Уникальное ограничение:** UNIQUE(booking_id, connection_id)
+
+### sync_log
+
+Лог операций синхронизации с внешними календарями.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор записи |
+| account_id | UUID | FK → calendar_accounts(id) ON DELETE SET NULL, NULL | Аккаунт (сохраняется при удалении) |
+| connection_id | UUID | FK → calendar_connections(id) ON DELETE SET NULL, NULL | Подключение (сохраняется при удалении) |
+| action | TEXT | NOT NULL | Тип операции синхронизации |
+| status | TEXT | NOT NULL | Результат операции |
+| details | JSONB | NULL | Детали операции |
+| error_message | TEXT | NULL | Сообщение об ошибке |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время операции |
+
+### sent_reminders
+
+Отправленные напоминания. Позволяет гибко отслеживать любые типы напоминаний.
+
+| Поле | Тип | Ограничение | Описание |
+|------|-----|-------------|---------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Идентификатор записи |
+| booking_id | UUID | FK → bookings(id) ON DELETE CASCADE, NOT NULL | Бронирование |
+| reminder_type | TEXT | NOT NULL | Тип напоминания (например, 1440m, 60m, 15m, 5m, morning) |
+| sent_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время отправки |
+
+**Уникальное ограничение:** UNIQUE(booking_id, reminder_type)
+
 ## Pydantic-схемы (Backend)
 
-Определены в `backend/main.py`, строки ~148–177.
+Определены в `backend/schemas.py`.
 
 ### UserAuth (запрос: POST `/api/users/auth`)
 
@@ -334,6 +598,26 @@ stateDiagram-v2
 | location_mode | str | max=50 | "fixed" | Режим выбора платформы |
 | platform | str | max=50 | "jitsi" | Платформа |
 
+### ScheduleUpdate (запрос: PATCH `/api/schedules/{id}`)
+
+Все поля опциональны — передаются только обновляемые.
+
+| Поле | Тип | Валидация | Default | Описание |
+|------|-----|-----------|---------|---------|
+| title | Optional[str] | min=1, max=200 | None | Название расписания |
+| description | Optional[str] | max=2000 | None | Описание |
+| duration | Optional[int] | ge=5, le=480 | None | Длительность встречи (мин) |
+| buffer_time | Optional[int] | ge=0, le=120 | None | Буфер между встречами (мин) |
+| work_days | Optional[List[int]] | — | None | Рабочие дни (0=Пн, 6=Вс) |
+| start_time | Optional[str] | pattern `^\d{2}:\d{2}$` | None | Начало рабочего дня (HH:MM) |
+| end_time | Optional[str] | pattern `^\d{2}:\d{2}$` | None | Конец рабочего дня (HH:MM) |
+| location_mode | Optional[str] | max=50 | None | Режим выбора платформы |
+| platform | Optional[str] | max=50 | None | Платформа |
+| location_address | Optional[str] | max=500 | None | Адрес для офлайн-встреч |
+| is_active | Optional[bool] | — | None | Активно ли расписание |
+| min_booking_advance | Optional[int] | ge=0, le=10080 | None | Минимальное время бронирования заранее (мин) |
+| requires_confirmation | Optional[bool] | — | None | Требуется ли подтверждение организатора |
+
 ### BookingCreate (запрос: POST `/api/bookings`)
 
 | Поле | Тип | Валидация | Описание |
@@ -344,6 +628,23 @@ stateDiagram-v2
 | guest_telegram_id | Optional[int] | — | Telegram ID гостя (предпочитается из initData) |
 | scheduled_time | str | max=50 | ISO-формат даты/времени |
 | notes | Optional[str] | max=2000 | Заметки |
+
+### QuickMeetingCreate (запрос: POST `/api/meetings/quick`)
+
+Быстрое создание встречи вручную. Если `schedule_id` не указан, автоматически создаётся скрытое расписание (`is_default=TRUE`).
+
+| Поле | Тип | Валидация | Default | Описание |
+|------|-----|-----------|---------|---------|
+| title | str | min=1, max=200 | — | Название встречи |
+| date | str | pattern `^\d{4}-\d{2}-\d{2}$` | — | Дата встречи (YYYY-MM-DD) |
+| start_time | str | pattern `^\d{2}:\d{2}$` | — | Время начала (HH:MM) |
+| end_time | Optional[str] | pattern `^\d{2}:\d{2}$` | None | Время окончания (HH:MM) |
+| end_date | Optional[str] | pattern `^\d{4}-\d{2}-\d{2}$` | None | Дата окончания (если отличается от начала) |
+| schedule_id | Optional[str] | max=50 | None | UUID расписания (если в конкретное расписание) |
+| guest_name | Optional[str] | max=200 | None | Имя гостя |
+| guest_contact | Optional[str] | max=200 | None | Контакт гостя |
+| notes | Optional[str] | max=2000 | None | Заметки |
+| blocks_slots | Optional[bool] | — | True | Блокирует ли слоты в расписании |
 
 ### Ответы API
 
