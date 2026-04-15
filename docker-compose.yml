@@ -66,6 +66,23 @@ services:
       start_period: 10s
 
   # ─────────────────────────────────────────────
+  # Redis — FSM storage для бота
+  # ─────────────────────────────────────────────
+  redis:
+    image: public.ecr.aws/docker/library/redis:7-alpine
+    container_name: dovstrechi_redis
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─────────────────────────────────────────────
   # Bot — aiogram 3.x
   # ─────────────────────────────────────────────
   bot:
@@ -79,10 +96,13 @@ services:
       BACKEND_API_URL: http://backend:8000
       MINI_APP_URL: ${MINI_APP_URL}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      REDIS_URL: redis://redis:6379/0
     expose:
       - "8080"
     depends_on:
       backend:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - internal
@@ -128,6 +148,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   certbot_www:
   certbot_certs:
 

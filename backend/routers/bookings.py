@@ -46,7 +46,10 @@ async def create_booking(
     if conflict:
         raise HTTPException(status_code=409, detail="Это время уже занято")
 
-    meeting_link = generate_meeting_link(schedule["platform"])
+    if schedule["platform"] == "other" and schedule.get("custom_link"):
+        meeting_link = schedule["custom_link"]
+    else:
+        meeting_link = generate_meeting_link(schedule["platform"])
     guest_telegram_id = auth_user["id"] if auth_user else data.guest_telegram_id
     initial_status = 'pending' if schedule.get("requires_confirmation", True) else 'confirmed'
 
@@ -114,9 +117,24 @@ async def list_bookings(
     role: Optional[str] = Query(None, description="organizer | guest | all"),
     schedule_id: Optional[str] = Query(None, description="Filter by schedule UUID"),
     future_only: bool = Query(False, description="Only future non-cancelled bookings"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    page: Optional[int] = Query(None, ge=1),
+    per_page: Optional[int] = Query(None, ge=1, le=100),
     conn: asyncpg.Connection = Depends(db),
 ):
     telegram_id = auth_user["id"]
+
+    # Translate page/per_page to limit/offset if explicitly given; preserve
+    # existing limit/offset contract otherwise.
+    if page is not None or per_page is not None:
+        pp = per_page or 100
+        pg = page or 1
+        limit = pp
+        offset = (pg - 1) * pp
+    else:
+        pp = limit
+        pg = (offset // limit) + 1 if limit else 1
 
     rows = await conn.fetch(
         """
@@ -177,7 +195,18 @@ async def list_bookings(
             and r["scheduled_time"] > now
         ]
 
-    return result
+    total = len(result)
+    paginated = result[offset:offset + limit]
+    has_more = (offset + len(paginated)) < total
+    return {
+        "bookings": paginated,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "page": pg,
+        "per_page": pp,
+        "has_more": has_more,
+    }
 
 
 _REMINDER_CFG = {
@@ -485,6 +514,18 @@ async def morning_pending_guest_notice(conn: asyncpg.Connection = Depends(db)):
           )
     """)
     return {"bookings": [dict(r) for r in rows]}
+
+
+@router.post("/api/bookings/complete-past")
+async def complete_past_bookings(conn: asyncpg.Connection = Depends(db)):
+    """Перевести прошедшие confirmed встречи в completed (вызывается ботом каждые 15 мин)."""
+    result = await conn.execute("""
+        UPDATE bookings SET status = 'completed'
+        WHERE status = 'confirmed'
+          AND scheduled_time < NOW() - INTERVAL '30 minutes'
+    """)
+    count = int(result.split()[-1]) if result else 0
+    return {"completed": count}
 
 
 @router.get("/api/bookings/{booking_id}")

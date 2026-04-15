@@ -153,13 +153,47 @@ async function loadMonthSlots() {
   var sched = state.schedule;
   if (!sched) return;
   var y = state.currentMonth.getFullYear();
+  var m = state.currentMonth.getMonth() + 1;
+  /* Try batch endpoint first — one request for the whole month */
+  try {
+    var res = await apiFetch('GET',
+      '/api/available-slots/' + sched.id + '/month?year=' + y + '&month=' + m +
+      '&viewer_tz=' + encodeURIComponent(userTimezone));
+    if (!res.error && res.data) {
+      /* Expected shape: { "YYYY-MM-DD": [slots...], ... } or { days: {...} } */
+      var days = res.data.days || res.data;
+      if (days && typeof days === 'object') {
+        for (var dateStr in days) {
+          if (Object.prototype.hasOwnProperty.call(days, dateStr)) {
+            var slots = days[dateStr];
+            if (slots && Array.isArray(slots.available_slots)) {
+              state.monthSlots[dateStr] = slots.available_slots;
+            } else if (Array.isArray(slots)) {
+              state.monthSlots[dateStr] = slots;
+            }
+          }
+        }
+        renderCalendar();
+        return;
+      }
+    }
+  } catch (e) { /* fall through to legacy */ }
+
+  await _loadMonthSlotsLegacy();
+}
+
+/* Legacy per-day batch loader — kept as fallback until every backend
+   environment ships the /month endpoint. */
+async function _loadMonthSlotsLegacy() {
+  var sched = state.schedule;
+  if (!sched) return;
+  var y = state.currentMonth.getFullYear();
   var m = state.currentMonth.getMonth();
   var daysInMonth = new Date(y, m + 1, 0).getDate();
   var workDays = sched.work_days || [];
   var today = new Date();
   today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  /* collect dates to fetch (work days, not past, max 8 at a time) */
   var datesToFetch = [];
   for (var d = 1; d <= daysInMonth; d++) {
     var dt = new Date(y, m, d);
@@ -170,14 +204,12 @@ async function loadMonthSlots() {
     datesToFetch.push(ds);
   }
 
-  /* batch fetch (8 at a time) */
   for (var i = 0; i < datesToFetch.length; i += 8) {
     var batch = datesToFetch.slice(i, i + 8);
     try {
       var promises = batch.map(function(ds) {
         return apiFetch('GET', '/api/available-slots/' + sched.id + '?date=' + ds + '&viewer_tz=' + encodeURIComponent(userTimezone))
           .then(function(res) {
-            /* On API error: leave as undefined (green "not loaded") rather than [] (grey "no slots") */
             if (res.error || !res.data) return { date: ds, slots: null };
             return { date: ds, slots: res.data.available_slots || [] };
           });
@@ -372,28 +404,36 @@ function setupForm() {
 /* ── Submit booking ── */
 var _submitBookingBound = function() { submitBooking(); };
 
-async function submitBooking() {
-  var nameInp = document.getElementById('guest-name');
-  var contactInp = document.getElementById('guest-contact');
-  var notesInp = document.getElementById('guest-notes');
-  var errEl = document.getElementById('err-guest-name');
+/* Shared booking-submit core used by the full-form and inline flows.
+   opts: { nameId, contactId, notesId, btnId, errElId, idleHtml, loadingHtml, useToastValidation } */
+async function _doSubmitBooking(opts) {
+  var nameInp = document.getElementById(opts.nameId);
+  var contactInp = document.getElementById(opts.contactId);
+  var notesInp = document.getElementById(opts.notesId);
   var nameVal = (nameInp ? nameInp.value : '').trim();
+  var errEl = opts.errElId ? document.getElementById(opts.errElId) : null;
 
-  /* validate */
   if (nameVal.length < 2) {
-    if (errEl) errEl.style.display = '';
-    if (nameInp) nameInp.focus();
+    if (opts.useToastValidation) {
+      showToast('Введите имя (мин. 2 символа)');
+    } else {
+      if (errEl) errEl.style.display = '';
+      if (nameInp) nameInp.focus();
+    }
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
     return;
   }
   if (errEl) errEl.style.display = 'none';
 
-  /* build scheduled_time — prefer UTC from slot data */
-  var scheduled_time = state.selectedSlotUtc || (state.selectedDate + 'T' + state.selectedTime + ':00');
+  if (!state.selectedSlotUtc && !state.selectedTime) {
+    showToast('Выберите слот');
+    return;
+  }
 
+  var scheduled_time = state.selectedSlotUtc || (state.selectedDate + 'T' + state.selectedTime + ':00');
   var u = tg?.initDataUnsafe?.user;
   var body = {
-    schedule_id: state.scheduleId,
+    schedule_id: state.scheduleId || (state.schedule && state.schedule.id),
     guest_name: nameVal,
     guest_contact: (contactInp ? contactInp.value : '').trim() || nameVal,
     guest_telegram_id: u ? u.id : null,
@@ -401,15 +441,22 @@ async function submitBooking() {
     notes: (notesInp ? notesInp.value : '').trim() || null,
   };
 
-  /* loading state */
-  var btn = document.getElementById('btn-book');
-  if (btn) { btn.className = 'btn btn-disabled'; btn.disabled = true; btn.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>'; }
+  var btn = document.getElementById(opts.btnId);
+  var origClass = btn ? btn.className : '';
+  if (btn) {
+    if (opts.loadingClass) btn.className = opts.loadingClass;
+    btn.disabled = true;
+    btn.innerHTML = opts.loadingHtml;
+  }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
   var { data, error } = await apiFetch('POST', '/api/bookings', body);
 
-  /* restore button */
-  if (btn) { btn.className = 'btn btn-primary'; btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Забронировать'; }
+  if (btn) {
+    btn.className = opts.loadingClass ? (origClass || 'btn btn-primary') : origClass;
+    btn.disabled = false;
+    btn.innerHTML = opts.idleHtml;
+  }
 
   if (error) {
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
@@ -420,6 +467,20 @@ async function submitBooking() {
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   renderSuccess(data);
   showScreen('s-success');
+}
+
+async function submitBooking() {
+  return _doSubmitBooking({
+    nameId: 'guest-name',
+    contactId: 'guest-contact',
+    notesId: 'guest-notes',
+    btnId: 'btn-book',
+    errElId: 'err-guest-name',
+    idleHtml: '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Забронировать',
+    loadingHtml: '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>',
+    loadingClass: 'btn btn-disabled',
+    useToastValidation: false,
+  });
 }
 
 /* ── Success screen ── */
@@ -529,40 +590,13 @@ function openOrganizerChat(username) {
 /* ── Inline booking (progressive disclosure) ── */
 async function submitInlineBooking() {
   if (state._previewMode) { showToast('Это режим предпросмотра'); return; }
-
-  var name = ((document.getElementById('cal-g-name') || {}).value || '').trim();
-  var contact = ((document.getElementById('cal-g-contact') || {}).value || '').trim();
-  var notes = ((document.getElementById('cal-g-notes') || {}).value || '').trim();
-
-  if (!name || name.length < 2) { showToast('Введите имя (мин. 2 символа)'); return; }
-  if (!state.selectedSlotUtc && !state.selectedTime) { showToast('Выберите слот'); return; }
-
-  var scheduled_time = state.selectedSlotUtc || (state.selectedDate + 'T' + state.selectedTime + ':00');
-  var u = tg?.initDataUnsafe?.user;
-  var body = {
-    schedule_id: state.scheduleId || (state.schedule && state.schedule.id),
-    guest_name: name,
-    guest_contact: contact || name,
-    guest_telegram_id: u ? u.id : null,
-    scheduled_time: scheduled_time,
-    notes: notes || null,
-  };
-
-  var btn = document.getElementById('cal-book-btn');
-  if (btn) { btn.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>'; btn.disabled = true; }
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-
-  var { data, error } = await apiFetch('POST', '/api/bookings', body);
-
-  if (btn) { btn.innerHTML = 'Забронировать'; btn.disabled = false; }
-
-  if (error) {
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-    showToast(error === 'Это время уже занято' ? 'Это время уже занято, выберите другое' : 'Ошибка: ' + error);
-    return;
-  }
-
-  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-  renderSuccess(data);
-  showScreen('s-success');
+  return _doSubmitBooking({
+    nameId: 'cal-g-name',
+    contactId: 'cal-g-contact',
+    notesId: 'cal-g-notes',
+    btnId: 'cal-book-btn',
+    idleHtml: 'Забронировать',
+    loadingHtml: '<div style="display:flex;align-items:center;justify-content:center;gap:8px"><div class="spinner" style="width:18px;height:18px;border-width:2px"></div>Бронирование…</div>',
+    useToastValidation: true,
+  });
 }

@@ -15,13 +15,19 @@ log = structlog.get_logger()
 
 
 def row_to_dict(row) -> dict:
-    """asyncpg Record → plain dict"""
+    """asyncpg Record → plain dict. None-safe wrapper around dict(row).
+
+    Intentionally thin: many call sites rely on the None-passthrough behavior
+    (e.g. `return row_to_dict(await conn.fetchrow(...))`), which bare dict()
+    would not handle. Do NOT inline without auditing every caller.
+    """
     if row is None:
         return None
     return dict(row)
 
 
 def rows_to_list(rows) -> list:
+    """asyncpg Records → list of dicts (equivalent to [dict(r) for r in rows])."""
     return [dict(r) for r in rows]
 
 
@@ -46,17 +52,20 @@ async def _track_event(
     severity: str = "info",
     session_id: str | None = None,
 ) -> None:
-    """Write an event to app_events (fire-and-forget safe)."""
+    """Record an app event via the in-memory EventBuffer.
+
+    Signature keeps `conn` for backwards compatibility with existing callers;
+    the parameter is ignored — events go to a background batched INSERT.
+    This is fire-and-forget and never raises.
+    """
     try:
-        anon_id = anonymize_id(telegram_id)
-        await conn.execute(
-            """
-            INSERT INTO app_events (event_type, anonymous_id, session_id, metadata, severity)
-            VALUES ($1, $2, $3, $4::jsonb, $5)
-            """,
-            event_type, anon_id, session_id,
-            json.dumps(metadata) if metadata else None,
-            severity,
+        from event_buffer import event_buffer
+        event_buffer.add(
+            event_type=event_type,
+            telegram_id=telegram_id,
+            metadata=metadata,
+            severity=severity,
+            session_id=session_id,
         )
     except Exception:
         log.warning("track_event_failed", event_type=event_type)

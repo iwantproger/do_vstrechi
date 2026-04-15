@@ -32,9 +32,10 @@ async def handle_inline_query(query: InlineQuery):
     user_id = query.from_user.id
     search = (query.query or "").strip().lower()
 
-    schedules = await api("get", f"/api/schedules?telegram_id={user_id}")
+    resp = await api("get", f"/api/schedules?telegram_id={user_id}")
+    schedules = resp.get("schedules", []) if isinstance(resp, dict) else (resp or [])
 
-    if not schedules or not isinstance(schedules, list):
+    if not schedules:
         await query.answer(
             results=[
                 InlineQueryResultArticle(

@@ -15,13 +15,14 @@ router = Router()
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(cb: CallbackQuery):
-    await cb.message.edit_text("Выбери действие:", reply_markup=kb_main())
+    await cb.message.edit_text("Выбери действие:", reply_markup=kb_main)
     await cb.answer()
 
 
 @router.callback_query(F.data == "my_schedules")
 async def cb_my_schedules(cb: CallbackQuery):
-    schedules = await api("get", f"/api/schedules?telegram_id={cb.from_user.id}")
+    resp = await api("get", f"/api/schedules?telegram_id={cb.from_user.id}")
+    schedules = resp.get("schedules", []) if isinstance(resp, dict) else (resp or [])
 
     if not schedules:
         await cb.message.edit_text(
@@ -53,10 +54,11 @@ async def cb_my_schedules(cb: CallbackQuery):
 
 @router.callback_query(F.data == "my_bookings")
 async def cb_my_bookings(cb: CallbackQuery):
-    bookings = await api("get", f"/api/bookings?telegram_id={cb.from_user.id}")
+    resp = await api("get", f"/api/bookings?telegram_id={cb.from_user.id}")
+    bookings = resp.get("bookings", []) if isinstance(resp, dict) else (resp or [])
 
     if not bookings:
-        await cb.message.edit_text("У тебя пока нет встреч.", reply_markup=kb_back_main())
+        await cb.message.edit_text("У тебя пока нет встреч.", reply_markup=kb_back_main)
         await cb.answer()
         return
 
@@ -96,5 +98,5 @@ async def cb_stats(cb: CallbackQuery):
         f"✅ Подтверждено: <b>{stats.get('confirmed_bookings', 0)}</b>\n"
         f"🚀 Предстоящих: <b>{stats.get('upcoming_bookings', 0)}</b>\n"
     )
-    await cb.message.edit_text(text, reply_markup=kb_back_main(), parse_mode=ParseMode.HTML)
+    await cb.message.edit_text(text, reply_markup=kb_back_main, parse_mode=ParseMode.HTML)
     await cb.answer()

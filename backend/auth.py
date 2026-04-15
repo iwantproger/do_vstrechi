@@ -85,6 +85,16 @@ async def get_current_user(request: Request) -> dict:
 
 async def get_optional_user(request: Request) -> dict | None:
     """Same as get_current_user but returns None instead of 401 (for public endpoints)."""
+    internal_key = request.headers.get("X-Internal-Key")
+    if internal_key and INTERNAL_API_KEY and hmac.compare_digest(internal_key, INTERNAL_API_KEY):
+        tid = request.query_params.get("telegram_id")
+        if tid:
+            try:
+                return {"id": int(tid)}
+            except ValueError:
+                return None
+        return None
+
     init_data = request.headers.get("X-Init-Data")
     if not init_data:
         return None

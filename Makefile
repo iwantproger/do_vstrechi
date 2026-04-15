@@ -1,4 +1,4 @@
-.PHONY: up down restart deploy logs ps build backup restore migrate migrate-all admin health cleanup ssl ssl-renew psql help
+.PHONY: up down restart deploy logs ps build backup restore restore-prod restore-beta migrate migrate-all admin health cleanup ssl ssl-renew psql help
 .PHONY: beta-up beta-down beta-restart beta-logs beta-ps beta-build beta-deploy beta-migrate beta-migrate-all beta-psql beta-health
 .PHONY: status ssl-beta
 
@@ -67,15 +67,19 @@ ps:
 build:
 	docker compose build --no-cache
 
-## Дамп PostgreSQL (бэкап)
+## Бэкап PostgreSQL (prod + beta, custom format)
 backup:
-	docker compose exec postgres pg_dump -U $${POSTGRES_USER:-dovstrechi} $${POSTGRES_DB:-dovstrechi} \
-		> backup_$$(date +%Y%m%d_%H%M%S).sql
-	@echo "✓ Backup saved"
+	@bash scripts/backup.sh
 
-## Восстановление из дампа (make restore FILE=backup_xxx.sql)
-restore:
-	docker compose exec -T postgres psql -U $${POSTGRES_USER:-dovstrechi} $${POSTGRES_DB:-dovstrechi} < $(FILE)
+## Восстановить prod из дампа (make restore-prod FILE=backups/prod_xxx.dump)
+restore-prod:
+	@echo "Restoring PROD from $(FILE)..."
+	docker exec -i dovstrechi_postgres pg_restore -U dovstrechi -d dovstrechi --clean --if-exists < $(FILE)
+
+## Восстановить beta из дампа (make restore-beta FILE=backups/beta_xxx.dump)
+restore-beta:
+	@echo "Restoring BETA from $(FILE)..."
+	docker exec -i dovstrechi_postgres_beta pg_restore -U dovstrechi -d dovstrechi_beta --clean --if-exists < $(FILE)
 
 ## Применить миграцию (make migrate FILE=004_admin_tables.sql)
 migrate:

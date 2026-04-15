@@ -12,7 +12,11 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "")
 ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
 ADMIN_SESSION_TTL_HOURS = int(os.environ.get("ADMIN_SESSION_TTL_HOURS", "2"))
 ADMIN_IP_ALLOWLIST = os.environ.get("ADMIN_IP_ALLOWLIST", "").strip()
-ANONYMIZE_SALT = os.environ.get("ANONYMIZE_SALT", "do-vstrechi-2026")
+# SECURITY: ANONYMIZE_SALT must be provided via env — no default allowed.
+# Used to hash telegram_id → anonymous_id for analytics. A weak/known salt
+# would allow reversing anonymous_id back to telegram_id via rainbow tables.
+ANONYMIZE_SALT = os.environ["ANONYMIZE_SALT"]
+assert len(ANONYMIZE_SALT) >= 16, "ANONYMIZE_SALT must be at least 16 characters"
 
 # Encryption (Fernet) для токенов внешних календарей
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")

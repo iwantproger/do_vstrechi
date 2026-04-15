@@ -1,6 +1,7 @@
 """Pydantic-схемы для валидации запросов и ответов."""
+import re
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserAuth(BaseModel):
@@ -23,6 +24,7 @@ class ScheduleCreate(BaseModel):
     location_address: Optional[str] = Field(None, max_length=500)
     min_booking_advance: Optional[int] = Field(0, ge=0, le=10080)
     requires_confirmation: bool = Field(True)
+    custom_link: Optional[str] = Field(None, max_length=2000)
 
 
 class ScheduleUpdate(BaseModel):
@@ -39,6 +41,7 @@ class ScheduleUpdate(BaseModel):
     is_active: Optional[bool] = None
     min_booking_advance: Optional[int] = Field(None, ge=0, le=10080)
     requires_confirmation: Optional[bool] = None
+    custom_link: Optional[str] = Field(None, max_length=2000)
 
 
 class QuickMeetingCreate(BaseModel):
@@ -61,6 +64,21 @@ class BookingCreate(BaseModel):
     guest_telegram_id: Optional[int] = None
     scheduled_time: str = Field(..., max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("guest_contact")
+    @classmethod
+    def validate_contact(cls, v: str) -> str:
+        v = v.strip()
+        if re.match(r"^@[a-zA-Z0-9_]{3,32}$", v):
+            return v
+        if re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", v):
+            return v
+        normalized = re.sub(r"[\s\-]", "", v)
+        if re.match(r"^\+\d{7,15}$", normalized):
+            return v
+        if len(v) >= 2:
+            return v
+        raise ValueError("Некорректный контакт")
 
 
 class TelegramLoginData(BaseModel):
@@ -106,3 +124,8 @@ class AppEvent(BaseModel):
 class CleanupRequest(BaseModel):
     older_than_days: int = Field(default=30, ge=7, le=365)
     severity: str = Field(default="info", pattern=r"^(info|warn)$")
+
+
+# Month slots response — dict[date_str, list of slot dicts]
+# Example: {"2026-04-01": [{"time":"09:00","datetime":"2026-04-01T09:00:00+03:00"}]}
+# Kept as plain dict in code; no strict Pydantic model to avoid per-day schema overhead.

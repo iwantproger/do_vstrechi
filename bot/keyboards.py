@@ -22,23 +22,23 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def kb_main() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
-        [InlineKeyboardButton(text="📅 Мои расписания", callback_data="my_schedules")],
-        [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
-        [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="stats")],
-    ])
+# Static inline keyboards (module-level, immutable).
+
+kb_main = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
+    [InlineKeyboardButton(text="📅 Мои расписания",   callback_data="my_schedules")],
+    [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+    [InlineKeyboardButton(text="📋 Мои встречи",      callback_data="my_bookings")],
+    [InlineKeyboardButton(text="📊 Статистика",       callback_data="stats")],
+])
 
 
-def kb_back_main() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")]
-    ])
+kb_back_main = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")]
+])
 
 
-def kb_duration() -> InlineKeyboardMarkup:
+def _build_duration_kb() -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(text=f"{d} мин", callback_data=f"dur_{d}")
         for d in [15, 30, 45, 60, 90, 120]
@@ -48,25 +48,26 @@ def kb_duration() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def kb_buffer() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Без буфера", callback_data="buf_0"),
-            InlineKeyboardButton(text="10 мин",     callback_data="buf_10"),
-        ],
-        [
-            InlineKeyboardButton(text="15 мин", callback_data="buf_15"),
-            InlineKeyboardButton(text="30 мин", callback_data="buf_30"),
-        ],
-    ])
+kb_duration = _build_duration_kb()
 
 
-def kb_platform() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎥 Jitsi Meet (бесплатно)", callback_data="plat_jitsi")],
-        [InlineKeyboardButton(text="🔗 Zoom",                   callback_data="plat_zoom")],
-        [InlineKeyboardButton(text="📍 Офлайн / другое",        callback_data="plat_other")],
-    ])
+kb_buffer = InlineKeyboardMarkup(inline_keyboard=[
+    [
+        InlineKeyboardButton(text="Без буфера", callback_data="buf_0"),
+        InlineKeyboardButton(text="10 мин",     callback_data="buf_10"),
+    ],
+    [
+        InlineKeyboardButton(text="15 мин", callback_data="buf_15"),
+        InlineKeyboardButton(text="30 мин", callback_data="buf_30"),
+    ],
+])
+
+
+kb_platform = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="🎥 Jitsi Meet (бесплатно)", callback_data="plat_jitsi")],
+    [InlineKeyboardButton(text="🔗 Zoom",                   callback_data="plat_zoom")],
+    [InlineKeyboardButton(text="📍 Офлайн / другое",        callback_data="plat_other")],
+])
 
 
 def kb_schedule_actions(schedule_id: str) -> InlineKeyboardMarkup:

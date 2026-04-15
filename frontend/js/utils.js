@@ -161,6 +161,7 @@ function updateSlider(inp, valId) {
 ═══════════════════════════════════════════ */
 function getMeetingStatus(b) {
   if (b.status === 'cancelled') return 'cancelled';
+  if (b.status === 'completed') return 'completed';
   const now = new Date();
   const start = new Date(b.scheduled_time);
   const dur = b.schedule_duration || b.duration || 60;

@@ -35,6 +35,7 @@ log = structlog.get_logger()
 from config import CORS_ORIGINS, APP_VERSION
 from database import init_pool, close_pool, run_migrations, get_pool, db
 from utils import _track_event, anonymize_id
+from event_buffer import event_buffer
 
 from routers import users, schedules, bookings, meetings, stats, admin as admin_router
 from routers import calendar as calendar_router
@@ -62,7 +63,10 @@ async def lifespan(app: FastAPI):
     sync_engine = CalendarSyncEngine(pool)
     app.state.sync_engine = sync_engine
     await sync_engine.start()
+    # Event buffer — batched INSERTs into app_events
+    await event_buffer.start(pool)
     yield
+    await event_buffer.stop()
     await sync_engine.stop()
     await close_pool()
 
@@ -111,14 +115,18 @@ app.add_middleware(StructlogMiddleware)
 async def global_exception_handler(request: Request, exc: Exception):
     log.error("unhandled_exception", exc_type=type(exc).__name__, detail=str(exc)[:500])
     try:
-        pool = await get_pool()
-        async with pool.acquire() as conn:
-            await _track_event(conn, "error", 0, {
+        # Non-blocking: event_buffer handles batching internally.
+        event_buffer.add(
+            event_type="error",
+            telegram_id=0,
+            metadata={
                 "exc_type": type(exc).__name__,
                 "detail": str(exc)[:500],
                 "path": request.url.path,
                 "method": request.method,
-            }, severity="error")
+            },
+            severity="error",
+        )
     except Exception:
         pass
     if isinstance(exc, HTTPException):
@@ -152,7 +160,17 @@ async def root():
 async def health(conn: asyncpg.Connection = Depends(db)):
     try:
         await conn.fetchval("SELECT 1")
-        return {"status": "healthy", "database": "connected"}
+        pool = await get_pool()
+        size = pool.get_size()
+        free = pool.get_idle_size()
+        used = size - free
+        if free == 0:
+            log.warning("db_pool_exhausted", size=size, used=used)
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "pool": {"size": size, "free": free, "used": used},
+        }
     except Exception as e:
         log.error("health_check_failed", error=str(e))
         raise HTTPException(status_code=503, detail="Database unavailable")

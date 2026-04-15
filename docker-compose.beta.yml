@@ -72,6 +72,23 @@ services:
       start_period: 10s
 
   # ─────────────────────────────────────────────
+  # Redis Beta — FSM storage для бота
+  # ─────────────────────────────────────────────
+  redis_beta:
+    image: public.ecr.aws/docker/library/redis:7-alpine
+    container_name: dovstrechi_redis_beta
+    restart: unless-stopped
+    networks:
+      - internal_beta
+    volumes:
+      - redis_beta_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ─────────────────────────────────────────────
   # Bot Beta — aiogram 3.x (отдельный BOT_TOKEN!)
   # ─────────────────────────────────────────────
   bot_beta:
@@ -85,10 +102,13 @@ services:
       BACKEND_API_URL: http://backend_beta:8000
       MINI_APP_URL: ${MINI_APP_URL:-https://beta.dovstrechiapp.ru}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      REDIS_URL: redis://redis_beta:6379/0
     expose:
       - "8080"
     depends_on:
       backend_beta:
+        condition: service_healthy
+      redis_beta:
         condition: service_healthy
     networks:
       - internal_beta
@@ -111,6 +131,7 @@ services:
 
 volumes:
   postgres_beta_data:
+  redis_beta_data:
 
 networks:
   internal_beta:
