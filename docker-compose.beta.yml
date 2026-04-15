@@ -75,7 +75,7 @@ services:
   # Redis Beta — FSM storage для бота
   # ─────────────────────────────────────────────
   redis_beta:
-    image: redis:7-alpine
+    image: public.ecr.aws/docker/library/redis:7-alpine
     container_name: dovstrechi_redis_beta
     restart: unless-stopped
     networks:
