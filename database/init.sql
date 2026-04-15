@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name                 TEXT,
     timezone                  TEXT NOT NULL DEFAULT 'UTC',
     morning_summary_sent_date DATE,
+    reminder_settings         JSONB NOT NULL DEFAULT '{"reminders":["1440","60"],"customReminders":[]}',
     created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     end_time        TIME NOT NULL DEFAULT '18:00',
     location_mode          TEXT NOT NULL DEFAULT 'fixed',
     platform               TEXT NOT NULL DEFAULT 'jitsi',
+    location_address       TEXT,
     min_booking_advance    INTEGER NOT NULL DEFAULT 0,
     requires_confirmation  BOOLEAN NOT NULL DEFAULT TRUE,
     is_active              BOOLEAN NOT NULL DEFAULT TRUE,
@@ -64,6 +66,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     end_time            TIMESTAMPTZ,
     is_manual           BOOLEAN NOT NULL DEFAULT FALSE,
     created_by          BIGINT,
+    platform            TEXT,
+    location_address    TEXT,
     reminder_24h_sent   BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_1h_sent    BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_15m_sent   BOOLEAN NOT NULL DEFAULT FALSE,
@@ -111,6 +115,18 @@ SELECT
 FROM bookings b
 JOIN schedules s ON s.id = b.schedule_id
 JOIN users u ON u.id = s.user_id;
+
+-- ─────────────────────────────────────────────
+-- Лог отправленных напоминаний (v2, idempotent)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sent_reminders (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    booking_id    UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    reminder_type TEXT NOT NULL,
+    sent_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(booking_id, reminder_type)
+);
+CREATE INDEX IF NOT EXISTS idx_sent_reminders_booking ON sent_reminders(booking_id);
 
 -- ─────────────────────────────────────────────
 -- Подключённые аккаунты внешних календарей

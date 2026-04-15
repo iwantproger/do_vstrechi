@@ -1,6 +1,7 @@
 """Pydantic-схемы для валидации запросов и ответов."""
+import re
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserAuth(BaseModel):
@@ -61,6 +62,21 @@ class BookingCreate(BaseModel):
     guest_telegram_id: Optional[int] = None
     scheduled_time: str = Field(..., max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("guest_contact")
+    @classmethod
+    def validate_contact(cls, v: str) -> str:
+        v = v.strip()
+        if re.match(r"^@[a-zA-Z0-9_]{3,32}$", v):
+            return v
+        if re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", v):
+            return v
+        normalized = re.sub(r"[\s\-]", "", v)
+        if re.match(r"^\+\d{7,15}$", normalized):
+            return v
+        if len(v) >= 2:
+            return v
+        raise ValueError("Некорректный контакт")
 
 
 class TelegramLoginData(BaseModel):

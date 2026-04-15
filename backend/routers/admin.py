@@ -105,6 +105,8 @@ async def admin_me(
     if token_prefix not in _session_checked:
         client_ip = request.headers.get("X-Real-IP", request.client.host)
         await log_admin_action("session_check", client_ip, {"session": token_prefix}, conn)
+        if len(_session_checked) > 10000:
+            _session_checked.clear()
         _session_checked.add(token_prefix)
 
     return {
