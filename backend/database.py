@@ -78,6 +78,24 @@ async def run_migrations():
             ALTER TABLE bookings
                 ADD COLUMN IF NOT EXISTS morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
         """)
+        # 008: no_answer status + confirmation tracking
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS confirmation_asked BOOLEAN NOT NULL DEFAULT FALSE;
+        """)
+        await conn.execute("""
+            ALTER TABLE bookings
+                ADD COLUMN IF NOT EXISTS confirmation_asked_at TIMESTAMPTZ;
+        """)
+        # Expand status CHECK (idempotent: drop old, add new)
+        try:
+            await conn.execute("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check")
+            await conn.execute("""
+                ALTER TABLE bookings ADD CONSTRAINT bookings_status_check
+                CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer'))
+            """)
+        except Exception:
+            pass  # constraint may already be correct
     log.info("Migrations applied")
 
 

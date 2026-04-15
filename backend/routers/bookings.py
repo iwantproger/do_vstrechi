@@ -261,7 +261,7 @@ async def get_pending_reminders_v2(conn: asyncpg.Connection = Depends(db)):
         JOIN schedules s ON b.schedule_id = s.id
         JOIN users u ON s.user_id = u.id
         JOIN user_reminder_mins rm ON rm.telegram_id = u.telegram_id
-        WHERE b.status IN ('confirmed', 'pending')
+        WHERE b.status IN ('confirmed', 'pending', 'no_answer')
           AND b.scheduled_time > NOW()
           AND b.scheduled_time <= NOW() + (rm.reminder_min || ' minutes')::interval
           AND b.scheduled_time > NOW() + ((rm.reminder_min - 2) || ' minutes')::interval
@@ -277,7 +277,62 @@ async def get_pending_reminders_v2(conn: asyncpg.Connection = Depends(db)):
 
 @router.get("/api/bookings/confirmation-requests")
 async def get_confirmation_requests(conn: asyncpg.Connection = Depends(db)):
-    """Встречи на сегодня, участникам которых нужно отправить запрос подтверждения."""
+    """Встречи на сегодня, участникам которых нужно отправить запрос подтверждения.
+
+    Rules:
+    - Only confirmed bookings with guest_telegram_id
+    - Meeting is today in organizer TZ
+    - confirmation_asked = FALSE
+    - Booked on a DIFFERENT day than the meeting (same-day bookings skip)
+    - Current time >= 09:00 in organizer TZ OR meeting is < 09:30 (ask 1h before)
+    - Meeting hasn't started yet
+    """
+    rows = await conn.fetch("""
+        SELECT b.id, b.guest_name, b.guest_telegram_id,
+               b.scheduled_time, b.meeting_link, b.created_at,
+               s.title    AS schedule_title,
+               s.duration,
+               u.timezone AS organizer_timezone,
+               u.telegram_id AS organizer_telegram_id
+        FROM bookings b
+        JOIN schedules s ON b.schedule_id = s.id
+        JOIN users u ON s.user_id = u.id
+        WHERE b.status = 'confirmed'
+          AND b.confirmation_asked = FALSE
+          AND b.guest_telegram_id IS NOT NULL
+          AND b.scheduled_time > NOW()
+          AND DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+              = DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          AND DATE(b.created_at AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+              < DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
+          AND (
+              EXTRACT(HOUR FROM NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC')) >= 9
+              OR b.scheduled_time <= NOW() + INTERVAL '1 hour'
+          )
+    """)
+    return {"bookings": [dict(r) for r in rows]}
+
+
+@router.patch("/api/bookings/{booking_id}/confirmation-asked")
+async def mark_confirmation_asked(
+    booking_id: str,
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Mark that confirmation was asked for this booking (called by bot after sending message)."""
+    try:
+        bid = uuid.UUID(booking_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный ID")
+    await conn.execute(
+        "UPDATE bookings SET confirmation_asked = TRUE, confirmation_asked_at = NOW() WHERE id = $1",
+        bid,
+    )
+    return {"ok": True}
+
+
+@router.get("/api/bookings/no-answer-candidates")
+async def get_no_answer_candidates(conn: asyncpg.Connection = Depends(db)):
+    """Bookings where confirmation was asked >1h ago but guest didn't respond."""
     rows = await conn.fetch("""
         SELECT b.id, b.guest_name, b.guest_telegram_id,
                b.scheduled_time, b.meeting_link,
@@ -289,16 +344,52 @@ async def get_confirmation_requests(conn: asyncpg.Connection = Depends(db)):
         JOIN schedules s ON b.schedule_id = s.id
         JOIN users u ON s.user_id = u.id
         WHERE b.status = 'confirmed'
-          AND b.guest_telegram_id IS NOT NULL
-          AND DATE(b.scheduled_time AT TIME ZONE COALESCE(u.timezone, 'UTC'))
-              = DATE(NOW() AT TIME ZONE COALESCE(u.timezone, 'UTC'))
-          AND NOT EXISTS (
-              SELECT 1 FROM sent_reminders sr
-              WHERE sr.booking_id = b.id
-                AND sr.reminder_type = 'confirmation_request'
-          )
+          AND b.confirmation_asked = TRUE
+          AND b.confirmation_asked_at < NOW() - INTERVAL '1 hour'
+          AND b.scheduled_time > NOW()
     """)
     return {"bookings": [dict(r) for r in rows]}
+
+
+@router.patch("/api/bookings/{booking_id}/set-no-answer")
+async def set_no_answer(
+    booking_id: str,
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Transition booking to no_answer status."""
+    try:
+        bid = uuid.UUID(booking_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный ID")
+    row = await conn.fetchrow(
+        """
+        UPDATE bookings SET status = 'no_answer'
+        WHERE id = $1 AND status = 'confirmed' AND confirmation_asked = TRUE
+        RETURNING *
+        """,
+        bid,
+    )
+    if not row:
+        return {"ok": False}
+
+    # Notify organizer
+    sched = await conn.fetchrow(
+        "SELECT s.title, u.telegram_id, u.timezone FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = $1",
+        row["schedule_id"],
+    )
+    if sched and sched["telegram_id"]:
+        asyncio.create_task(_notify_bot_status_change(
+            booking_id=booking_id,
+            new_status="no_answer",
+            initiator_telegram_id=row.get("guest_telegram_id"),
+            organizer_telegram_id=sched["telegram_id"],
+            guest_telegram_id=row.get("guest_telegram_id"),
+            guest_name=row["guest_name"],
+            schedule_title=sched["title"],
+            scheduled_time=str(row["scheduled_time"]),
+            organizer_timezone=sched.get("timezone") or "UTC",
+        ))
+    return {"ok": True}
 
 
 @router.post("/api/sent-reminders")
@@ -385,7 +476,7 @@ async def confirm_booking(
               JOIN users u ON u.id = s.user_id
               WHERE u.telegram_id = $2
           )
-          AND status = 'pending'
+          AND status IN ('pending', 'no_answer')
         RETURNING *
         """,
         bid, telegram_id
@@ -420,6 +511,54 @@ async def confirm_booking(
         asyncio.create_task(update_booking_in_calendars(pool, booking_id))
     except Exception as e:
         log.warning("calendar_confirm_update_error", error=str(e))
+
+    return row_to_dict(row)
+
+
+@router.patch("/api/bookings/{booking_id}/guest-confirm")
+async def guest_confirm_booking(
+    booking_id: str,
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Guest confirms they're still coming (response to morning 'still coming?' message)."""
+    telegram_id = auth_user["id"]
+    try:
+        bid = uuid.UUID(booking_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный ID")
+
+    row = await conn.fetchrow(
+        """
+        UPDATE bookings SET status = 'confirmed'
+        WHERE id = $1
+          AND guest_telegram_id = $2
+          AND status IN ('confirmed', 'no_answer')
+        RETURNING *
+        """,
+        bid, telegram_id,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя подтвердить")
+    await _track_event(conn, "guest_confirmed", telegram_id, {"booking_id": booking_id})
+
+    # Notify organizer that guest confirmed
+    sched = await conn.fetchrow(
+        "SELECT s.title, u.telegram_id, u.timezone FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = $1",
+        row["schedule_id"],
+    )
+    if sched and sched["telegram_id"]:
+        asyncio.create_task(_notify_bot_status_change(
+            booking_id=booking_id,
+            new_status="guest_confirmed",
+            initiator_telegram_id=telegram_id,
+            organizer_telegram_id=sched["telegram_id"],
+            guest_telegram_id=telegram_id,
+            guest_name=row["guest_name"],
+            schedule_title=sched["title"],
+            scheduled_time=str(row["scheduled_time"]),
+            organizer_timezone=sched.get("timezone") or "UTC",
+        ))
 
     return row_to_dict(row)
 
