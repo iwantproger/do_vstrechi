@@ -116,6 +116,7 @@
             </div>
           </div>
         </div>
+        <div class="stats-note">Статистика без учёта аккаунта владельца</div>
 
         <div class="chart-card full-width">
           <h3>Бронирования за 30 дней</h3>
@@ -167,6 +168,10 @@
           </div>
           <input type="date" id="log-f-from" onchange="filterLogs()">
           <input type="date" id="log-f-to" onchange="filterLogs()">
+          <label class="filter-checkbox">
+            <input type="checkbox" id="log-f-owner" onchange="filterLogs()">
+            Мои события
+          </label>
           <button class="btn-text" onclick="resetLogFilters()">Сбросить</button>
         </div>
 

@@ -18,6 +18,7 @@ function filterLogs() {
     search: document.getElementById('log-f-search')?.value || '',
     date_from: document.getElementById('log-f-from')?.value || '',
     date_to: document.getElementById('log-f-to')?.value || '',
+    include_owner: document.getElementById('log-f-owner')?.checked || false,
   };
   loadLogs();
 }
@@ -25,6 +26,8 @@ function filterLogs() {
 function resetLogFilters() {
   ['log-f-severity','log-f-type','log-f-search','log-f-from','log-f-to']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const ownerCb = document.getElementById('log-f-owner');
+  if (ownerCb) ownerCb.checked = false;
   logsState.filters = {};
   logsState.page = 1;
   loadLogs();
@@ -46,7 +49,8 @@ function filterByUser(anonymousId) {
 
 async function loadLogs() {
   try {
-    const stats = await api('GET', '/api/admin/logs/stats');
+    const ownerParam = logsState.filters.include_owner ? '?include_owner=true' : '';
+    const stats = await api('GET', '/api/admin/logs/stats' + ownerParam);
     document.getElementById('ls-info').textContent = stats.by_severity?.info || 0;
     document.getElementById('ls-warn').textContent = stats.by_severity?.warn || 0;
     document.getElementById('ls-error').textContent = stats.by_severity?.error || 0;
@@ -76,6 +80,7 @@ async function loadLogs() {
     if (f.anonymous_id) params.set('anonymous_id', f.anonymous_id);
     if (f.date_from) params.set('date_from', f.date_from);
     if (f.date_to) params.set('date_to', f.date_to);
+    if (f.include_owner) params.set('include_owner', 'true');
 
     const data = await api('GET', '/api/admin/logs?' + params.toString());
     logsState.total = data.total;
