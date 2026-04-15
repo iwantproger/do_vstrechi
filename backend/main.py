@@ -11,7 +11,7 @@ import structlog
 import asyncpg
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import ORJSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 import uuid
@@ -75,7 +75,12 @@ async def lifespan(app: FastAPI):
 # App
 # ─────────────────────────────────────────────────────────
 
-app = FastAPI(title="До встречи API", version=APP_VERSION, lifespan=lifespan)
+app = FastAPI(
+    title="До встречи API",
+    version=APP_VERSION,
+    lifespan=lifespan,
+    default_response_class=ORJSONResponse,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -130,8 +135,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     except Exception:
         pass
     if isinstance(exc, HTTPException):
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        return ORJSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return ORJSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 # ─────────────────────────────────────────────────────────
