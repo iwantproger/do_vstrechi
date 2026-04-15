@@ -93,6 +93,22 @@ services:
     networks:
       - internal_beta
 
+  # ─────────────────────────────────────────────
+  # Support Bot
+  # ─────────────────────────────────────────────
+  support_bot_beta:
+    build:
+      context: ${BETA_DIR:-/opt/dovstrechi-beta}/support-bot
+      dockerfile: Dockerfile
+    container_name: dovstrechi_support_bot_beta
+    restart: unless-stopped
+    environment:
+      SUPPORT_BOT_TOKEN: ${SUPPORT_BOT_TOKEN}
+      ADMIN_CHAT_ID: ${ADMIN_TELEGRAM_ID}
+      ADMIN_IDS: ${ADMIN_TELEGRAM_ID}
+    networks:
+      - internal_beta
+
 volumes:
   postgres_beta_data:
 
