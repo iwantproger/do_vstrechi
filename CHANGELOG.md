@@ -56,7 +56,6 @@
 ### Added — Интерфейс и инфраструктура
 
 - `feat`: аватар пользователя из Telegram с прокси и fallback на initials
-- `feat`: кнопка «+» в центре navbar (TickTick-стиль) + вход через браузер (browser auth option)
 - `feat`: лендинг `dovstrechiapp.ru` — определение контекста (Telegram / браузер), CTA
 - `feat`: Политика конфиденциальности и Условия использования (`/privacy`, `/terms`)
 - `feat`: Google Search Console верификация

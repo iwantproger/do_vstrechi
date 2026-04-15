@@ -53,7 +53,7 @@ const CHANGELOG = [
       'feat(бот): редизайн меню 2×2 (Главная/Встречи/Расписания/Профиль), inline-режим, share rich-message',
       'feat(бот): онбординг новые/вернувшиеся, guest_confirm/guest_cancel callbacks',
       'feat(профиль): аватар из Telegram с прокси, support bot ссылка',
-      'feat(интерфейс): лендинг, кнопка «+» TickTick-стиль, browser auth, Privacy Policy/Terms',
+      'feat(интерфейс): лендинг, Privacy Policy/Terms',
       'fix(quickadd): 7+ багов layout, pickers, даты, end_time, ночные встречи; screen layout + native pickers',
       'fix(интерфейс): скрыт app-footer, восстановлен navbar pill layout, исправлены calendar UI баги',
       'security: R1 закрыт (filter-repo + ротация), R4-R6 принятые риски',
