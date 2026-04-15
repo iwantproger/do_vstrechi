@@ -248,6 +248,18 @@ dev → (ceremony) → PR → main → production
 
 **При любом сомнении — спрашивай: «Деплоить на beta или production?»**
 
+### Git hooks
+
+После `git clone` выполнить **один раз**:
+
+```bash
+make setup-hooks
+```
+
+Это установит `pre-commit` и `pre-push` из `.githooks/` в `.git/hooks/` — защита от случайных коммитов/push в `main`. Деплой в prod идёт только через PR `dev → main` + `make deploy`.
+
+Обход однократно (не рекомендуется): `git commit --no-verify` / `git push --no-verify`.
+
 ## Переменные окружения
 
 | Переменная | Сервис | Описание | Обязательная |

@@ -1,6 +1,6 @@
 .PHONY: up down restart deploy logs ps build backup restore restore-prod restore-beta migrate migrate-all admin health cleanup ssl ssl-renew psql help
 .PHONY: beta-up beta-down beta-restart beta-logs beta-ps beta-build beta-deploy beta-migrate beta-migrate-all beta-psql beta-health
-.PHONY: status ssl-beta
+.PHONY: status ssl-beta setup-hooks
 
 # Короткая переменная для beta compose
 BETA_COMPOSE = docker compose -f docker-compose.beta.yml --env-file .env.beta --project-name dovstrechi-beta
@@ -237,6 +237,13 @@ ssl-beta:
 		--agree-tos --no-eff-email
 	docker compose exec nginx nginx -s reload
 	@echo "✓ SSL expanded for beta.dovstrechiapp.ru"
+
+## Установить git hooks из .githooks/ (защита от коммитов в main)
+setup-hooks:
+	@cp .githooks/pre-commit .git/hooks/pre-commit
+	@cp .githooks/pre-push .git/hooks/pre-push
+	@chmod +x .git/hooks/pre-commit .git/hooks/pre-push
+	@echo "✓ Git hooks установлены (pre-commit, pre-push) — защита от коммитов/push в main"
 
 help:
 	@echo "Доступные команды:"

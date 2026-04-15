@@ -1,0 +1,20 @@
+#!/bin/sh
+# Блокирует прямые коммиты в main. Prod деплой — только через PR dev → main + make deploy.
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+if [ "$branch" = "main" ]; then
+    echo ""
+    echo "  ⛔ КОММИТ В MAIN ЗАБЛОКИРОВАН"
+    echo ""
+    echo "  Ты на ветке main. Переключись на dev:"
+    echo "    git checkout dev"
+    echo ""
+    echo "  Если это prod-деплой — используй:"
+    echo "    make deploy"
+    echo ""
+    echo "  Чтобы обойти защиту однократно (НЕ РЕКОМЕНДУЕТСЯ):"
+    echo "    git commit --no-verify ..."
+    echo ""
+    exit 1
+fi
