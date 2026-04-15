@@ -10,6 +10,42 @@
 
 ---
 
+## [1.3.0] — 15.04.2026
+
+### Added — DevOps и надёжность
+
+- `feat`: `scripts/healthcheck.sh` — мониторинг prod + beta каждые 5 мин, Telegram-алерты через Alert Bot при падении, ротация лога до 1000 строк
+- `feat`: `scripts/backup.sh` — автоматический pg_dump prod и beta в custom format, хранение 14 дней в `/opt/dovstrechi/backups/`
+- `feat`: Cron-задачи на VPS: healthcheck каждые 5 мин, бэкап ежедневно в 03:00
+- `feat`: `make backup` — вызывает `scripts/backup.sh` (был: прямой `pg_dump`)
+- `feat`: `make restore-prod FILE=...` и `make restore-beta FILE=...` — восстановление из custom-format дампа через `pg_restore`
+
+### Added — Производительность и инфраструктура
+
+- `feat`: Redis FSM storage (`aiogram.fsm.storage.redis.RedisStorage`) — сохранение FSM-состояний при перезапуске бота; graceful fallback на MemoryStorage если Redis недоступен
+- `feat`: Redis сервис в `docker-compose.yml` и `docker-compose.beta.yml` (образ AWS ECR Public — нет rate limit)
+- `feat`: `REDIS_URL` env variable в bot и compose-файлах
+- `feat`: `skip_updates=True` при старте бота — пропуск накопившихся обновлений после простоя
+
+### Added — API и бизнес-логика
+
+- `feat`: `POST /api/bookings/complete-past` — перевод confirmed→completed через 30 мин после конца встречи; вызывается из `reminder_loop` каждые 15 мин
+- `feat`: пагинация в `GET /api/bookings` — параметры `limit` (1–200, default 50), `offset`; ответ включает `total`, `limit`, `offset`
+- `feat`: пагинация в `GET /api/schedules` — параметры `page`, `per_page`, `has_more` + `limit`/`offset`/`total`
+- `feat`: `custom_link` в расписаниях — поле для произвольной ссылки при `platform='other'`; используется как `meeting_link` при создании бронирования
+- `migration`: `014_custom_link.sql` — `ALTER TABLE schedules ADD COLUMN IF NOT EXISTS custom_link TEXT`
+
+### Added — Валидация
+
+- `feat`: `validate_contact` field_validator в `BookingCreate` — принимает @username (3–32 символа), email, телефон (+7… / нормализованный), free-form ≥2 символа; 422 при строке <2 символов
+
+### Fixed — Производительность и надёжность
+
+- `fix`: `_session_checked` cap в `admin.py` — `len > 10000 → .clear()`, предотвращает unbounded memory growth при долгой работе сервера
+- `fix`: образ Redis изменён на `public.ecr.aws/docker/library/redis:7-alpine` — решена проблема Docker Hub rate limit в GitHub Actions
+
+---
+
 ## [1.2.3] — 15.04.2026
 
 ### Added — Adminка: мультивыбор задач

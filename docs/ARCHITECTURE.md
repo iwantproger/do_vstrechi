@@ -70,8 +70,11 @@ stateDiagram-v2
 HTTP-сервер (aiohttp на порту 8080, endpoint `/internal/notify`). Backend отправляет
 fire-and-forget POST при создании бронирования. Бот уведомляет и организатора, и гостя.
 
+**FSM Storage:** Redis (`RedisStorage` из aiogram) с graceful fallback на `MemoryStorage` если Redis недоступен. FSM-состояния сохраняются при перезапуске бота.
+
 **Напоминания:** фоновый цикл `reminder_loop()` каждые 5 минут проверяет
 `GET /api/bookings/pending-reminders` и рассылает напоминания за 24ч и 1ч до встречи.
+Каждые 15 мин вызывает `POST /api/bookings/complete-past` — переводит подтверждённые встречи в статус `completed` через 30 мин после окончания.
 
 **ReplyKeyboard:** при `/start` бот устанавливает постоянную нижнюю панель (4 кнопки:
 Создать расписание, Мои расписания, Мои встречи, Помощь).
@@ -404,6 +407,7 @@ erDiagram
 | Сервис | Образ | Порты | Volumes |
 |--------|-------|-------|---------|
 | postgres | postgres:16-alpine | — (internal) | postgres_data, init.sql, migrations/ |
+| redis | redis:7-alpine (ECR Public) | — (internal) | redis_data |
 | backend | python:3.12-slim (custom, non-root) | 8000 (internal) | — |
 | bot | python:3.12-slim (custom, non-root) | 8080 (internal) | — |
 | nginx | nginx:1.25-alpine (custom) | 80, 443 | nginx.conf, frontend/, admin/, certbot certs |

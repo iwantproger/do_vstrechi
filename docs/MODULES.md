@@ -133,6 +133,7 @@
 | `set_no_answer()` | PATCH `/api/bookings/{id}/set-no-answer` | — | UPDATE status='no_answer' | Установить статус no_answer (гость не ответил) |
 | `get_pending_reminders_v2()` | GET `/api/bookings/pending-reminders-v2` | — | SELECT с учётом sent_reminders | Список бронирований для напоминаний (v2, через таблицу sent_reminders) |
 | `create_sent_reminder()` | POST `/api/bookings/sent-reminders` | — | INSERT в sent_reminders | Записать факт отправки напоминания |
+| `complete_past_bookings()` | POST `/api/bookings/complete-past` | — | UPDATE confirmed→completed WHERE scheduled_time < NOW()-30min | Автозавершение прошедших встреч |
 
 ### Роуты: Meetings (`routers/meetings.py`)
 
@@ -300,13 +301,13 @@ CreateSchedule (StatesGroup):
 | `setup_bot_commands(bot)` | Регистрация /start, /help + глобальный MenuButtonWebApp (try/except) |
 | `handle_new_booking(request)` | aiohttp handler для POST `/internal/notify` — проверка X-Internal-Key, отправка сообщений организатору (с кнопками ✅/❌) и гостю |
 | `send_reminder(booking, type)` | Отправка напоминания (24h/1h) организатору и гостю + mark as sent через API |
-| `reminder_loop()` | Фоновый цикл (каждые 5 мин) — опрашивает pending-reminders и вызывает send_reminder |
+| `reminder_loop()` | Фоновый цикл (каждые 5 мин) — опрашивает pending-reminders, вызывает send_reminder; каждые 15 мин вызывает `POST /api/bookings/complete-past` для auto-complete встреч |
 
 ### Main (`bot.py`)
 
 | Функция | Описание |
 |---------|----------|
-| `main()` | Создание Bot (глобальный `_bot`) + Dispatcher(MemoryStorage) + setup_bot_commands + `asyncio.create_task(reminder_loop)` + aiohttp web server :8080 + start_polling(skip_updates=True) |
+| `main()` | Создание Bot (глобальный `_bot`) + `RedisStorage.from_url(REDIS_URL)` с fallback на `MemoryStorage` + Dispatcher + setup_bot_commands + `asyncio.create_task(reminder_loop)` + aiohttp web server :8080 + start_polling(skip_updates=True) |
 
 ---
 

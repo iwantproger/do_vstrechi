@@ -105,5 +105,28 @@ deploy to production
 | `make beta-health` | Health-check beta |
 | `make deploy` | Деплой в prod (с подтверждением) |
 | `make status` | Статус обоих окружений |
+| `make backup` | Дамп prod + beta → `/opt/dovstrechi/backups/` (custom format) |
+| `make restore-prod FILE=...` | Восстановить prod из custom-format дампа |
+| `make restore-beta FILE=...` | Восстановить beta из custom-format дампа |
 
 Подробнее: [BETA_SETUP.md](BETA_SETUP.md)
+
+---
+
+## Cron-задачи на VPS
+
+Все cron-задачи прописаны в `crontab -l` у root на сервере.
+
+| Расписание | Скрипт | Описание |
+|-----------|--------|----------|
+| `*/5 * * * *` | `scripts/healthcheck.sh` | Мониторинг prod + beta, Telegram-алерт при HTTP != 200 |
+| `0 3 * * *` | `scripts/backup.sh` | pg_dump prod + beta, хранение 14 дней |
+| `0 3 * * *` | `make ssl-renew` (рекомендуется) | Обновление SSL-сертификата Let's Encrypt |
+
+**Логи:**
+- Healthcheck: `/var/log/dovstrechi-health.log` (ротация до 1000 строк)
+- Backup: `/var/log/dovstrechi-backup.log`
+
+**Переменные окружения для healthcheck:**
+- `ALERT_BOT_TOKEN` — токен бота для Telegram-алертов (можно тот же что `BOT_TOKEN`)
+- `ADMIN_CHAT_ID` — Telegram chat ID для получения алертов (default: 5109612976)
