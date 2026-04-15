@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from aiohttp import web
 from aiogram import Bot
 from aiogram.enums import ParseMode
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-from config import INTERNAL_API_KEY
+from config import INTERNAL_API_KEY, MINI_APP_URL
 from formatters import format_dt
 
 log = logging.getLogger(__name__)
@@ -56,8 +56,10 @@ async def handle_new_booking(request: web.Request) -> web.Response:
                 InlineKeyboardButton(text="❌ Отклонить",  callback_data=f"cancel_{booking_id}"),
             ]])
         else:
-            kb = None
             org_text += "\n\n✅ <i>Автоматически подтверждено</i>"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL)),
+            ]])
 
         await bot.send_message(
             chat_id=organizer_tid,

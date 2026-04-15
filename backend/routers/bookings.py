@@ -81,6 +81,7 @@ async def create_booking(
             scheduled_time=data.scheduled_time,
             schedule_title=schedule["title"],
             meeting_link=meeting_link,
+            requires_confirmation=bool(schedule.get("requires_confirmation", True)),
         ))
 
     # Записать во внешние календари (fire-and-forget)
