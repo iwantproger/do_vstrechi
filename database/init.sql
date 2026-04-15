@@ -84,6 +84,20 @@ CREATE INDEX IF NOT EXISTS idx_bookings_schedule_id ON bookings(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_guest_telegram_id ON bookings(guest_telegram_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_scheduled_time ON bookings(scheduled_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+-- Composite / partial indexes for hot query paths (migration 015)
+CREATE INDEX IF NOT EXISTS idx_bookings_schedule_time_active
+    ON bookings (schedule_id, scheduled_time)
+    WHERE status <> 'cancelled';
+CREATE INDEX IF NOT EXISTS idx_bookings_scheduled_time_desc
+    ON bookings (scheduled_time DESC);
+CREATE INDEX IF NOT EXISTS idx_bookings_reminders_pending
+    ON bookings (scheduled_time)
+    WHERE status <> 'cancelled'
+      AND (reminder_24h_sent = FALSE
+           OR reminder_1h_sent = FALSE
+           OR reminder_15m_sent = FALSE
+           OR reminder_5m_sent = FALSE
+           OR morning_reminder_sent = FALSE);
 
 -- ─────────────────────────────────────────────
 -- Автообновление updated_at
@@ -271,3 +285,27 @@ CREATE INDEX IF NOT EXISTS idx_sync_log_account_id ON sync_log(account_id);
 CREATE INDEX IF NOT EXISTS idx_sync_log_created_at ON sync_log(created_at);
 
 COMMENT ON TABLE sync_log IS 'Лог операций синхронизации с внешними календарями';
+
+-- ─────────────────────────────────────────────
+-- app_events composite index + cleanup (migration 015)
+-- app_events table itself is created in migration 004_admin_tables.sql
+-- ─────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_app_events_severity_created
+    ON app_events (severity, created_at DESC);
+
+CREATE OR REPLACE FUNCTION cleanup_old_events(days_to_keep INT DEFAULT 90)
+RETURNS INT AS $$
+DECLARE
+    deleted_count INT;
+BEGIN
+    DELETE FROM app_events
+    WHERE severity IN ('info', 'warn')
+      AND created_at < NOW() - (days_to_keep || ' days')::interval;
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION cleanup_old_events(INT) IS
+    'Удаляет info/warn записи app_events старше N дней (default 90). '
+    'Severity error/critical сохраняется бессрочно.';
