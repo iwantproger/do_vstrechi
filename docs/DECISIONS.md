@@ -20,7 +20,7 @@
 | 10 | Мягкое удаление расписаний | Сохранение данных бронирований, привязанных к расписанию | Физическое удаление (CASCADE удалит bookings) |
 | 11 | UUID как первичные ключи | Безопасность: нельзя перебирать ID; уникальность без sequence | SERIAL / BIGSERIAL (предсказуемые ID) |
 | 12 | CORS whitelist (dovstrechiapp.ru) | Безопасность: ограничить origin, methods, headers | allow_origins=["*"] (использовалось ранее, убрано) |
-| 13 | MemoryStorage для FSM | Достаточно для одного инстанса бота, нет зависимости от Redis | Redis storage (нужен при масштабировании) |
+| ~~13~~ | ~~MemoryStorage для FSM~~ | ~~Достаточно для одного инстанса бота, нет зависимости от Redis~~ | **Устарело, см. решение #29** |
 | 14 | Docker Compose 3.9 | Стандарт оркестрации для single-server deployment | Kubernetes (overkill), bare-metal |
 | 15 | Telegram Login Widget для аутентификации в админке | Нет отдельной базы паролей, 2FA встроен в Telegram, один владелец — нет смысла в отдельном auth-сервисе | Email+password+2FA (нужен хеш паролей), Passkeys (сложная настройка), VPN-only (неудобен) |
 | 16 | Cookie sessions вместо JWT для admin | Server-side invalidation при logout/компрометации, нет refresh token логики, `path=/api/admin` изолирует от основного сайта | JWT (stateless — нельзя инвалидировать без блэклиста), sessionStorage (утечка при XSS) |
@@ -34,6 +34,7 @@
 | 26 | Интеграция внешних календарей через Google API + CalDAV (v1.2.0) | 152-ФЗ (данные на российском VPS), полный контроль, нет recurring costs. Trade-off: сложная реализация (6 таблиц, Fernet-шифрование токенов, webhook-подписки), но compliance + нет зависимости от третьих сторон | Cronofy (SaaS, дорого, данные за рубежом), Nylas (аналогично) |
 | 27 | Статус no_answer + morning confirmation flow (v1.2.0) | ~30% гостей не приходят на встречи без предупреждения. Утром дня встречи бот спрашивает гостя «Встреча в силе?». Если нет ответа >1ч → статус no_answer, организатор получает уведомление. Trade-off: дополнительная нагрузка на бота (проверка каждые 5 мин), но значительное улучшение UX организатора | Только напоминание без запроса подтверждения (не решает проблему неявок) |
 | 28 | Отдельный бот поддержки (v1.2.0) | Изоляция от основного бота — запросы поддержки не смешиваются с функциональностью бронирования. Отдельный @dovstrechi_support_bot с пересылкой сообщений админу | Inline /support команда в основном боте (смешивает контексты) |
+| 29 | Redis FSM storage (v1.3.0) | FSM-состояния сохраняются при перезапуске бота — пользователи не теряют прогресс создания расписания. Graceful fallback на MemoryStorage если Redis недоступен. Trade-off: дополнительный сервис, но уже используется для кеша. | MemoryStorage (решение #13, устарело) |
 
 ## Известные технические ограничения
 
@@ -51,18 +52,18 @@
 - **SSL-сертификат** нужно получить вручную при первом деплое (`make ssl`)
 - **Нет автоскейлинга** — один инстанс каждого сервиса на VPS
 - **CI/CD делает `git reset --hard`** — любые локальные изменения на сервере будут потеряны
-- **Нет health-check мониторинга** — нет Grafana, Prometheus или аналогов
-- **Нет автоматического backup** — `make backup` нужно запускать вручную или по cron
+- ~~**Нет health-check мониторинга**~~ — ✅ Решено: `scripts/healthcheck.sh` + cron каждые 5 мин, Telegram-алерты при падении
+- ~~**Нет автоматического backup**~~ — ✅ Решено: `scripts/backup.sh` + cron ежедневно 03:00, 14-дневное хранение
 
 ### Бизнес-логика
 
 - **Генерация meeting_link** всегда создаёт Jitsi-ссылку, даже если `platform != 'jitsi'` (`backend/utils.py: generate_meeting_link()`)
-- **Нет статуса `completed`** в БД — фронтенд определяет завершённые встречи по `scheduled_time < now()`
+- ~~**Нет статуса `completed`** в БД~~ — ✅ Решено: `POST /api/bookings/complete-past` переводит confirmed→completed через 30 мин; вызывается из reminder_loop каждые 15 мин
 - **Таймзоны реализованы** — `users.timezone` (IANA), `available_slots` работает в зоне организатора, `viewer_tz` для гостя
 - **Лимит 10 встреч** в боте — `bookings[:10]` в `cb_my_bookings()` (`bot/handlers/navigation.py`)
-- **Нет пагинации** в API — все запросы возвращают полные списки
+- ~~**Нет пагинации** в API~~ — ✅ Решено: `GET /api/bookings` (limit/offset/total), `GET /api/schedules` (page/per_page/has_more)
 - **Rate limiting через nginx** — `/api/` 10 req/s burst=20, `/api/bookings` 5 req/min burst=3. На уровне backend ограничений нет
-- **Нет валидации email** на backend — `guest_contact` принимает любую строку
+- ~~**Нет валидации email** на backend~~ — ✅ Решено: `validate_contact` field_validator в `BookingCreate` — @username, email, телефон, free-form ≥2 символа
 - **Отфильтрованные cancelled** — GET `/api/bookings` по умолчанию исключает cancelled встречи из SQL, фронтенд видит их только если запрашивает специально
 
 ## Технический долг
@@ -79,8 +80,8 @@
 | ~~Средний~~ | ~~Нет миграций~~ | ~~`database/init.sql`~~ | ~~Ручные миграции~~ | ✅ Частично (ручные SQL-файлы в `database/migrations/`) |
 | Средний | Нет тестов | весь проект | Добавить pytest (backend), pytest-aiogram (bot) | Открыт |
 | ~~Средний~~ | ~~Нет таймзон~~ | ~~`backend/main.py`~~ | ~~ZoneInfo~~ | ✅ Решено (users.timezone + viewer_tz) |
-| Средний | generate_meeting_link игнорирует platform | `backend/utils.py: generate_meeting_link()` | Генерировать разные ссылки по platform | Открыт |
-| Низкий | Нет пагинации | GET `/api/bookings`, GET `/api/schedules` | Добавить `limit`/`offset` query params | Открыт |
+| ~~Средний~~ | ~~generate_meeting_link игнорирует platform~~ | ~~`backend/utils.py: generate_meeting_link()`~~ | ~~Генерировать разные ссылки по platform~~ | ✅ Частично: добавлен `custom_link` в schedules для platform='other' (v1.3.0) |
+| ~~Низкий~~ | ~~Нет пагинации~~ | ~~GET `/api/bookings`, GET `/api/schedules`~~ | ~~Добавить `limit`/`offset` query params~~ | ✅ Решено (v1.3.0) |
 | ~~Низкий~~ | ~~Нет rate limiting~~ | ~~весь backend~~ | ~~nginx rate limiting~~ | ✅ Частично (nginx, не backend) |
 | ~~Низкий~~ | ~~Нет логирования запросов~~ | ~~`backend/main.py`~~ | ~~Добавить access log middleware~~ | ✅ Решено (StructlogMiddleware) |
 | Низкий | skip_updates=True при старте бота | `bot/bot.py` | Рассмотреть обработку пропущенных сообщений | Открыт |
@@ -110,13 +111,11 @@
 
 **Решение на будущее:** интеграция с Zoom API (требует OAuth), добавление поля для пользовательской ссылки.
 
-### FSM storage в памяти
+### ~~FSM storage в памяти~~ ✅ Решено (v1.3.0)
 
-**Проблема:** при перезапуске бота все незавершённые FSM-сессии (создание расписания) теряются.
+**Было:** при перезапуске бота все незавершённые FSM-сессии (создание расписания) терялись.
 
-**Текущий подход:** `MemoryStorage()` в `bot/bot.py`. Достаточно для одного инстанса.
-
-**Решение при масштабировании:** перейти на `RedisStorage` из aiogram, добавить Redis в docker-compose.
+**Текущий подход:** `RedisStorage.from_url(REDIS_URL)` с graceful fallback на `MemoryStorage` если Redis недоступен (`bot/bot.py`). Redis добавлен в оба compose-файла.
 
 ### Вложенные bind mounts в docker-compose (INC-001)
 

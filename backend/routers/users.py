@@ -2,7 +2,6 @@
 import json
 import os
 import time
-import hashlib
 import asyncpg
 import httpx
 from httpx import ConnectTimeout, ReadTimeout, HTTPError

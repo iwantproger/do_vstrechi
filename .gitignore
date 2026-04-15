@@ -61,5 +61,9 @@ node_modules/
 
 # ===== Разное =====
 *.bak
+*.bak.*
+*.bak[0-9]*
 *.tmp
 *.orig
+.mcp.json
+seed_test_data.sql

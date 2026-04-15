@@ -1,9 +1,6 @@
 """Утилиты — чистые и почти-чистые функции."""
 import uuid
-import json
 import hashlib
-import asyncio
-import logging
 from typing import Any
 
 import httpx

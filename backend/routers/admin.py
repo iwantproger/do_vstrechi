@@ -1,6 +1,5 @@
 """Роуты: admin dashboard, tasks, logs, sessions + event tracking."""
 import uuid
-import json
 import asyncpg
 import structlog
 from typing import Optional, Any
@@ -15,7 +14,7 @@ from auth import (
     ADMIN_SESSION_TTL_HOURS, ADMIN_IP_ALLOWLIST,
 )
 from schemas import TelegramLoginData, TaskCreate, TaskUpdate, TaskReorder, AppEvent, CleanupRequest
-from utils import row_to_dict, rows_to_list, anonymize_id
+from utils import row_to_dict, rows_to_list
 from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, OWNER_ANONYMOUS_ID
 
 import sys
@@ -32,7 +31,6 @@ ALLOWED_TASK_COLUMNS = {
     "title", "description", "description_plain",
     "status", "tags", "priority",
 }
-ALLOWED_EVENT_FILTERS = {"event_type", "severity", "anonymous_id"}
 
 # Simple module-level TTL cache for expensive queries (5 minutes).
 _TTL_CACHE: dict[str, tuple[float, Any]] = {}

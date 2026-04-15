@@ -514,7 +514,6 @@ function renderSuccess(booking) {
   if (contactInp) guestContact = contactInp.value.trim();
 
   /* organizer data from schedule (if available) */
-  // TODO: ждём backend — organizer fields in GET /api/schedules/{id}
   var orgName = sched ? escHtml((sched.organizer_first_name || '') + (sched.organizer_last_name ? ' ' + sched.organizer_last_name : '')) : '';
   var orgUsername = sched ? (sched.organizer_username || '') : '';
 
