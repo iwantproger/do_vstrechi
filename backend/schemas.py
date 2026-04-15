@@ -51,6 +51,7 @@ class QuickMeetingCreate(BaseModel):
     guest_name: Optional[str] = Field(None, max_length=200)
     guest_contact: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=2000)
+    blocks_slots: Optional[bool] = True
 
 
 class BookingCreate(BaseModel):

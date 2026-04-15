@@ -251,17 +251,21 @@ async def available_slots(
 
         # Fetch ALL organizer bookings (across all their schedules) that could overlap with
         # the requested day window (expanded by max possible buffer = 2h on each side).
+        # Only bookings with blocks_slots=TRUE block availability.
+        # Uses b.end_time when available (manual meetings) to get accurate intervals.
         organizer_bookings = await conn.fetch(
             """
             SELECT b.scheduled_time,
+                   b.end_time                   AS booking_end_time,
                    COALESCE(s.duration, 60)     AS duration,
                    COALESCE(s.buffer_time, 0)   AS buffer_time
             FROM bookings b
             JOIN schedules s ON s.id = b.schedule_id
             WHERE s.user_id = $1
               AND b.status NOT IN ('cancelled')
-              AND b.scheduled_time >= $2::timestamptz - INTERVAL '2 hours'
-              AND b.scheduled_time <  $3::timestamptz + INTERVAL '2 hours'
+              AND b.blocks_slots = TRUE
+              AND b.scheduled_time >= $2::timestamptz - INTERVAL '24 hours'
+              AND b.scheduled_time <  $3::timestamptz + INTERVAL '24 hours'
             """,
             schedule["user_id"], slot_start_utc, slot_end_utc,
         )
@@ -270,7 +274,12 @@ async def available_slots(
         occupied: list[tuple[datetime, datetime]] = []
         for r in organizer_bookings:
             occ_start = r["scheduled_time"].replace(second=0, microsecond=0)
-            occ_end   = occ_start + timedelta(minutes=int(r["duration"]) + int(r["buffer_time"]))
+            if r["booking_end_time"]:
+                # Manual meetings: use explicit end_time + buffer from booking's schedule
+                occ_end = r["booking_end_time"].replace(second=0, microsecond=0)
+            else:
+                occ_end = occ_start + timedelta(minutes=int(r["duration"]))
+            occ_end += timedelta(minutes=int(r["buffer_time"]))
             occupied.append((occ_start, occ_end))
 
         # External busy slots из подключённых календарей

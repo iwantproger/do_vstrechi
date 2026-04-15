@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     guest_telegram_id   BIGINT,
     scheduled_time      TIMESTAMPTZ NOT NULL,
     status              TEXT NOT NULL DEFAULT 'pending'
-                        CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
+                        CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer')),
     meeting_link        TEXT,
     notes               TEXT,
     title               TEXT,
@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     reminder_15m_sent   BOOLEAN NOT NULL DEFAULT FALSE,
     reminder_5m_sent    BOOLEAN NOT NULL DEFAULT FALSE,
     morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
+    confirmation_asked    BOOLEAN NOT NULL DEFAULT FALSE,
+    confirmation_asked_at TIMESTAMPTZ,
+    blocks_slots        BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -817,7 +817,14 @@
       <div class="inp-label">Заметки</div>
       <textarea class="inp" id="qa-notes" rows="2" placeholder="Что обсудить?"></textarea>
     </div>
-    <div class="inp-wrap" style="opacity:0.4;pointer-events:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--b1)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--t1)">Блокировать слоты</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Запретить бронирование на это время</div>
+      </div>
+      <div class="tog on" id="qa-block-slots" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="inp-wrap" style="opacity:0.4;pointer-events:none;margin-top:14px">
       <div class="inp-label">Повтор</div>
       <div class="inp" style="display:flex;align-items:center;justify-content:space-between">
         <span>Никогда</span>
