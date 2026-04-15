@@ -38,3 +38,11 @@ if MINI_APP_URL and MINI_APP_URL not in CORS_ORIGINS:
 
 APP_START_TIME = _time.time()
 APP_VERSION = "2.0.0"
+
+# Pre-compute owner anonymous_id for filtering in admin dashboards
+import hashlib as _hashlib
+OWNER_ANONYMOUS_ID: str | None = (
+    _hashlib.sha256(f"{ADMIN_TELEGRAM_ID}:{ANONYMIZE_SALT}".encode()).hexdigest()[:12]
+    if ADMIN_TELEGRAM_ID
+    else None
+)

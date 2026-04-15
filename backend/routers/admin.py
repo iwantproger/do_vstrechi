@@ -16,7 +16,7 @@ from auth import (
 )
 from schemas import TelegramLoginData, TaskCreate, TaskUpdate, TaskReorder, AppEvent, CleanupRequest
 from utils import row_to_dict, rows_to_list, anonymize_id
-from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME
+from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, OWNER_ANONYMOUS_ID
 
 import sys
 import time as _time
@@ -127,19 +127,36 @@ async def admin_dashboard_summary(
     client_ip = request.headers.get("X-Real-IP", request.client.host)
     await log_admin_action("view_dashboard", client_ip, {"path": "/api/admin/dashboard/summary"}, conn)
 
+    owner_id = ADMIN_TELEGRAM_ID or 0
     row = await conn.fetchrow("""
         SELECT
-            (SELECT COUNT(*) FROM users) AS total_users,
+            (SELECT COUNT(*) FROM users WHERE telegram_id != $1) AS total_users,
             (SELECT COUNT(DISTINCT s.user_id) FROM schedules s
              JOIN bookings b ON b.schedule_id = s.id
-             WHERE b.created_at > NOW() - INTERVAL '7 days') AS active_users_7d,
-            (SELECT COUNT(*) FROM bookings) AS total_bookings,
-            (SELECT COUNT(*) FROM bookings WHERE DATE(scheduled_time) = CURRENT_DATE) AS bookings_today,
+             JOIN users u ON u.id = s.user_id
+             WHERE b.created_at > NOW() - INTERVAL '7 days'
+             AND u.telegram_id != $1) AS active_users_7d,
+            (SELECT COUNT(*) FROM bookings b
+             JOIN schedules s ON s.id = b.schedule_id
+             JOIN users u ON u.id = s.user_id
+             WHERE u.telegram_id != $1
+             AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS total_bookings,
+            (SELECT COUNT(*) FROM bookings b
+             JOIN schedules s ON s.id = b.schedule_id
+             JOIN users u ON u.id = s.user_id
+             WHERE DATE(b.scheduled_time) = CURRENT_DATE
+             AND u.telegram_id != $1
+             AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS bookings_today,
             (SELECT COUNT(*) FROM app_events
              WHERE severity IN ('error', 'critical')
              AND created_at > NOW() - INTERVAL '24 hours') AS errors_24h,
-            (SELECT COUNT(*) FROM bookings WHERE status = 'pending') AS pending_bookings
-    """)
+            (SELECT COUNT(*) FROM bookings b
+             JOIN schedules s ON s.id = b.schedule_id
+             JOIN users u ON u.id = s.user_id
+             WHERE b.status = 'pending'
+             AND u.telegram_id != $1
+             AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS pending_bookings
+    """, owner_id)
     return row_to_dict(row)
 
 
@@ -150,15 +167,20 @@ async def admin_bookings_trend(
     session: dict = Depends(get_admin_user),
     conn: asyncpg.Connection = Depends(db),
 ):
+    owner_id = ADMIN_TELEGRAM_ID or 0
     rows = await conn.fetch(
         """
-        SELECT DATE(scheduled_time) AS date, COUNT(*) AS count
-        FROM bookings
-        WHERE scheduled_time >= NOW() - ($1 || ' days')::interval
-        GROUP BY DATE(scheduled_time)
+        SELECT DATE(b.scheduled_time) AS date, COUNT(*) AS count
+        FROM bookings b
+        JOIN schedules s ON s.id = b.schedule_id
+        JOIN users u ON u.id = s.user_id
+        WHERE b.scheduled_time >= NOW() - ($1 || ' days')::interval
+        AND u.telegram_id != $2
+        AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $2)
+        GROUP BY DATE(b.scheduled_time)
         ORDER BY date
         """,
-        str(days),
+        str(days), owner_id,
     )
     return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
 
@@ -168,8 +190,15 @@ async def admin_platforms(
     session: dict = Depends(get_admin_user),
     conn: asyncpg.Connection = Depends(db),
 ):
+    owner_id = ADMIN_TELEGRAM_ID or 0
     rows = await conn.fetch(
-        "SELECT platform, COUNT(*) AS count FROM schedules WHERE is_active = TRUE GROUP BY platform"
+        """
+        SELECT s.platform, COUNT(*) AS count FROM schedules s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.is_active = TRUE AND u.telegram_id != $1
+        GROUP BY s.platform
+        """,
+        owner_id,
     )
     return rows_to_list(rows)
 
@@ -187,6 +216,7 @@ async def admin_logs(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     search: Optional[str] = None,
+    include_owner: bool = Query(default=False),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
     session: dict = Depends(get_admin_user),
@@ -198,6 +228,11 @@ async def admin_logs(
     conditions = []
     params: list[Any] = []
     idx = 1
+
+    if not include_owner and OWNER_ANONYMOUS_ID:
+        conditions.append(f"anonymous_id != ${idx}")
+        params.append(OWNER_ANONYMOUS_ID)
+        idx += 1
 
     if event_type:
         conditions.append(f"event_type = ${idx}")
@@ -247,10 +282,17 @@ async def admin_logs(
 
 @router.get("/api/admin/logs/stats")
 async def admin_logs_stats(
+    include_owner: bool = Query(default=False),
     session: dict = Depends(get_admin_user),
     conn: asyncpg.Connection = Depends(db),
 ):
-    row = await conn.fetchrow("""
+    owner_filter = ""
+    params: list[Any] = []
+    if not include_owner and OWNER_ANONYMOUS_ID:
+        owner_filter = "AND anonymous_id != $1"
+        params.append(OWNER_ANONYMOUS_ID)
+
+    row = await conn.fetchrow(f"""
         SELECT
             COUNT(*) AS total_events,
             COUNT(*) FILTER (WHERE severity = 'info') AS sev_info,
@@ -260,14 +302,16 @@ async def admin_logs_stats(
             COUNT(DISTINCT anonymous_id) AS unique_users
         FROM app_events
         WHERE created_at > NOW() - INTERVAL '24 hours'
-    """)
+        {owner_filter}
+    """, *params)
 
-    type_rows = await conn.fetch("""
+    type_rows = await conn.fetch(f"""
         SELECT event_type, COUNT(*) AS count
         FROM app_events
         WHERE created_at > NOW() - INTERVAL '24 hours'
+        {owner_filter}
         GROUP BY event_type
-    """)
+    """, *params)
 
     return {
         "total_events": row["total_events"],
@@ -464,14 +508,21 @@ async def admin_system_info(
     conn: asyncpg.Connection = Depends(db),
 ):
     pool = await get_pool()
+    owner_id = ADMIN_TELEGRAM_ID or 0
     counts = await conn.fetchrow("""
         SELECT
-            (SELECT COUNT(*) FROM users)                           AS users,
-            (SELECT COUNT(*) FROM schedules WHERE is_active = TRUE) AS schedules_active,
-            (SELECT COUNT(*) FROM bookings)                        AS bookings_total,
+            (SELECT COUNT(*) FROM users WHERE telegram_id != $1)   AS users,
+            (SELECT COUNT(*) FROM schedules s
+             JOIN users u ON u.id = s.user_id
+             WHERE s.is_active = TRUE AND u.telegram_id != $1)     AS schedules_active,
+            (SELECT COUNT(*) FROM bookings b
+             JOIN schedules s ON s.id = b.schedule_id
+             JOIN users u ON u.id = s.user_id
+             WHERE u.telegram_id != $1
+             AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS bookings_total,
             (SELECT COUNT(*) FROM app_events)                      AS events_total,
             (SELECT COUNT(*) FROM admin_tasks)                     AS tasks_total
-    """)
+    """, owner_id)
     tables_count = await conn.fetchval(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
     )

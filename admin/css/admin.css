@@ -316,6 +316,15 @@ body {
   gap: 16px;
   margin-bottom: 24px;
 }
+.stats-note {
+  font-size: 11px; color: var(--text-muted); text-align: center;
+  margin-top: -16px; margin-bottom: 16px; opacity: 0.7;
+}
+.filter-checkbox {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-muted); cursor: pointer; white-space: nowrap;
+}
+.filter-checkbox input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
 .metric-card {
   background: var(--bg-card);
   border-radius: var(--radius);

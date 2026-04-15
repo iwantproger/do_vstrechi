@@ -781,120 +781,63 @@
 <div class="toast" id="toast"></div>
 
 <!-- ═══════════════════════════════
-     QUICK ADD — Apple Calendar Style
+     QUICK ADD MEETING
 ════════════════════════════════ -->
-<div class="qa-overlay" id="qa-overlay" style="display:none">
-  <div class="qa-screen">
-
-    <!-- Header -->
-    <div class="qa-header">
-      <button class="qa-header-btn" onclick="closeQuickAdd()">
-        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <div class="qa-header-title">Новое</div>
-      <button class="qa-header-btn qa-save-btn" id="qa-save-btn" onclick="submitQuickAdd()">
-        <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg>
-      </button>
-    </div>
-
-    <div class="qa-body">
-
-      <!-- Секция 1: Название + Заметки -->
-      <div class="qa-section">
-        <input class="qa-field qa-title-input" id="qa-title" type="text" placeholder="Название">
-        <div class="qa-divider"></div>
-        <textarea class="qa-field qa-notes-input" id="qa-notes" rows="2" placeholder="Заметки"></textarea>
-      </div>
-
-      <!-- Секция 2: Расписание -->
-      <div class="qa-section">
-        <div class="qa-row" onclick="openSchedulePicker()">
-          <span class="qa-row-label">Расписание</span>
-          <div class="qa-row-right">
-            <span class="qa-row-value" id="qa-schedule-label">Без расписания</span>
-            <svg class="qa-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- Секция 3: Начало / Конец -->
-      <div class="qa-section">
-        <!-- Начало -->
-        <div class="qa-row" onclick="toggleQaPicker('start-date')">
-          <span class="qa-row-label">Начало</span>
-          <div class="qa-row-right">
-            <span class="qa-date-chip" id="qa-start-date-label">15 апр. 2026</span>
-            <span class="qa-time-chip" id="qa-start-time-label" onclick="event.stopPropagation();toggleQaPicker('start-time')">15:00</span>
-          </div>
-        </div>
-
-        <!-- Start date picker -->
-        <div class="qa-picker-wrap" id="qa-picker-start-date" style="display:none">
-          <input type="date" class="qa-native-picker" id="qa-start-date-input"
-                 onchange="onQaDateChange('start')">
-        </div>
-
-        <!-- Start time picker -->
-        <div class="qa-picker-wrap" id="qa-picker-start-time" style="display:none">
-          <input type="time" class="qa-native-picker" id="qa-start-time-input"
-                 onchange="onQaTimeChange('start')">
-        </div>
-
-        <div class="qa-divider"></div>
-
-        <!-- Конец -->
-        <div class="qa-row" onclick="toggleQaPicker('end-date')">
-          <span class="qa-row-label">Конец</span>
-          <div class="qa-row-right">
-            <span class="qa-date-chip" id="qa-end-date-label">15 апр. 2026</span>
-            <span class="qa-time-chip" id="qa-end-time-label" onclick="event.stopPropagation();toggleQaPicker('end-time')">16:00</span>
-          </div>
-        </div>
-
-        <!-- End date picker -->
-        <div class="qa-picker-wrap" id="qa-picker-end-date" style="display:none">
-          <input type="date" class="qa-native-picker" id="qa-end-date-input"
-                 onchange="onQaDateChange('end')">
-        </div>
-
-        <!-- End time picker -->
-        <div class="qa-picker-wrap" id="qa-picker-end-time" style="display:none">
-          <input type="time" class="qa-native-picker" id="qa-end-time-input"
-                 onchange="onQaTimeChange('end')">
-        </div>
-      </div>
-
-      <!-- Секция 4: Повтор (disabled) -->
-      <div class="qa-section" style="opacity:0.45;pointer-events:none">
-        <div class="qa-row">
-          <span class="qa-row-label">Повтор</span>
-          <div class="qa-row-right">
-            <span class="qa-row-value">Никогда</span>
-            <span class="qa-badge-soon">Скоро</span>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /qa-body -->
-  </div><!-- /qa-screen -->
-</div><!-- /qa-overlay -->
-
-<!-- Schedule picker (отдельный overlay) -->
-<div class="qa-overlay" id="qa-schedule-picker" style="display:none">
-  <div class="qa-screen">
-    <div class="qa-header">
-      <button class="qa-header-btn" onclick="closeSchedulePicker()">
-        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="qa-header-title">Расписание</div>
-      <div style="width:40px"></div>
-    </div>
-    <div class="qa-body">
-      <div class="qa-section" id="qa-schedule-list">
-        <!-- Заполняется через JS -->
-      </div>
-    </div>
+<div class="screen has-inner-header" id="s-quick-add">
+  <div class="inner-header">
+    <div class="inner-title">Новая встреча</div>
   </div>
+  <div style="padding:16px">
+    <div class="inp-wrap">
+      <div class="inp-label">Название</div>
+      <input class="inp" id="qa-title" placeholder="Например: Звонок с командой">
+    </div>
+    <div class="inp-wrap">
+      <div class="inp-label">Расписание</div>
+      <div class="inp" onclick="openSchedulePicker()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+        <span id="qa-schedule-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Без расписания</span>
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--t3);fill:none;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+    </div>
+    <div class="inp-wrap">
+      <div class="inp-label">Начало</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><input type="date" class="inp" id="qa-start-date" onchange="onQaStartChange()"></div>
+        <div style="width:110px"><input type="time" class="inp" id="qa-start-time" onchange="onQaStartChange()"></div>
+      </div>
+    </div>
+    <div class="inp-wrap">
+      <div class="inp-label">Конец</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><input type="date" class="inp" id="qa-end-date" onchange="onQaEndChange()"></div>
+        <div style="width:110px"><input type="time" class="inp" id="qa-end-time" onchange="onQaEndChange()"></div>
+      </div>
+    </div>
+    <div class="inp-wrap">
+      <div class="inp-label">Заметки</div>
+      <textarea class="inp" id="qa-notes" rows="2" placeholder="Что обсудить?"></textarea>
+    </div>
+    <div class="inp-wrap" style="opacity:0.4;pointer-events:none">
+      <div class="inp-label">Повтор</div>
+      <div class="inp" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Никогда</span>
+        <span style="padding:2px 8px;border-radius:99px;background:rgba(124,92,252,.15);color:#7C5CFC;font-size:11px;font-weight:700">Скоро</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="qa-submit-btn" onclick="submitQuickAdd()" style="width:100%;margin-top:16px">Создать встречу</button>
+  </div>
+  <div class="scroll-fill"></div>
+</div>
+
+<!-- ═══════════════════════════════
+     SCHEDULE PICKER (for Quick Add)
+════════════════════════════════ -->
+<div class="screen has-inner-header" id="s-schedule-picker">
+  <div class="inner-header">
+    <div class="inner-title">Расписание</div>
+  </div>
+  <div style="padding:16px" id="qa-schedule-list"></div>
+  <div class="scroll-fill"></div>
 </div>
 
 <!-- ═══════════════════════════════
