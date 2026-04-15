@@ -33,8 +33,8 @@ async def create_schedule(
         INSERT INTO schedules
             (user_id, title, description, duration, buffer_time,
              work_days, start_time, end_time, location_mode, platform,
-             location_address, min_booking_advance, requires_confirmation)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             location_address, min_booking_advance, requires_confirmation, custom_link)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING *
         """,
         user["id"], data.title, data.description, data.duration, data.buffer_time,
@@ -42,7 +42,7 @@ async def create_schedule(
         datetime.strptime(data.start_time, "%H:%M").time(),
         datetime.strptime(data.end_time, "%H:%M").time(),
         data.location_mode, data.platform, data.location_address,
-        data.min_booking_advance or 0, data.requires_confirmation
+        data.min_booking_advance or 0, data.requires_confirmation, data.custom_link
     )
     await _track_event(conn, "schedule_created", telegram_id, {
         "schedule_id": str(row["id"]), "duration": data.duration, "platform": data.platform,
@@ -53,19 +53,31 @@ async def create_schedule(
 @router.get("/api/schedules")
 async def list_schedules(
     auth_user: dict = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     conn: asyncpg.Connection = Depends(db),
 ):
     telegram_id = auth_user["id"]
+    total_row = await conn.fetchrow(
+        """
+        SELECT COUNT(*) FROM schedules s
+        JOIN users u ON u.id = s.user_id
+        WHERE u.telegram_id = $1 AND s.is_default = FALSE
+        """,
+        telegram_id
+    )
+    total = total_row[0] if total_row else 0
     rows = await conn.fetch(
         """
         SELECT s.* FROM schedules s
         JOIN users u ON u.id = s.user_id
         WHERE u.telegram_id = $1 AND s.is_default = FALSE
         ORDER BY s.created_at DESC
+        LIMIT $2 OFFSET $3
         """,
-        telegram_id
+        telegram_id, limit, offset
     )
-    return rows_to_list(rows)
+    return {"schedules": rows_to_list(rows), "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/api/schedules/{schedule_id}")

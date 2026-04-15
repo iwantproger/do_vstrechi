@@ -11,7 +11,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
-from config import BOT_TOKEN, MINI_APP_URL
+from config import BOT_TOKEN, MINI_APP_URL, REDIS_URL
 from handlers import start, navigation, schedules, bookings, create, inline
 from services.reminders import reminder_loop
 from services.notifications import start_internal_server
@@ -42,7 +42,20 @@ async def setup_bot_commands(bot: Bot):
 
 async def main():
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp  = Dispatcher(storage=MemoryStorage())
+
+    # Redis storage если доступен, иначе memory
+    if REDIS_URL:
+        try:
+            from aiogram.fsm.storage.redis import RedisStorage
+            storage = RedisStorage.from_url(REDIS_URL)
+            log.info(f"Using Redis FSM storage: {REDIS_URL}")
+        except Exception as e:
+            log.warning(f"Redis unavailable, falling back to memory: {e}")
+            storage = MemoryStorage()
+    else:
+        storage = MemoryStorage()
+
+    dp = Dispatcher(storage=storage)
 
     dp.include_router(start.router)
     dp.include_router(navigation.router)
@@ -55,6 +68,13 @@ async def main():
 
     asyncio.create_task(reminder_loop(bot))
     runner = await start_internal_server(bot)
+
+    try:
+        updates = await bot.get_updates(offset=-1, limit=1)
+        if updates:
+            log.info(f"Skipping ~{updates[-1].update_id} pending updates")
+    except Exception:
+        pass
 
     log.info("Bot starting…")
     try:

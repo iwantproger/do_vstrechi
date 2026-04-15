@@ -20,7 +20,7 @@ async function loadSchedules() {
   if (!list) return;
   var { data, error } = await apiFetch('GET', '/api/schedules');
   if (error) { showToast('Ошибка загрузки расписаний', 'error'); return; }
-  if (data) state.schedules = data;
+  if (data) state.schedules = data.schedules || data;
   if (!state.schedules || !state.schedules.length) {
     list.innerHTML = renderEmpty('Нет расписаний', 'Создайте первое расписание, чтобы клиенты могли записываться');
     return;
@@ -220,7 +220,7 @@ function openScheduleDetail(id) {
     if (addrInp) addrInp.value = '';
   }
   var linkInp = document.getElementById('sl-link-inp');
-  if (linkInp) linkInp.value = '';
+  if (linkInp) linkInp.value = s.custom_link || '';
 
   /* manual confirm toggle — backed by requires_confirmation field */
   var togEl = document.getElementById('sl-manual-tog');
@@ -313,6 +313,7 @@ function collectScheduleForm() {
     location_address: addrVal || null,
     min_booking_advance: advance,
     requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
+    custom_link: (document.getElementById('sl-link-inp') || {}).value || null,
   };
 }
 
@@ -786,6 +787,7 @@ function getFormScheduleData() {
     location_address: addrVal || null,
     min_booking_advance: advance,
     requires_confirmation: !!(manualTog && manualTog.classList.contains('on')),
+    custom_link: (document.getElementById('nw-link-inp') || {}).value || null,
   };
 }
 

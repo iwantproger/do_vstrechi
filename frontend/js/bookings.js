@@ -62,7 +62,7 @@ async function loadHome() {
 
   var { data, error } = await apiFetch('GET', '/api/bookings?role=all');
   if (error) { setHomeSubtitle('Не удалось загрузить данные', true); return; }
-  if (data) state.bookings = data;
+  if (data) state.bookings = data.bookings || data;
 
   const now = new Date();
   const todayStr = formatDate(now);
@@ -278,12 +278,25 @@ function renderMeetingCard(m) {
 ═══════════════════════════════════════════ */
 let _meetFilter = 'confirm';
 let _meetGroup = 'date';
+var _bookingsOffset = 0;
+var _bookingsTotal = 0;
 
-async function loadMeetings() {
+async function loadMeetings(append) {
+  if (!append) _bookingsOffset = 0;
+
   /* FIX: role=all — показывать и организаторские, и гостевые встречи */
-  var { data, error } = await apiFetch('GET', '/api/bookings?role=all');
+  var { data, error } = await apiFetch('GET', '/api/bookings?role=all&limit=20&offset=' + _bookingsOffset);
   if (error) { showToast('Ошибка загрузки встреч', 'error'); return; }
-  if (data) state.bookings = data;
+  if (data) {
+    var list = data.bookings || data;
+    if (append) {
+      state.bookings = (state.bookings || []).concat(list);
+    } else {
+      state.bookings = list;
+    }
+    _bookingsTotal = data.total != null ? data.total : list.length;
+    _bookingsOffset += list.length;
+  }
 
   /* Load external calendar events (display-enabled) — non-blocking */
   state.extEvents = [];
@@ -305,6 +318,11 @@ async function loadMeetings() {
   if (defTabEl) defTabEl.classList.add('on');
 
   renderMeetingsList();
+
+  var moreBtn = document.getElementById('load-more-meetings');
+  if (moreBtn) {
+    moreBtn.style.display = _bookingsOffset < _bookingsTotal ? '' : 'none';
+  }
 }
 
 function switchMeetStatus(filter, el) {

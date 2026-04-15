@@ -24,6 +24,7 @@ class ScheduleCreate(BaseModel):
     location_address: Optional[str] = Field(None, max_length=500)
     min_booking_advance: Optional[int] = Field(0, ge=0, le=10080)
     requires_confirmation: bool = Field(True)
+    custom_link: Optional[str] = Field(None, max_length=2000)
 
 
 class ScheduleUpdate(BaseModel):
@@ -40,6 +41,7 @@ class ScheduleUpdate(BaseModel):
     is_active: Optional[bool] = None
     min_booking_advance: Optional[int] = Field(None, ge=0, le=10080)
     requires_confirmation: Optional[bool] = None
+    custom_link: Optional[str] = Field(None, max_length=2000)
 
 
 class QuickMeetingCreate(BaseModel):

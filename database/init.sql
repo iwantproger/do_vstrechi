@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     location_address       TEXT,
     min_booking_advance    INTEGER NOT NULL DEFAULT 0,
     requires_confirmation  BOOLEAN NOT NULL DEFAULT TRUE,
+    custom_link            TEXT,
     is_active              BOOLEAN NOT NULL DEFAULT TRUE,
     is_default      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),

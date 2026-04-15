@@ -175,6 +175,7 @@ async def reminder_loop(bot: Bot):
     await asyncio.sleep(10)
     log.info("Reminder loop v2 started (1-min cycle)")
     _conf_tick = 0
+    _complete_tick = 0
     while True:
         try:
             # 1. Пользовательские напоминания по настройкам
@@ -219,6 +220,14 @@ async def reminder_loop(bot: Bot):
                         # (backend also guards via confirmation_asked_at IS NOT NULL)
                         await api("patch", f"/api/bookings/{bid}/set-no-answer")
                         await asyncio.sleep(0.3)
+
+            # 3. Автозавершение прошедших встреч — каждые 15 мин
+            _complete_tick += 1
+            if _complete_tick >= 15:
+                _complete_tick = 0
+                resp_c = await api("post", "/api/bookings/complete-past")
+                if resp_c and resp_c.get("completed", 0) > 0:
+                    log.info(f"Auto-completed {resp_c['completed']} past bookings")
 
         except Exception as e:
             log.error(f"Reminder loop error: {e}")
