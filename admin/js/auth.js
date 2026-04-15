@@ -108,6 +108,14 @@ function navigateTo(page) {
   // Update header
   document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
 
+  // Clear task selection when leaving tasks page
+  if (page !== 'tasks' && typeof clearSelection === 'function') {
+    clearSelection();
+    if (typeof selectMode !== 'undefined' && selectMode && typeof toggleSelectMode === 'function') {
+      toggleSelectMode();
+    }
+  }
+
   // Load page data
   if (page === 'dashboard') loadDashboard();
   if (page === 'logs') loadLogs();

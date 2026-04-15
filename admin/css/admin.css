@@ -658,11 +658,47 @@ body {
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
   border-left: 3px solid transparent;
+  position: relative;
 }
 .task-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .task-card:active { cursor: grabbing; }
 .task-card.sortable-ghost { opacity: 0.4; background: var(--primary-light); }
 .task-card.sortable-drag { box-shadow: 0 8px 24px rgba(0,0,0,0.15); transform: rotate(3deg); }
+
+/* Selected card */
+.task-card.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background: rgba(13, 148, 136, 0.04);
+}
+
+/* Select checkbox indicator */
+.task-card .select-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: white;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  transition: all 0.15s;
+  pointer-events: none;
+}
+.kanban-board.select-mode .task-card .select-check,
+.task-card.selected .select-check { display: flex; }
+.task-card.selected .select-check {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+/* Hide actions row in select mode so checkbox has room */
+.kanban-board.select-mode .task-card-actions { opacity: 0 !important; }
 
 .task-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
 .task-card-header .task-card-title { margin-bottom: 0; flex: 1; }
@@ -792,6 +828,76 @@ body {
 .modal-footer {
   display: flex; justify-content: flex-end; gap: 10px;
   padding: 16px 24px 20px;
+}
+
+/* Page actions row (Выбрать + Новая задача) */
+.page-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.btn-select:hover { border-color: var(--primary); color: var(--primary); }
+.btn-select.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Selection toolbar (floating) */
+.selection-toolbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--sidebar-bg);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  z-index: 999;
+  animation: selToolbarIn 0.18s ease;
+}
+@keyframes selToolbarIn {
+  from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+.selection-count { font-size: 13px; font-weight: 500; white-space: nowrap; color: rgba(255,255,255,0.85); }
+.selection-toolbar .btn-copy-bulk {
+  background: var(--primary); color: white; border: none;
+  padding: 7px 14px; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s;
+}
+.selection-toolbar .btn-copy-bulk:hover { background: var(--primary-dark); }
+.selection-toolbar .btn-clear-sel {
+  background: transparent; color: rgba(255,255,255,0.65);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 7px 12px; border-radius: 7px;
+  font-size: 12px; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: color 0.15s, border-color 0.15s;
+}
+.selection-toolbar .btn-clear-sel:hover { color: white; border-color: rgba(255,255,255,0.55); }
+@media (max-width: 768px) {
+  .selection-toolbar { left: 10px; right: 10px; transform: none; bottom: 10px; }
+  @keyframes selToolbarIn {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
 }
 
 .btn-primary {

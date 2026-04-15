@@ -8,6 +8,10 @@ let currentTags = [];
 let sortableInstances = [];
 var viewingTaskId = null;
 
+/* ── Multi-select state ───────────────────────────── */
+let selectedTaskIds = new Set();
+let selectMode = false;
+
 async function loadTasks() {
   try {
     tasksData = await api('GET', '/api/admin/tasks');
@@ -27,6 +31,7 @@ function renderKanban() {
     col.innerHTML = tasks.map(renderTaskCard).join('');
   });
   initSortable();
+  restoreSelection();
 }
 
 function renderTaskCard(task) {
@@ -38,6 +43,7 @@ function renderTaskCard(task) {
   var srcText = sourceLabel[task.source] || '';
   var shortId = task.id ? '#' + task.id.slice(0, 8) : '';
   return '<div class="task-card" data-id="' + escHtml(task.id) + '" data-source="' + escHtml(task.source) + '">'
+    + '<div class="select-check">&#x2713;</div>'
     + '<div class="task-card-header">'
     + '<div class="task-card-title">' + escHtml(task.title) + '</div>'
     + '<span class="task-card-id">' + escHtml(shortId) + '</span>'
@@ -62,6 +68,7 @@ function initSortable() {
       animation: 200,
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
+      disabled: selectMode,
       onEnd: async function(evt) {
         var taskId = evt.item.dataset.id;
         var newStatus = evt.to.closest('.kanban-column').dataset.status;
@@ -92,6 +99,149 @@ function updateKanbanCounts() {
     var count = document.getElementById('count-' + status);
     count.textContent = col.children.length;
   });
+}
+
+/* ── Multi-select ─────────────────────────────────── */
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  var board = document.querySelector('.kanban-board');
+  var btn = document.getElementById('select-mode-btn');
+
+  if (selectMode) {
+    board.classList.add('select-mode');
+    btn.classList.add('active');
+    btn.innerHTML = '&#x2611; Режим выбора';
+    sortableInstances.forEach(function(s) { s.option('disabled', true); });
+  } else {
+    board.classList.remove('select-mode');
+    btn.classList.remove('active');
+    btn.innerHTML = '&#x2610; Выбрать';
+    sortableInstances.forEach(function(s) { s.option('disabled', false); });
+    // Keep selection so user can copy after exiting mode
+  }
+}
+
+function toggleTaskSelection(taskId, cardEl) {
+  if (selectedTaskIds.has(taskId)) {
+    selectedTaskIds.delete(taskId);
+    cardEl.classList.remove('selected');
+  } else {
+    selectedTaskIds.add(taskId);
+    cardEl.classList.add('selected');
+  }
+  updateSelectionToolbar();
+}
+
+function clearSelection() {
+  selectedTaskIds.clear();
+  document.querySelectorAll('.task-card.selected').forEach(function(el) {
+    el.classList.remove('selected');
+  });
+  updateSelectionToolbar();
+  if (selectMode) toggleSelectMode();
+}
+
+function updateSelectionToolbar() {
+  var toolbar = document.getElementById('selection-toolbar');
+  var countEl = document.getElementById('sel-count');
+  if (!toolbar || !countEl) return;
+  if (selectedTaskIds.size > 0) {
+    toolbar.style.display = 'flex';
+    countEl.textContent = selectedTaskIds.size;
+  } else {
+    toolbar.style.display = 'none';
+  }
+}
+
+function restoreSelection() {
+  selectedTaskIds.forEach(function(id) {
+    var card = document.querySelector('.task-card[data-id="' + id + '"]');
+    if (card) card.classList.add('selected');
+  });
+  updateSelectionToolbar();
+}
+
+function selectAllTasks() {
+  selectedTaskIds.clear();
+  document.querySelectorAll('.task-card').forEach(function(card) {
+    var id = card.dataset.id;
+    if (id) {
+      selectedTaskIds.add(id);
+      card.classList.add('selected');
+    }
+  });
+  updateSelectionToolbar();
+}
+
+async function copySelectedTasks() {
+  if (selectedTaskIds.size === 0) return;
+
+  var tasks = [];
+  ['backlog', 'in_progress', 'done'].forEach(function(status) {
+    (tasksData[status] || []).forEach(function(t) {
+      if (selectedTaskIds.has(t.id)) tasks.push(t);
+    });
+  });
+  if (!tasks.length) return;
+
+  var statusLabels = { backlog: 'Backlog', in_progress: 'В работе', done: 'Готово' };
+  var sourceLabels = { manual: 'Manual', git_commit: 'Git commit', ai_generated: 'AI generated', github_issue: 'GitHub issue' };
+
+  var text = '';
+
+  if (tasks.length === 1) {
+    text += '# Задача: ' + tasks[0].title + '\n\n';
+  } else {
+    text += '# Задачи к выполнению (' + tasks.length + ')\n\n';
+  }
+
+  tasks.forEach(function(task, i) {
+    if (tasks.length > 1) {
+      text += '---\n\n';
+      text += '## ' + (i + 1) + '. ' + task.title + '\n\n';
+    }
+
+    text += '**Статус:** ' + (statusLabels[task.status] || task.status);
+    if (task.tags && task.tags.length) {
+      text += ' | **Теги:** ' + task.tags.join(', ');
+    }
+    text += '\n';
+    if (task.source && task.source !== 'manual') {
+      text += '**Источник:** ' + (sourceLabels[task.source] || task.source) + '\n';
+    }
+    text += '\n';
+
+    if (task.description) {
+      text += '### Техническое описание\n\n' + task.description + '\n\n';
+    }
+    if (task.description_plain && task.description_plain !== task.description) {
+      text += '### Описание простым языком\n\n' + task.description_plain + '\n\n';
+    }
+    if (task.source_ref) {
+      text += '**Ссылка:** ' + task.source_ref + '\n\n';
+    }
+  });
+
+  var btn = document.querySelector('.selection-toolbar .btn-copy-bulk');
+  var origHTML = btn ? btn.innerHTML : '';
+
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+
+  if (btn) {
+    btn.innerHTML = '&#x2705; Скопировано (' + tasks.length + ')';
+    setTimeout(function() { btn.innerHTML = origHTML; }, 2000);
+  }
+  showNotification('Скопировано ' + tasks.length + (tasks.length === 1 ? ' задача' : ' задач'), 'success');
 }
 
 /* --- Task modal --- */
@@ -359,16 +509,42 @@ async function copyTaskToClipboard() {
 /* ═══════════════════════════════════════════════════
    EVENT LISTENERS (registered after DOM ready)
 ═══════════════════════════════════════════════════ */
-/* Escape key closes modals */
+
+/* Keyboard shortcuts */
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    // First clear selection if any
+    if (selectedTaskIds.size > 0) {
+      clearSelection();
+      return;
+    }
     closeViewModal();
     closeTaskModal();
     closeDeleteModal();
+    return;
+  }
+
+  // Only on tasks page
+  if (typeof getCurrentPage === 'function' && getCurrentPage() !== 'tasks') return;
+
+  // Ctrl/Cmd + A — select all
+  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+    e.preventDefault();
+    selectAllTasks();
+    return;
+  }
+
+  // Ctrl/Cmd + C — copy selected (only if no text is selected on page)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedTaskIds.size > 0) {
+    var sel = window.getSelection ? window.getSelection().toString() : '';
+    if (!sel) {
+      e.preventDefault();
+      copySelectedTasks();
+    }
   }
 });
 
-/* Kanban card action delegation (view / edit / delete) */
+/* Kanban card action delegation (select / view / edit / delete) */
 document.querySelector('.kanban-board').addEventListener('click', function(e) {
   var deleteBtn = e.target.closest('.task-delete-btn');
   if (deleteBtn) {
@@ -382,6 +558,14 @@ document.querySelector('.kanban-board').addEventListener('click', function(e) {
   }
   var card = e.target.closest('.task-card');
   if (card) {
-    viewTask(card.dataset.id);
+    var taskId = card.dataset.id;
+    // Select mode OR Ctrl/Cmd+click → toggle selection
+    if (selectMode || e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      toggleTaskSelection(taskId, card);
+      return;
+    }
+    // Normal click → view
+    viewTask(taskId);
   }
 });

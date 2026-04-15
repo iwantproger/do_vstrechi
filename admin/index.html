@@ -200,7 +200,10 @@
       <div class="page" id="page-tasks">
         <div class="page-header">
           <h2>Задачи</h2>
-          <button class="btn-primary" onclick="openTaskModal()">+ Новая задача</button>
+          <div class="page-actions">
+            <button class="btn-select" id="select-mode-btn" onclick="toggleSelectMode()">&#x2610; Выбрать</button>
+            <button class="btn-primary" onclick="openTaskModal()">+ Новая задача</button>
+          </div>
         </div>
 
         <div class="kanban-board">
@@ -474,6 +477,13 @@
 <script src="/admin/js/tasks.js"></script>
 <script src="/admin/js/settings.js"></script>
 <script src="/admin/js/auth.js"></script>
+<!-- Selection toolbar (shown when cards are selected) -->
+<div class="selection-toolbar" id="selection-toolbar" style="display:none">
+  <span class="selection-count"><span id="sel-count">0</span> выбрано</span>
+  <button class="btn-copy-bulk" onclick="copySelectedTasks()">&#x1F4CB; Скопировать</button>
+  <button class="btn-clear-sel" onclick="clearSelection()">&#x2715; Сбросить</button>
+</div>
+
 <script>
 /* INIT */
 checkSession();
