@@ -12,28 +12,77 @@
 
 ## [1.2.0] — 15.04.2026
 
-### Added
-- Cross-schedule slot blocking: бронирования из других расписаний блокируют слоты в `/available-slots`
-- Поле `blocks_slots` для ручных встреч — управление блокировкой доступности
-- Статус `no_answer` + утренний поток подтверждения: бот спрашивает гостя «Встреча в силе?», auto-transition в no_answer через 1ч без ответа
-- Бот поддержки (@dovstrechi_support_bot) — пересылка сообщений пользователей администратору
-- Ссылка «Связаться с поддержкой» в профиле Mini App
-- Улучшенные уведомления о бронировании с CTA-кнопками для гостя
-- Онбординг: разные сообщения `/start` для новых и возвращающихся пользователей
-- Inline-режим: поиск и шаринг расписаний через @bot в любом чате
-- Лендинг с определением контекста (Telegram / браузер)
-
-### Fixed
-- Quick Add: 7+ багов (layout, native pickers, schedules, dates, labels)
-- Quick Add: поддержка end_date, ночные встречи, schedule end_time
-- Скрыт app-footer в Mini App — устранён сдвиг layout на всех экранах
-
-### Security
-- R1 (секреты в git history) — ЗАКРЫТ: ротация + git filter-repo
-- R4 (at-rest encryption), R5 (audit log), R6 (DDoS) — зафиксированы как принятые риски
-
 > **Примечание о версионировании:** Версии 2.0.0–2.2.0 были внутренними milestone-метками.
 > Начиная с v1.2.0 используется единая нумерация, согласованная с frontend (config.js).
+
+### Added — Интеграция внешних календарей
+
+- `feat`: Google Calendar OAuth интеграция (MVP) — 6 новых таблиц: `calendar_accounts`, `calendar_connections`, `schedule_calendar_rules`, `external_busy_slots`, `event_mapping`, `sync_log`
+- `feat`: Phase 2 — инкрементальная синхронизация через `sync_token`, Google webhook subscriptions, auto-renewal, уведомления об изменении встречи в боте
+- `feat`: Phase 3 — CalDAV адаптер (python-caldav) для Яндекс Календарь и Apple iCloud; подключение по email+пароль
+- `feat`: UI карточки провайдеров (Google / Яндекс / Apple) + переключатель `is_display_enabled` для показа событий в ленте
+- `feat`: per-schedule настройка правил календаря — какие подключённые календари блокируют слоты и куда записывать бронирования
+- `fix`: zero-config slot blocking — внешние занятые слоты учитываются при `/available-slots` без ручной настройки
+- `fix`: показ внешних событий на главном экране в блоке «Сегодня»
+
+### Added — Встречи и расписания
+
+- `feat`: платформа «Офлайн» — без ссылки на звонок, с полем адреса места; snapshot полей `platform` и `location_address` в бронировании
+- `feat`: при удалении расписания с активными встречами — диалог: сохранить встречи или отменить
+- `feat`: manual confirm toggle — организатор может включить обязательное подтверждение бронирования
+- `feat`: cross-schedule slot blocking — `e697b51`: бронирования из других расписаний блокируют слоты (`blocks_slots`)
+- `feat`: поле `blocks_slots` для ручных встреч — управление влиянием на публичную доступность
+- `feat`: статус `no_answer` + утренний поток подтверждения: бот спрашивает гостя «Встреча в силе?», auto-transition через 1ч без ответа
+- `fix`: cross-schedule конфликтная проверка учитывает `buffer_time`
+
+### Added — Уведомления v2
+
+- `feat`: таблица `sent_reminders` — идемпотентный лог отправленных напоминаний, заменяет boolean-флаги
+- `feat`: `users.reminder_settings` JSONB — индивидуальное время напоминаний вместо фиксированных 24h/1h
+- `feat`: новые endpoints: `/pending-reminders-v2`, `/sent-reminders`, `/confirmation-requests`, `/no-answer-candidates`, `/confirmation-asked`, `/set-no-answer`, `/guest-confirm`
+- `feat`: полный аудит нотификаций — напоминания, изменения статуса, morning alert; цикл сокращён с 5 мин до 60 сек
+- `feat`: улучшенные уведомления гостю о новом бронировании с CTA-кнопками и ссылками на напоминания
+
+### Added — Бот
+
+- `feat`: редизайн меню — 2×2 ReplyKeyboard (🏠 Главная / 📋 Встречи / 📅 Расписания / 👤 Профиль) + WebApp кнопка; handlers зеркалируют вкладки Mini App
+- `feat`: inline-режим — поиск и шаринг расписаний через @bot в любом чате
+- `feat`: share via Telegram — отправка расписания как rich-message в формате inline
+- `feat`: онбординг — разные сообщения `/start` для новых и вернувшихся пользователей
+- `feat`: гостевые callbacks `guest_confirm_*` и `guest_cancel_*` — ответ на morning confirmation прямо из чата
+- `feat`: support bot (@dovstrechi_support_bot) — пересылка сообщений пользователей администратору
+- `feat`: ссылка «Связаться с поддержкой» в профиле Mini App
+
+### Added — Интерфейс и инфраструктура
+
+- `feat`: аватар пользователя из Telegram с прокси и fallback на initials
+- `feat`: кнопка «+» в центре navbar (TickTick-стиль) + вход через браузер (browser auth option)
+- `feat`: лендинг `dovstrechiapp.ru` — определение контекста (Telegram / браузер), CTA
+- `feat`: Политика конфиденциальности и Условия использования (`/privacy`, `/terms`)
+- `feat`: Google Search Console верификация
+
+### Fixed
+
+- `fix`: Quick Add — 7 багов layout, native pickers, schedules, dates, labels
+- `fix`: Quick Add — поддержка end_date, ночные встречи (переход за полночь), schedule end_time
+- `fix`: Quick Add — стандартный screen layout + прямые native pickers (Android/iOS)
+- `fix`: скрыт `app-footer` в Mini App — устранён сдвиг layout на всех экранах
+- `fix`: шаринг использует корректный schedule ID
+- `fix`: кнопка отмены встречи — гостевые встречи везде (не только в своей вкладке)
+- `fix`: дублирование встречи при повторном добавлении в Quick Add
+- `fix`: Google connect button — отсутствующие скобки в onclick (кнопка не работала)
+- `fix`: Yandex Calendar — ENCRYPTION_KEY + неверная ссылка подключения
+- `fix`: CalDAV delete/update — прямой URL вместо REPORT-запроса (Apple iCloud)
+- `fix`: восстановлен `calendar.readonly` scope — обязателен для calendarList.list
+- `fix`: восстановлен navbar pill layout после регрессии Block E
+- `fix`: OAuth `/google/auth-url` возвращает JSON (не redirect)
+- `fix`: `::timestamptz` cast в SQL-запросе `/available-slots`
+- `fix`: исключён аккаунт владельца из статистики в админке
+
+### Security
+
+- R1 (секреты в git history) — ЗАКРЫТ: ротация + git filter-repo
+- R4 (at-rest encryption), R5 (audit log), R6 (DDoS) — зафиксированы как принятые риски
 
 ---
 
