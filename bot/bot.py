@@ -70,8 +70,8 @@ async def main():
     dp.include_router(create.router)
     dp.include_router(inline.router)
 
-    await bot.get_me()
-    log.info("Bot username: @%s", bot.me.username)
+    me = await bot.get_me()
+    log.info("Bot username: @%s", me.username)
 
     await setup_bot_commands(bot)
 
