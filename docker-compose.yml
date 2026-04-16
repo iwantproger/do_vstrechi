@@ -97,6 +97,10 @@ services:
       MINI_APP_URL: ${MINI_APP_URL}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       REDIS_URL: redis://redis:6379/0
+      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-true}
+      WEBHOOK_HOST: ${WEBHOOK_HOST:-https://dovstrechiapp.ru}
+      WEBHOOK_PATH: ${WEBHOOK_PATH:-/bot/webhook}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
     expose:
       - "8080"
     depends_on:

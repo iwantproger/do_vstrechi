@@ -249,15 +249,24 @@ async def handle_status_change(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
-async def start_internal_server(bot: Bot):
-    """Start aiohttp server on :8080 for internal notifications."""
-    webapp = web.Application()
+def register_internal_routes(webapp: web.Application, bot: Bot) -> None:
+    """Register internal notification routes on an existing aiohttp app.
+
+    Used in webhook mode, where a single aiohttp app hosts both the Telegram
+    webhook handler and the internal notifications endpoints.
+    """
     webapp["bot"] = bot
     webapp.router.add_post("/internal/notify",        handle_new_booking)
     webapp.router.add_post("/internal/status-change", handle_status_change)
+
+
+async def start_internal_server(bot: Bot, port: int = 8080):
+    """Start standalone aiohttp server for internal notifications (polling mode)."""
+    webapp = web.Application()
+    register_internal_routes(webapp, bot)
     runner = web.AppRunner(webapp)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    log.info("Internal notification server started on port 8080")
+    log.info(f"Internal notification server started on port {port}")
     return runner
