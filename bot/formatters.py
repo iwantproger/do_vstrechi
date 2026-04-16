@@ -41,8 +41,8 @@ def format_share_message_html(schedule_id: str) -> str:
         f"Вот мои свободные слоты — выбирайте удобное время:\n"
         f'👉 <a href="{link}">Записаться на встречу</a>\n\n'
         f"До встречи! 🙌\n\n"
-        f"<blockquote expandable>Если ссылка не открывается\n"
-        f"Скопируй: {link}</blockquote>"
+        f"Если ссылка не открывается, скопируй:\n"
+        f"<code>{link}</code>"
     )
 
 

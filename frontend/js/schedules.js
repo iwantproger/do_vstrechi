@@ -547,32 +547,19 @@ function openShareSheet(schedId) {
   showSheet('sheet-share');
 }
 
-/* Общий текст для шаринга (fallback если API недоступен) */
-function buildShareText(schedule) {
-  if (!schedule) return '';
-  var url = getScheduleTelegramUrl(schedule.id || '');
-  return 'Вот мои свободные слоты — выбирайте удобное время:\n'
-    + '👉 Записаться на встречу\n'
-    + url + '\n\n'
-    + 'До встречи! 🙌';
-}
-
 async function shareTelegram() {
   var schedId = state._shareScheduleId || _editScheduleId || '';
   closeSheet('sheet-share');
   if (!schedId) return;
 
   var link = getScheduleTelegramUrl(schedId);
-  var text = '';
 
   var resp = await apiFetch('GET', '/api/schedules/' + schedId + '/share');
-  if (resp.data) {
-    link = resp.data.direct_link;
-    text = resp.data.text_plain;
-  } else {
-    var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
-    text = buildShareText(schedule) || '📅 Запишись ко мне';
-  }
+  if (resp.data) link = resp.data.direct_link;
+
+  /* t.me/share/url не поддерживает Markdown/HTML в text,
+     ссылка уже в параметре url — текст БЕЗ дублирования URL */
+  var text = 'Вот мои свободные слоты — выбирайте удобное время!\nДо встречи! 🙌';
 
   var shareUrl = 'https://t.me/share/url'
     + '?url=' + encodeURIComponent(link)
