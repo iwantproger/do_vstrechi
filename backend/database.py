@@ -117,6 +117,55 @@ async def run_migrations():
             ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS morning_summary_sent_date DATE;
         """)
+        # 016: Row Level Security on bookings (idempotent)
+        await conn.execute("""
+            CREATE OR REPLACE FUNCTION current_telegram_id() RETURNS BIGINT AS $$
+            BEGIN
+              RETURN NULLIF(current_setting('app.telegram_id', true), '')::BIGINT;
+            EXCEPTION WHEN OTHERS THEN
+              RETURN NULL;
+            END;
+            $$ LANGUAGE plpgsql STABLE
+        """)
+        await conn.execute("ALTER TABLE bookings ENABLE ROW LEVEL SECURITY")
+        await conn.execute("ALTER TABLE bookings FORCE ROW LEVEL SECURITY")
+        for pol in ('bookings_internal', 'bookings_organizer', 'bookings_guest', 'bookings_insert'):
+            await conn.execute(f"DROP POLICY IF EXISTS {pol} ON bookings")
+        await conn.execute("""
+            CREATE POLICY bookings_internal ON bookings FOR ALL
+            USING (current_setting('app.is_internal', true) = 'true')
+        """)
+        await conn.execute("""
+            CREATE POLICY bookings_organizer ON bookings FOR ALL
+            USING (schedule_id IN (
+                SELECT s.id FROM schedules s JOIN users u ON s.user_id = u.id
+                WHERE u.telegram_id = current_telegram_id()
+            ))
+        """)
+        await conn.execute("""
+            CREATE POLICY bookings_guest ON bookings FOR ALL
+            USING (guest_telegram_id IS NOT NULL AND guest_telegram_id = current_telegram_id())
+        """)
+        await conn.execute("""
+            CREATE POLICY bookings_insert ON bookings FOR INSERT
+            WITH CHECK (
+                current_telegram_id() IS NOT NULL
+                OR current_setting('app.is_internal', true) = 'true'
+            )
+        """)
+        # Grant dovstrechi_app access (idempotent, needed after fresh DB init)
+        try:
+            await conn.execute("""
+                DO $$ BEGIN
+                    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dovstrechi_app') THEN
+                        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO dovstrechi_app;
+                        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO dovstrechi_app;
+                        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO dovstrechi_app;
+                    END IF;
+                END $$
+            """)
+        except Exception:
+            pass
     finally:
         await conn.close()
     log.info("Migrations applied")
