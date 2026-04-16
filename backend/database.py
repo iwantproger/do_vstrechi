@@ -3,7 +3,7 @@ import asyncpg
 import structlog
 from fastapi import Request
 
-from config import DATABASE_URL
+from config import DATABASE_URL, DATABASE_ADMIN_URL
 
 log = structlog.get_logger()
 
@@ -41,8 +41,14 @@ async def close_pool():
 
 
 async def run_migrations():
-    """Idempotent migrations — safe to run on every startup."""
-    async with _pool.acquire() as conn:
+    """Idempotent migrations — safe to run on every startup.
+
+    Uses DATABASE_ADMIN_URL (superuser) for DDL, separate from the
+    app-role pool which is subject to RLS.
+    """
+    import asyncpg as _apg
+    conn = await _apg.connect(DATABASE_ADMIN_URL)
+    try:
         await conn.execute("""
             ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'UTC';
@@ -111,6 +117,8 @@ async def run_migrations():
             ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS morning_summary_sent_date DATE;
         """)
+    finally:
+        await conn.close()
     log.info("Migrations applied")
 
 
