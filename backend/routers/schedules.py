@@ -1,4 +1,5 @@
 """Роуты расписаний и доступных слотов."""
+import os
 import uuid
 import asyncio
 import calendar as _calendar
@@ -235,6 +236,48 @@ async def update_schedule(
     if not row:
         raise HTTPException(status_code=404, detail="Расписание не найдено или нет доступа")
     return row_to_dict(row)
+
+
+@router.get("/api/schedules/{schedule_id}/share")
+async def get_schedule_share(
+    schedule_id: str,
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Единый формат share-сообщения для расписания."""
+    try:
+        uid = uuid.UUID(schedule_id)
+    except ValueError:
+        raise HTTPException(400, "Неверный формат ID")
+
+    sched = await conn.fetchrow(
+        "SELECT id, title FROM schedules WHERE id = $1 AND is_active = TRUE", uid
+    )
+    if not sched:
+        raise HTTPException(404, "Расписание не найдено или на паузе")
+
+    bot_username = os.getenv("BOT_USERNAME", "do_vstrechi_bot")
+    link = f"https://t.me/{bot_username}/app?startapp={schedule_id}"
+
+    text_html = (
+        f"Вот мои свободные слоты — выбирайте удобное время:\n"
+        f'👉 <a href="{link}">Записаться на встречу</a>\n\n'
+        f"До встречи! 🙌\n\n"
+        f'<blockquote expandable>Если ссылка не открывается\n'
+        f"Скопируй: {link}</blockquote>"
+    )
+
+    text_plain = (
+        f"Вот мои свободные слоты — выбирайте удобное время:\n"
+        f"👉 Записаться на встречу\n"
+        f"{link}\n\n"
+        f"До встречи! 🙌"
+    )
+
+    return {
+        "direct_link": link,
+        "text_html": text_html,
+        "text_plain": text_plain,
+    }
 
 
 @router.get("/api/available-slots/{schedule_id}")

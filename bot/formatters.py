@@ -1,6 +1,8 @@
-"""Форматтеры: статусы, даты, бронирования."""
+"""Форматтеры: статусы, даты, бронирования, share-сообщения."""
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from config import BOT_USERNAME
 
 STATUS_EMOJI = {
     "pending":   "⏳",
@@ -26,6 +28,22 @@ def format_dt(dt_str: str, tz: str = "UTC") -> str:
         return local_dt.strftime("%d.%m.%Y %H:%M")
     except Exception:
         return dt_str
+
+
+def direct_link(schedule_id: str) -> str:
+    return f"https://t.me/{BOT_USERNAME}/app?startapp={schedule_id}"
+
+
+def format_share_message_html(schedule_id: str) -> str:
+    """Единый HTML-текст приглашения на бронирование (все точки шаринга)."""
+    link = direct_link(schedule_id)
+    return (
+        f"Вот мои свободные слоты — выбирайте удобное время:\n"
+        f'👉 <a href="{link}">Записаться на встречу</a>\n\n'
+        f"До встречи! 🙌\n\n"
+        f"<blockquote expandable>Если ссылка не открывается\n"
+        f"Скопируй: {link}</blockquote>"
+    )
 
 
 def format_booking(b: dict, show_role: bool = False) -> str:

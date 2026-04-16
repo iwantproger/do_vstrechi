@@ -6,9 +6,8 @@ from aiogram.enums import ParseMode
 from aiogram.types import CallbackQuery
 
 from api import api
-from config import MINI_APP_URL
 from keyboards import kb_schedule_actions, kb_back_main
-from formatters import DAYS_RU
+from formatters import DAYS_RU, direct_link, format_share_message_html
 
 log = logging.getLogger(__name__)
 router = Router()
@@ -46,15 +45,17 @@ async def cb_schedule_detail(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("share_"))
 async def cb_share_schedule(cb: CallbackQuery):
     schedule_id = cb.data.split("_", 1)[1]
-    booking_url = f"{MINI_APP_URL}?schedule_id={schedule_id}"
+    link = direct_link(schedule_id)
+    msg = format_share_message_html(schedule_id)
 
     await cb.message.answer(
         f"🔗 <b>Ссылка для записи:</b>\n\n"
-        f"<code>{booking_url}</code>\n\n"
-        f"Отправь эту ссылку клиентам — они смогут выбрать время и записаться.",
+        f"<code>{link}</code>\n\n"
+        f"Перешли следующее сообщение клиентам 👇",
         parse_mode=ParseMode.HTML,
         reply_markup=kb_back_main,
     )
+    await cb.message.answer(msg, parse_mode=ParseMode.HTML)
     await cb.answer()
 
 

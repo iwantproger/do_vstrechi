@@ -547,36 +547,35 @@ function openShareSheet(schedId) {
   showSheet('sheet-share');
 }
 
-/* Общий текст для шаринга (формат как в inline-режиме бота) */
+/* Общий текст для шаринга (fallback если API недоступен) */
 function buildShareText(schedule) {
   if (!schedule) return '';
-  var title = schedule.title || 'Встреча';
-  var dur = schedule.duration || 60;
-  var plat = PLAT_NAMES[schedule.platform] || schedule.platform || '';
-  var days = formatWorkDays(schedule.work_days);
-  var start = fmtTimeStr(schedule.start_time) || '';
-  var end = fmtTimeStr(schedule.end_time) || '';
-  var desc = schedule.description || '';
-
-  var text = '📅 ' + title + '\n\n'
-    + '⏱ ' + dur + ' мин · ' + plat + '\n';
-  if (days) text += '📆 ' + days + ', ' + start + '–' + end + '\n';
-  if (desc) text += '📝 ' + desc + '\n';
-  text += '\n👉 Записаться на встречу';
-  return text;
+  var url = getScheduleTelegramUrl(schedule.id || '');
+  return 'Вот мои свободные слоты — выбирайте удобное время:\n'
+    + '👉 Записаться на встречу\n'
+    + url + '\n\n'
+    + 'До встречи! 🙌';
 }
 
-function shareTelegram() {
+async function shareTelegram() {
   var schedId = state._shareScheduleId || _editScheduleId || '';
-  var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
   closeSheet('sheet-share');
-  if (!url) return;
+  if (!schedId) return;
 
-  var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
-  var text = buildShareText(schedule) || '📅 Запишись ко мне';
+  var link = getScheduleTelegramUrl(schedId);
+  var text = '';
+
+  var resp = await apiFetch('GET', '/api/schedules/' + schedId + '/share');
+  if (resp.data) {
+    link = resp.data.direct_link;
+    text = resp.data.text_plain;
+  } else {
+    var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
+    text = buildShareText(schedule) || '📅 Запишись ко мне';
+  }
 
   var shareUrl = 'https://t.me/share/url'
-    + '?url=' + encodeURIComponent(url)
+    + '?url=' + encodeURIComponent(link)
     + '&text=' + encodeURIComponent(text);
 
   if (tg?.openTelegramLink) {
@@ -587,9 +586,14 @@ function shareTelegram() {
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-function copyShareLink() {
-  if (state._shareUrl) copyText(state._shareUrl);
+async function copyShareLink() {
+  var schedId = state._shareScheduleId || _editScheduleId || '';
   closeSheet('sheet-share');
+  if (!schedId) return;
+
+  var resp = await apiFetch('GET', '/api/schedules/' + schedId + '/share');
+  var url = resp.data ? resp.data.direct_link : getScheduleTelegramUrl(schedId);
+  copyText(url);
   showToast('Ссылка скопирована');
 }
 

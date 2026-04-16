@@ -6,6 +6,7 @@ BACKEND_URL      = os.environ.get("BACKEND_API_URL", "http://backend:8000")
 MINI_APP_URL     = os.environ.get("MINI_APP_URL", "https://YOUR_DOMAIN.ru")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 REDIS_URL        = os.environ.get("REDIS_URL", "")
+BOT_USERNAME     = os.environ.get("BOT_USERNAME", "do_vstrechi_bot")
 
 # ── Webhook mode ──────────────────────────────────────────
 WEBHOOK_ENABLED = os.environ.get("WEBHOOK_ENABLED", "false").lower() == "true"
