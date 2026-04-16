@@ -82,7 +82,7 @@ function getScheduleUrl(id) {
 }
 
 function getScheduleTelegramUrl(id) {
-  return 'https://t.me/do_vstrechi_bot/app?startapp=' + id;
+  return 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + id;
 }
 
 function renderLinkCard(s, isArchived) {

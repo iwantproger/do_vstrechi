@@ -128,7 +128,7 @@ function closeMiniApp() {
 
 function enableBookingNotifications() {
   var bid = state._lastBookingId || '';
-  var botUrl = 'https://t.me/do_vstrechi_bot?start=notify' + (bid ? '_' + bid : '');
+  var botUrl = 'https://t.me/' + BOT_USERNAME + '?start=notify' + (bid ? '_' + bid : '');
   if (tg?.openTelegramLink) tg.openTelegramLink(botUrl);
   else window.open(botUrl, '_blank');
 }

@@ -339,7 +339,7 @@ function checkBrowserAuth(blockId, linkId) {
   if (isTelegram) { authBlock.style.display = 'none'; return; }
   authBlock.style.display = 'block';
   var schedId = (state.schedule && state.schedule.id) || state.scheduleId || '';
-  var authUrl = 'https://t.me/do_vstrechi_bot/app?startapp=' + schedId;
+  var authUrl = 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + schedId;
   var linkEl = document.getElementById(linkId);
   if (linkEl) {
     linkEl.href = authUrl;
@@ -573,7 +573,7 @@ function renderSuccess(booking) {
 function openMyBooking() {
   var bid = state._lastBookingId;
   if (bid && tg?.openTelegramLink) {
-    tg.openTelegramLink('https://t.me/do_vstrechi_bot/app?startapp=booking_' + bid);
+    tg.openTelegramLink('https://t.me/' + BOT_USERNAME + '/app?startapp=booking_' + bid);
   } else if (state._meetingLink) {
     if (tg?.openLink) tg.openLink(state._meetingLink);
     else window.open(state._meetingLink, '_blank');

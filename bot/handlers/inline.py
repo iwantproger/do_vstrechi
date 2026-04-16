@@ -1,8 +1,8 @@
-"""Inline-режим: поиск и шаринг расписаний через @do_vstrechi_bot в любом чате."""
+"""Inline-режим: поиск и шаринг расписаний через @bot в любом чате."""
 import logging
 from uuid import uuid4
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.types import (
     InlineQuery,
     InlineQueryResultArticle,
@@ -26,8 +26,13 @@ PLATFORM_NAMES = {
 }
 
 
+def _bot_app_url(bot: Bot, startapp: str = "") -> str:
+    base = f"https://t.me/{bot.me.username}/app"
+    return f"{base}?startapp={startapp}" if startapp else base
+
+
 @router.inline_query()
-async def handle_inline_query(query: InlineQuery):
+async def handle_inline_query(query: InlineQuery, bot: Bot):
     """Показать расписания пользователя для шаринга."""
     user_id = query.from_user.id
     search = (query.query or "").strip().lower()
@@ -48,7 +53,7 @@ async def handle_inline_query(query: InlineQuery):
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
                             text="Открыть приложение",
-                            url="https://t.me/do_vstrechi_bot/app",
+                            url=_bot_app_url(bot),
                         )
                     ]]),
                 )
@@ -74,7 +79,7 @@ async def handle_inline_query(query: InlineQuery):
         start = str(s.get("start_time", "09:00"))[:5]
         end = str(s.get("end_time", "18:00"))[:5]
 
-        link = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
+        link = _bot_app_url(bot, sid)
 
         msg = (
             f"📅 <b>{title}</b>\n\n"
@@ -115,7 +120,7 @@ async def handle_inline_query(query: InlineQuery):
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(
                     text="Открыть приложение",
-                    url="https://t.me/do_vstrechi_bot/app",
+                    url=_bot_app_url(bot),
                 )
             ]]),
         )

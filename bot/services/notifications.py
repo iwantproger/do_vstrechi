@@ -139,7 +139,7 @@ async def handle_new_booking(request: web.Request) -> web.Response:
             # Inline buttons for guest
             guest_buttons = []
             if booking_id:
-                notify_url = f"https://t.me/do_vstrechi_bot?start=notify_{booking_id}"
+                notify_url = f"https://t.me/{bot.me.username}?start=notify_{booking_id}"
                 guest_buttons.append([
                     InlineKeyboardButton(text="🔔 Настроить уведомления", url=notify_url)
                 ])
