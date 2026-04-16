@@ -12,14 +12,23 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 12m
+          envs: DOCKERHUB_USER,DOCKERHUB_TOKEN
           script: |
             set -e
             cd /opt/dovstrechi
+
+            # Docker Hub auth (avoid 429 Too Many Requests on shared runner IPs)
+            if [ -n "${DOCKERHUB_USER}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+              echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USER}" --password-stdin 2>&1 | grep -v WARNING
+            fi
 
             # Ensure shared network exists
             docker network create dovstrechi_shared 2>/dev/null || true
@@ -67,3 +76,5 @@ jobs:
             echo "=== Beta deploy complete ==="
             docker compose -f /opt/dovstrechi-beta/docker-compose.beta.yml --env-file /opt/dovstrechi-beta/.env.beta \
               --project-name dovstrechi-beta ps
+
+            docker logout 2>/dev/null || true
