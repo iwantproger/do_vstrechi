@@ -540,7 +540,7 @@ function openShareSheet(schedId) {
   var id = schedId || _editScheduleId;
   if (!id) { showSheet('sheet-share'); return; }
   state._shareScheduleId = id;
-  var url = getScheduleUrl(id);
+  var url = getScheduleTelegramUrl(id);
   state._shareUrl = url;
   var el = document.getElementById('sheet-share-url');
   if (el) el.textContent = url.replace(/^https?:\/\//, '');
@@ -594,7 +594,7 @@ function copyShareLink() {
 }
 
 function copyScheduleLink(id) {
-  var url = getScheduleUrl(id || _editScheduleId);
+  var url = getScheduleTelegramUrl(id || _editScheduleId);
   copyText(url);
   showToast('Ссылка скопирована');
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');

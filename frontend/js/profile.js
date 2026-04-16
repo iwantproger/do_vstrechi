@@ -94,7 +94,7 @@ async function loadProfile() {
     state._profileLink = getScheduleUrl(defaultSched.id);
     state._profileTgUrl = getScheduleTelegramUrl(defaultSched.id);
     state._profileSchedTitle = defaultSched.title;
-    if (linkSubEl) linkSubEl.textContent = state._profileLink.replace(/^https?:\/\//, '');
+    if (linkSubEl) linkSubEl.textContent = state._profileTgUrl.replace(/^https?:\/\//, '');
   } else {
     state._profileLink = 'https://t.me/' + BOT_USERNAME;
     state._profileTgUrl = 'https://t.me/' + BOT_USERNAME;
@@ -339,7 +339,7 @@ function removeCustomReminder(val) {
 }
 
 function copyProfileLink() {
-  var url = state._profileLink;
+  var url = state._profileTgUrl || state._profileLink;
   if (!url) return;
   navigator.clipboard?.writeText(url).catch(function() {});
   showToast('Ссылка скопирована ✓', 'success');
