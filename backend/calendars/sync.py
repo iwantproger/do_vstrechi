@@ -412,79 +412,81 @@ async def update_booking_in_calendars(pool: asyncpg.Pool, booking_id: str):
     """Обновить заголовок события при подтверждении бронирования (fire-and-forget)."""
     try:
         async with pool.acquire() as conn:
-            booking = await conn.fetchrow(
-                """
-                SELECT b.guest_name, b.scheduled_time, b.end_time, b.meeting_link,
-                       s.title AS schedule_title, s.duration
-                FROM bookings b
-                JOIN schedules s ON s.id = b.schedule_id
-                WHERE b.id = $1
-                """,
-                booking_id,
-            )
-            if not booking:
-                return
+            async with conn.transaction():
+                await conn.execute("SELECT set_config('app.is_internal', 'true', true)")
+                booking = await conn.fetchrow(
+                    """
+                    SELECT b.guest_name, b.scheduled_time, b.end_time, b.meeting_link,
+                           s.title AS schedule_title, s.duration
+                    FROM bookings b
+                    JOIN schedules s ON s.id = b.schedule_id
+                    WHERE b.id = $1
+                    """,
+                    booking_id,
+                )
+                if not booking:
+                    return
 
-            mappings = await cal_db.get_event_mappings_for_booking(conn, booking_id)
-            if not mappings:
-                return
+                mappings = await cal_db.get_event_mappings_for_booking(conn, booking_id)
+                if not mappings:
+                    return
 
-            from calendars.schemas import BookingExternalEvent
+                from calendars.schemas import BookingExternalEvent
 
-            end_time = (
-                booking["end_time"]
-                if booking["end_time"]
-                else booking["scheduled_time"] + timedelta(minutes=int(booking["duration"]))
-            )
-            updated_event = BookingExternalEvent(
-                summary=f"✓ {booking['schedule_title']} — {booking['guest_name']}",
-                description=(
-                    f"Встреча подтверждена\nГость: {booking['guest_name']}"
-                ),
-                start_time=booking["scheduled_time"],
-                end_time=end_time,
-                meeting_link=booking.get("meeting_link"),
-            )
+                end_time = (
+                    booking["end_time"]
+                    if booking["end_time"]
+                    else booking["scheduled_time"] + timedelta(minutes=int(booking["duration"]))
+                )
+                updated_event = BookingExternalEvent(
+                    summary=f"✓ {booking['schedule_title']} — {booking['guest_name']}",
+                    description=(
+                        f"Встреча подтверждена\nГость: {booking['guest_name']}"
+                    ),
+                    start_time=booking["scheduled_time"],
+                    end_time=end_time,
+                    meeting_link=booking.get("meeting_link"),
+                )
 
-            for m in mappings:
-                if m.get("sync_status") == "deleted":
-                    continue
-                connection_id = str(m["connection_id"])
-                mapping_id = str(m["id"])
-                try:
-                    c = await conn.fetchrow(
-                        """
-                        SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
-                               ca.token_expires_at, ca.provider, ca.status,
-                               ca.caldav_url, ca.caldav_username, ca.caldav_password_encrypted
-                        FROM calendar_connections cc
-                        JOIN calendar_accounts ca ON ca.id = cc.account_id
-                        WHERE cc.id = $1 AND ca.status = 'active'
-                        """,
-                        connection_id,
-                    )
-                    if not c:
+                for m in mappings:
+                    if m.get("sync_status") == "deleted":
                         continue
+                    connection_id = str(m["connection_id"])
+                    mapping_id = str(m["id"])
+                    try:
+                        c = await conn.fetchrow(
+                            """
+                            SELECT cc.*, ca.access_token_encrypted, ca.refresh_token_encrypted,
+                                   ca.token_expires_at, ca.provider, ca.status,
+                                   ca.caldav_url, ca.caldav_username, ca.caldav_password_encrypted
+                            FROM calendar_connections cc
+                            JOIN calendar_accounts ca ON ca.id = cc.account_id
+                            WHERE cc.id = $1 AND ca.status = 'active'
+                            """,
+                            connection_id,
+                        )
+                        if not c:
+                            continue
 
-                    provider = get_provider(c["provider"])
-                    new_etag = await provider.update_event(
-                        dict(c),
-                        c["external_calendar_id"],
-                        m["external_event_id"],
-                        updated_event,
-                        etag=m.get("etag"),
-                    )
-                    await conn.execute(
-                        "UPDATE event_mapping SET etag = $2, last_synced_at = NOW() WHERE id = $1",
-                        mapping_id, new_etag,
-                    )
-                    log.info("booking_confirmed_in_calendar",
-                             booking_id=booking_id, connection_id=connection_id)
+                        provider = get_provider(c["provider"])
+                        new_etag = await provider.update_event(
+                            dict(c),
+                            c["external_calendar_id"],
+                            m["external_event_id"],
+                            updated_event,
+                            etag=m.get("etag"),
+                        )
+                        await conn.execute(
+                            "UPDATE event_mapping SET etag = $2, last_synced_at = NOW() WHERE id = $1",
+                            mapping_id, new_etag,
+                        )
+                        log.info("booking_confirmed_in_calendar",
+                                 booking_id=booking_id, connection_id=connection_id)
 
-                except Exception as e:
-                    log.warning("booking_confirm_update_error",
-                                booking_id=booking_id, connection_id=connection_id,
-                                error=str(e))
+                    except Exception as e:
+                        log.warning("booking_confirm_update_error",
+                                    booking_id=booking_id, connection_id=connection_id,
+                                    error=str(e))
     except Exception as e:
         log.error("update_booking_in_calendars_error", booking_id=booking_id, error=str(e))
 

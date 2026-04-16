@@ -1,6 +1,7 @@
 """Database connection pool и dependency."""
 import asyncpg
 import structlog
+from fastapi import Request
 
 from config import DATABASE_URL
 
@@ -113,7 +114,24 @@ async def run_migrations():
     log.info("Migrations applied")
 
 
-async def db() -> asyncpg.Connection:
+async def db(request: Request = None) -> asyncpg.Connection:
+    """FastAPI dependency — connection with RLS context (transaction-scoped)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        yield conn
+        async with conn.transaction():
+            telegram_id = None
+            is_internal = False
+            if request:
+                telegram_id = getattr(request.state, "telegram_id", None)
+                is_internal = getattr(request.state, "is_internal", False)
+
+            await conn.execute(
+                "SELECT set_config('app.telegram_id', $1, true)",
+                str(telegram_id) if telegram_id else "",
+            )
+            await conn.execute(
+                "SELECT set_config('app.is_internal', $1, true)",
+                "true" if is_internal else "false",
+            )
+
+            yield conn

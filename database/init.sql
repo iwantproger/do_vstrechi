@@ -100,6 +100,44 @@ CREATE INDEX IF NOT EXISTS idx_bookings_reminders_pending
            OR morning_reminder_sent = FALSE);
 
 -- ─────────────────────────────────────────────
+-- Row Level Security — bookings (pilot)
+-- ─────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION current_telegram_id() RETURNS BIGINT AS $$
+BEGIN
+  RETURN NULLIF(current_setting('app.telegram_id', true), '')::BIGINT;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookings FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY bookings_internal ON bookings
+  FOR ALL USING (current_setting('app.is_internal', true) = 'true');
+
+CREATE POLICY bookings_organizer ON bookings
+  FOR ALL USING (
+    schedule_id IN (
+      SELECT s.id FROM schedules s
+      JOIN users u ON s.user_id = u.id
+      WHERE u.telegram_id = current_telegram_id()
+    )
+  );
+
+CREATE POLICY bookings_guest ON bookings
+  FOR ALL USING (
+    guest_telegram_id IS NOT NULL
+    AND guest_telegram_id = current_telegram_id()
+  );
+
+CREATE POLICY bookings_insert ON bookings
+  FOR INSERT WITH CHECK (
+    current_telegram_id() IS NOT NULL
+    OR current_setting('app.is_internal', true) = 'true'
+  );
+
+-- ─────────────────────────────────────────────
 -- Автообновление updated_at
 -- ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION trigger_set_updated_at()

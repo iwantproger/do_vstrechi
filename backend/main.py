@@ -115,6 +115,9 @@ class StructlogMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(StructlogMiddleware)
 
+from middleware import RLSMiddleware
+app.add_middleware(RLSMiddleware)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
