@@ -41,7 +41,7 @@ services:
     container_name: dovstrechi_backend_beta
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres_beta:5432/${POSTGRES_DB:-dovstrechi_beta}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres_beta:5432/${POSTGRES_DB:-dovstrechi_beta}}
       SECRET_KEY: ${SECRET_KEY}
       BOT_TOKEN: ${BOT_TOKEN}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
