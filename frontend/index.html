@@ -986,12 +986,17 @@
 <script>
 /* ── Landing page helpers (browser context only) ── */
 function initLandingPage() {
+  // Patch static bot links to match environment (beta vs prod)
+  document.querySelectorAll('#landing a[href*="t.me/do_vstrechi_bot"]').forEach(function(a) {
+    a.href = 'https://t.me/' + BOT_USERNAME;
+    if (a.textContent.indexOf('@') === 0) a.textContent = '@' + BOT_USERNAME;
+  });
   var container = document.getElementById('telegram-login-widget');
   if (container) {
     var s = document.createElement('script');
     s.async = true;
     s.src = 'https://telegram.org/js/telegram-widget.js?22';
-    s.setAttribute('data-telegram-login', 'do_vstrechi_bot');
+    s.setAttribute('data-telegram-login', BOT_USERNAME);
     s.setAttribute('data-size', 'large');
     s.setAttribute('data-radius', '12');
     s.setAttribute('data-request-access', 'write');
@@ -1001,7 +1006,7 @@ function initLandingPage() {
   }
 }
 function onTelegramAuth(user) {
-  window.open('https://t.me/do_vstrechi_bot', '_blank');
+  window.open('https://t.me/' + BOT_USERNAME, '_blank');
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
