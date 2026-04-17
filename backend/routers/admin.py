@@ -9,14 +9,14 @@ from fastapi.responses import JSONResponse
 
 from database import db, get_pool
 from auth import (
-    get_admin_user, get_optional_user,
+    get_admin_user, get_admin_or_internal, get_optional_user,
     verify_telegram_login, create_admin_session, log_admin_action,
     _check_login_rate_limit, _record_login_attempt, _session_checked,
     ADMIN_SESSION_TTL_HOURS, ADMIN_IP_ALLOWLIST,
 )
 from schemas import TelegramLoginData, TaskCreate, TaskUpdate, TaskReorder, AppEvent, CleanupRequest
 from utils import row_to_dict, rows_to_list
-from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, OWNER_ANONYMOUS_ID, PROD_LAUNCH_DATE, get_prod_cutoff
+from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, ADMIN_TELEGRAM_IDS, ADMIN_OWNER_ID, OWNER_ANONYMOUS_ID, PROD_LAUNCH_DATE, get_prod_cutoff
 
 import sys
 import time as _time
@@ -74,8 +74,7 @@ async def admin_login(
     if not verify_telegram_login(auth_dict):
         raise HTTPException(status_code=401, detail="Authentication failed")
 
-    from auth import ADMIN_TELEGRAM_ID
-    if data.id != ADMIN_TELEGRAM_ID:
+    if data.id not in ADMIN_TELEGRAM_IDS:
         raise HTTPException(status_code=401, detail="Authentication failed")
 
     if ADMIN_IP_ALLOWLIST:
@@ -893,3 +892,200 @@ async def receive_event(
         session_id=data.session_id,
     )
     return {"status": "ok"}
+
+
+# ── Admin management ───────────────────────────────────
+
+@router.get("/api/admin/admins")
+async def list_admins(session: dict = Depends(get_admin_or_internal)):
+    return {"owner_id": ADMIN_OWNER_ID, "admin_ids": sorted(ADMIN_TELEGRAM_IDS)}
+
+
+@router.post("/api/admin/admins")
+async def add_admin(
+    request: Request,
+    session: dict = Depends(get_admin_or_internal),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if session["telegram_id"] != ADMIN_OWNER_ID:
+        raise HTTPException(403, "Only owner can manage admins")
+    body = await request.json()
+    new_id = body.get("telegram_id")
+    if not new_id or not isinstance(new_id, int):
+        raise HTTPException(400, "telegram_id required (int)")
+    ADMIN_TELEGRAM_IDS.add(new_id)
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("add_admin", client_ip, {"new_admin_id": new_id}, conn)
+    return {"status": "ok", "admin_ids": sorted(ADMIN_TELEGRAM_IDS)}
+
+
+@router.delete("/api/admin/admins/{telegram_id}")
+async def remove_admin(
+    telegram_id: int,
+    request: Request,
+    session: dict = Depends(get_admin_or_internal),
+    conn: asyncpg.Connection = Depends(db),
+):
+    if session["telegram_id"] != ADMIN_OWNER_ID:
+        raise HTTPException(403, "Only owner can manage admins")
+    if telegram_id == ADMIN_OWNER_ID:
+        raise HTTPException(400, "Cannot remove owner")
+    ADMIN_TELEGRAM_IDS.discard(telegram_id)
+    await conn.execute(
+        "UPDATE admin_sessions SET is_active = FALSE WHERE telegram_id = $1", telegram_id
+    )
+    client_ip = request.headers.get("X-Real-IP", request.client.host)
+    await log_admin_action("remove_admin", client_ip, {"removed_admin_id": telegram_id}, conn)
+    return {"status": "ok", "admin_ids": sorted(ADMIN_TELEGRAM_IDS)}
+
+
+# ── User data reset (admin self-reset for testing) ─────
+
+@router.post("/api/admin/reset-user")
+async def reset_user_data(
+    request: Request,
+    session: dict = Depends(get_admin_or_internal),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Reset user data. Admins reset own data; owner can reset any user via target_id body param."""
+    try:
+        return await _do_reset(request, session, conn)
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("reset_user_error", error=str(e), exc_info=True)
+        raise HTTPException(500, f"Reset failed: {type(e).__name__}: {e}")
+
+
+async def _do_reset(request: Request, session: dict, conn):
+    telegram_id = session["telegram_id"]
+
+    # Owner can reset another user
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    target_id = body.get("target_telegram_id")
+    if target_id and isinstance(target_id, int):
+        if telegram_id != ADMIN_OWNER_ID:
+            raise HTTPException(403, "Only owner can reset other users")
+        telegram_id = target_id
+
+    user = await conn.fetchrow(
+        "SELECT id FROM users WHERE telegram_id = $1", telegram_id
+    )
+    if not user:
+        raise HTTPException(404, f"User {telegram_id} not found in DB")
+    user_id = user["id"]
+
+    # Collect booking IDs for this user (as organizer)
+    org_booking_ids = [r["id"] for r in await conn.fetch(
+        "SELECT b.id FROM bookings b JOIN schedules s ON b.schedule_id = s.id WHERE s.user_id = $1",
+        user_id,
+    )]
+    # Collect booking IDs as guest
+    guest_booking_ids = [r["id"] for r in await conn.fetch(
+        "SELECT id FROM bookings WHERE guest_telegram_id = $1", telegram_id,
+    )]
+    all_booking_ids = list(set(org_booking_ids + guest_booking_ids))
+
+    # Delete in FK-safe order — every step wrapped in try/except
+    # 1. sent_reminders → bookings
+    for table in ["sent_reminders", "event_mapping"]:
+        try:
+            if all_booking_ids:
+                await conn.execute(
+                    f"DELETE FROM {table} WHERE booking_id = ANY($1::uuid[])",
+                    all_booking_ids,
+                )
+        except Exception:
+            pass
+
+    # 2. external_busy_slots → calendar_connections
+    try:
+        await conn.execute("""
+            DELETE FROM external_busy_slots WHERE connection_id IN (
+                SELECT cc.id FROM calendar_connections cc
+                JOIN calendar_accounts ca ON ca.id = cc.account_id
+                WHERE ca.user_id = $1)
+        """, user_id)
+    except Exception:
+        pass
+
+    # 3. sync_log → calendar_accounts/connections
+    try:
+        await conn.execute("""
+            DELETE FROM sync_log WHERE account_id IN (
+                SELECT id FROM calendar_accounts WHERE user_id = $1)
+        """, user_id)
+    except Exception:
+        pass
+
+    # 4. schedule_calendar_rules → schedules, calendar_connections
+    try:
+        await conn.execute(
+            "DELETE FROM schedule_calendar_rules WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)",
+            user_id,
+        )
+    except Exception:
+        pass
+
+    # 5. calendar_connections → calendar_accounts
+    try:
+        await conn.execute("""
+            DELETE FROM calendar_connections WHERE account_id IN (
+                SELECT id FROM calendar_accounts WHERE user_id = $1)
+        """, user_id)
+    except Exception:
+        pass
+
+    # 6. calendar_accounts
+    try:
+        await conn.execute("DELETE FROM calendar_accounts WHERE user_id = $1", user_id)
+    except Exception:
+        pass
+
+    # 7. Bookings (organizer + guest)
+    org_deleted = 0
+    guest_deleted = 0
+    try:
+        r = await conn.execute(
+            "DELETE FROM bookings WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)",
+            user_id,
+        )
+        org_deleted = int(r.split()[-1])
+    except Exception:
+        pass
+    try:
+        r = await conn.execute("DELETE FROM bookings WHERE guest_telegram_id = $1", telegram_id)
+        guest_deleted = int(r.split()[-1])
+    except Exception:
+        pass
+
+    # 8. Schedules
+    sched_deleted = 0
+    try:
+        r = await conn.execute("DELETE FROM schedules WHERE user_id = $1", user_id)
+        sched_deleted = int(r.split()[-1])
+    except Exception:
+        pass
+
+    try:
+        client_ip = request.headers.get("X-Real-IP", request.client.host)
+        await log_admin_action("reset_user", client_ip, {
+            "telegram_id": telegram_id,
+            "schedules_deleted": sched_deleted,
+            "org_bookings_deleted": org_deleted,
+            "guest_bookings_deleted": guest_deleted,
+        }, conn)
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "deleted": {
+            "schedules": sched_deleted,
+            "bookings_as_organizer": org_deleted,
+            "bookings_as_guest": guest_deleted,
+        },
+    }

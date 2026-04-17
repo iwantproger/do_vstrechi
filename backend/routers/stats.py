@@ -25,7 +25,7 @@ async def get_stats(
         )
         SELECT
             (SELECT COUNT(*) FROM schedules s
-              WHERE s.user_id = (SELECT id FROM u) AND s.is_active) AS active_schedules,
+              WHERE s.user_id = (SELECT id FROM u) AND s.is_active AND s.is_default = FALSE) AS active_schedules,
             (SELECT COUNT(*) FROM bookings b
               JOIN schedules s ON s.id = b.schedule_id
               WHERE s.user_id = (SELECT id FROM u)) AS total_bookings,

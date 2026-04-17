@@ -4,9 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from api import api
+from config import MINI_APP_URL
 from keyboards import kb_main, kb_back_main
 from formatters import STATUS_EMOJI, format_dt
 
@@ -33,7 +34,7 @@ async def cb_my_schedules(cb: CallbackQuery):
         await cb.message.edit_text(
             "У тебя пока нет активных расписаний.\n\nСоздай первое!",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="➕ Создать", callback_data="create_schedule")],
+                [InlineKeyboardButton(text="➕ Создать", web_app=WebAppInfo(url=MINI_APP_URL + "?action=create"))],
                 [InlineKeyboardButton(text="« Назад",   callback_data="main_menu")],
             ])
         )
@@ -47,7 +48,7 @@ async def cb_my_schedules(cb: CallbackQuery):
         )]
         for s in schedules
     ]
-    buttons.append([InlineKeyboardButton(text="➕ Создать новое", callback_data="create_schedule")])
+    buttons.append([InlineKeyboardButton(text="➕ Создать новое", web_app=WebAppInfo(url=MINI_APP_URL + "?action=create"))])
     buttons.append([InlineKeyboardButton(text="« Назад",         callback_data="main_menu")])
 
     await cb.message.edit_text(

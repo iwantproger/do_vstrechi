@@ -23,7 +23,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
 kb_main = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
     [InlineKeyboardButton(text="📅 Мои расписания",   callback_data="my_schedules")],
-    [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+    [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL + "?action=create"))],
     [InlineKeyboardButton(text="📋 Мои встречи",      callback_data="my_bookings")],
     [InlineKeyboardButton(text="📊 Статистика",       callback_data="stats")],
 ])
@@ -34,13 +34,21 @@ kb_back_main = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 
+_FSM_NAV_ROW = [
+    InlineKeyboardButton(text="← Назад", callback_data="fsm_back"),
+    InlineKeyboardButton(text="✕ Отмена", callback_data="fsm_cancel"),
+]
+
+kb_fsm_nav = InlineKeyboardMarkup(inline_keyboard=[_FSM_NAV_ROW])
+
+
 def _build_duration_kb() -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(text=f"{d} мин", callback_data=f"dur_{d}")
         for d in [15, 30, 45, 60, 90, 120]
     ]
     rows = [buttons[i:i+3] for i in range(0, len(buttons), 3)]
-    rows.append([InlineKeyboardButton(text="« Назад", callback_data="main_menu")])
+    rows.append(_FSM_NAV_ROW)
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -56,6 +64,7 @@ kb_buffer = InlineKeyboardMarkup(inline_keyboard=[
         InlineKeyboardButton(text="15 мин", callback_data="buf_15"),
         InlineKeyboardButton(text="30 мин", callback_data="buf_30"),
     ],
+    _FSM_NAV_ROW,
 ])
 
 
@@ -63,7 +72,29 @@ kb_platform = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🎥 Jitsi Meet (бесплатно)", callback_data="plat_jitsi")],
     [InlineKeyboardButton(text="🔗 Zoom",                   callback_data="plat_zoom")],
     [InlineKeyboardButton(text="📍 Офлайн / другое",        callback_data="plat_other")],
+    _FSM_NAV_ROW,
 ])
+
+
+def kb_work_days(selected: list[int] | None = None) -> InlineKeyboardMarkup:
+    """Клавиатура выбора рабочих дней с toggle-эффектом."""
+    if selected is None:
+        selected = []
+    days = [(0, "Пн"), (1, "Вт"), (2, "Ср"), (3, "Чт"), (4, "Пт"), (5, "Сб"), (6, "Вс")]
+    day_buttons = []
+    for num, name in days:
+        mark = f"✅ {name}" if num in selected else name
+        day_buttons.append(InlineKeyboardButton(text=mark, callback_data=f"day_{num}"))
+
+    rows = [day_buttons[:4], day_buttons[4:]]
+    rows.append([
+        InlineKeyboardButton(text="📅 Будни (Пн-Пт)", callback_data="days_weekdays"),
+        InlineKeyboardButton(text="📅 Все дни", callback_data="days_all"),
+    ])
+    if selected:
+        rows.append([InlineKeyboardButton(text="✓ Готово", callback_data="days_done")])
+    rows.append(_FSM_NAV_ROW)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def kb_schedule_actions(schedule_id: str) -> InlineKeyboardMarkup:

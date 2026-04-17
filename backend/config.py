@@ -11,6 +11,16 @@ MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
 ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", "0"))
+
+_admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
+if _admin_ids_raw:
+    ADMIN_TELEGRAM_IDS: set[int] = set(
+        int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip().isdigit()
+    )
+else:
+    ADMIN_TELEGRAM_IDS = {ADMIN_TELEGRAM_ID} if ADMIN_TELEGRAM_ID else set()
+
+ADMIN_OWNER_ID = int(_admin_ids_raw.split(",")[0].strip() or "0") if _admin_ids_raw else ADMIN_TELEGRAM_ID
 ADMIN_SESSION_TTL_HOURS = int(os.environ.get("ADMIN_SESSION_TTL_HOURS", "2"))
 ADMIN_IP_ALLOWLIST = os.environ.get("ADMIN_IP_ALLOWLIST", "").strip()
 # SECURITY: ANONYMIZE_SALT must be provided via env — no default allowed.

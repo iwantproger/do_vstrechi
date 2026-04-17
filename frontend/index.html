@@ -1014,7 +1014,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   var urlParams = new URLSearchParams(window.location.search);
   var startParam = tg?.initDataUnsafe?.start_param || '';
   var scheduleId = urlParams.get('schedule_id') || '';
-  if (!scheduleId && startParam && !startParam.startsWith('booking_') && !startParam.startsWith('notify_')) {
+  var qAction = urlParams.get('action') || '';
+  if (!scheduleId && !qAction && startParam
+      && !startParam.startsWith('booking_') && !startParam.startsWith('notify_')
+      && !startParam.startsWith('edit_') && !startParam.startsWith('view_')
+      && startParam !== 'create') {
     scheduleId = startParam;
   }
 
@@ -1095,8 +1099,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   checkCalendarConnectParam();
 
-  if (scheduleId) {
+  /* ── Deep link routing (startParam OR URL ?action= param) ── */
+  var action = urlParams.get('action') || '';
+  var actionScheduleId = urlParams.get('schedule_id') || '';
+  console.log('[INIT] startParam:', startParam, 'action:', action, 'scheduleId:', scheduleId, 'actionScheduleId:', actionScheduleId);
+
+  if (startParam === 'create' || action === 'create') {
+    /* ── Deep link: open new schedule form ── */
+    console.log('[DEEP LINK] create');
+    showNavbar();
+    await authUser();
+    setupProfile();
+    await loadHome();
+    openNewSchedule();
+  } else if (startParam.startsWith('edit_') || action === 'edit') {
+    /* ── Deep link: edit specific schedule ── */
+    var editId = startParam.startsWith('edit_') ? startParam.replace('edit_', '') : actionScheduleId;
+    console.log('[DEEP LINK] edit scheduleId:', editId);
+    showNavbar();
+    await authUser();
+    setupProfile();
+    await loadHome();
+    await loadSchedules();
+    openScheduleDetail(editId);
+  } else if (startParam.startsWith('view_') || action === 'view') {
+    /* ── Deep link: view specific schedule ── */
+    var viewId = startParam.startsWith('view_') ? startParam.replace('view_', '') : actionScheduleId;
+    console.log('[DEEP LINK] view scheduleId:', viewId);
+    showNavbar();
+    await authUser();
+    setupProfile();
+    await loadHome();
+    await loadSchedules();
+    openScheduleView(viewId);
+  } else if (scheduleId) {
     /* ── Guest mode: schedule booking — works without initData ── */
+    console.log('[DEEP LINK] guest scheduleId:', scheduleId);
     state.isGuestMode = true;
     state.scheduleId = scheduleId;
     hideNavbar();
