@@ -78,6 +78,17 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         active_schedules = stats.get("active_schedules", 0) or 0
         upcoming_bookings = stats.get("upcoming_bookings", 0) or 0
 
+    # DEBUG: show raw stats (REMOVE after fixing)
+    await msg.answer(
+        f"🔍 DEBUG /start\n"
+        f"tid: <code>{user.id}</code>\n"
+        f"stats raw: <code>{stats}</code>\n"
+        f"active_schedules: <code>{active_schedules}</code>\n"
+        f"upcoming_bookings: <code>{upcoming_bookings}</code>\n"
+        f"branch: <code>{'NEW' if active_schedules == 0 else 'RETURNING'}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
     if active_schedules == 0:
         # New user — onboarding
         # Silently create default schedule
