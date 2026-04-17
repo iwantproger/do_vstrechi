@@ -12,7 +12,7 @@ from fastapi import Request, HTTPException, Depends
 
 from config import (
     BOT_TOKEN, INTERNAL_API_KEY,
-    ADMIN_TELEGRAM_ID, ADMIN_SESSION_TTL_HOURS, ADMIN_IP_ALLOWLIST,
+    ADMIN_TELEGRAM_ID, ADMIN_TELEGRAM_IDS, ADMIN_SESSION_TTL_HOURS, ADMIN_IP_ALLOWLIST,
 )
 from database import db
 
@@ -174,7 +174,7 @@ async def validate_admin_session(session_token: str, conn) -> dict | None:
     )
     if not row:
         return None
-    if row["telegram_id"] != ADMIN_TELEGRAM_ID:
+    if row["telegram_id"] not in ADMIN_TELEGRAM_IDS:
         return None
     return dict(row)
 

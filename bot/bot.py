@@ -18,7 +18,7 @@ from config import (
     BOT_TOKEN, MINI_APP_URL, REDIS_URL,
     WEBHOOK_ENABLED, WEBHOOK_HOST, WEBHOOK_PATH, WEBHOOK_SECRET, BOT_PORT,
 )
-from handlers import start, navigation, schedules, bookings, create, inline
+from handlers import start, navigation, schedules, bookings, create, inline, admin
 from services.reminders import reminder_loop
 from services.notifications import register_internal_routes, start_internal_server
 
@@ -63,6 +63,7 @@ async def main():
 
     dp = Dispatcher(storage=storage)
 
+    dp.include_router(admin.router)
     dp.include_router(start.router)
     dp.include_router(navigation.router)
     dp.include_router(schedules.router)
