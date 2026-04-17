@@ -4,6 +4,8 @@
 let chartTrend = null;
 let chartPlatforms = null;
 let chartWeekday = null;
+let chartRegistrations = null;
+let chartTTV = null;
 let dashboardInterval = null;
 
 async function loadDashboard() {
@@ -34,6 +36,24 @@ async function loadDashboard() {
     showNotification('Ошибка загрузки дашборда', 'error');
   } finally {
     showDashboardLoading(false);
+  }
+
+  // Analytics — separate try/catch so core dashboard always works
+  try {
+    const [funnel, retention, organizers, regTrend, ttv] = await Promise.all([
+      api('GET', '/api/admin/analytics/funnel'),
+      api('GET', '/api/admin/analytics/retention?period=day7'),
+      api('GET', '/api/admin/analytics/organizer-stats'),
+      api('GET', '/api/admin/analytics/registrations-trend?days=30'),
+      api('GET', '/api/admin/analytics/time-to-value'),
+    ]);
+    renderFunnelChart(funnel);
+    renderRetentionTable(retention);
+    renderOrganizerTable(organizers);
+    renderRegistrationsTrend(regTrend);
+    renderTTVChart(ttv);
+  } catch (err) {
+    console.error('Analytics load error', err);
   }
 }
 
@@ -202,6 +222,170 @@ function renderWeekdayChart(trendData) {
   });
 }
 
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Funnel
+═══════════════════════════════════════════════════ */
+function renderFunnelChart(data) {
+  var container = document.getElementById('funnel-chart');
+  if (!container) return;
+  if (!data || !data.steps || !data.steps.length) {
+    container.innerHTML = '<p style="color:var(--text-muted)">Нет данных</p>';
+    return;
+  }
+  var maxCount = data.steps[0].count || 1;
+  var colors = ['#0D9488', '#14B8A6', '#10B981'];
+  container.innerHTML = data.steps.map(function(step, i) {
+    var width = maxCount > 0 ? (step.count / maxCount * 100) : 0;
+    return '<div class="funnel-step">'
+      + '<div class="funnel-label"><span>' + escHtml(step.name) + '</span>'
+      + '<span class="funnel-numbers">' + step.count + ' (' + step.percent + '%)</span></div>'
+      + '<div class="funnel-bar-bg"><div class="funnel-bar" style="width:'
+      + width + '%;background:' + colors[i % colors.length] + '"></div></div></div>';
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Retention
+═══════════════════════════════════════════════════ */
+function renderRetentionTable(data) {
+  var container = document.getElementById('retention-chart');
+  if (!container) return;
+  if (!data) { container.innerHTML = '<p style="color:var(--text-muted)">Нет данных</p>'; return; }
+
+  var periodLabel = (data.period || 'day7').replace('day', '');
+  var overallHtml = '<div class="retention-overall">'
+    + '<span class="retention-rate">' + (data.overall_rate || 0) + '%</span>'
+    + '<span class="retention-label">Day ' + escHtml(periodLabel) + ' retention</span></div>';
+
+  var tableHtml = '';
+  if (data.cohorts && data.cohorts.length) {
+    tableHtml = '<table class="retention-table"><thead><tr>'
+      + '<th>Когорта</th><th>Размер</th><th>Вернулись</th><th>Rate</th></tr></thead><tbody>';
+    data.cohorts.forEach(function(c) {
+      var bg = c.rate > 30 ? 'var(--success)' : c.rate > 10 ? 'var(--warning)' : 'var(--danger)';
+      tableHtml += '<tr><td>' + escHtml(c.date) + '</td><td>' + c.cohort_size
+        + '</td><td>' + c.retained + '</td><td><span class="retention-badge" style="background:'
+        + bg + '">' + c.rate + '%</span></td></tr>';
+    });
+    tableHtml += '</tbody></table>';
+  } else {
+    tableHtml = '<p style="color:var(--text-muted)">Недостаточно данных</p>';
+  }
+
+  container.innerHTML = overallHtml + tableHtml;
+}
+
+async function loadRetention(period) {
+  document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+  if (event && event.target) event.target.classList.add('active');
+  try {
+    var data = await api('GET', '/api/admin/analytics/retention?period=' + period);
+    renderRetentionTable(data);
+  } catch (err) {
+    console.error('Retention load error', err);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Registrations Trend
+═══════════════════════════════════════════════════ */
+function renderRegistrationsTrend(data) {
+  var ctx = document.getElementById('chart-registrations');
+  if (!ctx) return;
+  if (chartRegistrations) chartRegistrations.destroy();
+  if (!data || !data.length) return;
+
+  chartRegistrations = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(function(d) {
+        return new Date(d.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+      }),
+      datasets: [{
+        label: 'Регистрации',
+        data: data.map(function(d) { return d.count; }),
+        borderColor: '#8B5CF6',
+        backgroundColor: 'rgba(139,92,246,0.1)',
+        fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8', maxTicksLimit: 10 } },
+        y: { beginAtZero: true, ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8', stepSize: 1 }, grid: { color: '#F1F5F9' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Time to Value
+═══════════════════════════════════════════════════ */
+function renderTTVChart(data) {
+  if (!data) return;
+  var medianEl = document.getElementById('ttv-median');
+  var usersEl = document.getElementById('ttv-users');
+  if (medianEl) medianEl.textContent = data.median_hours != null ? data.median_hours + 'ч' : '—';
+  if (usersEl) usersEl.textContent = data.users_with_value + ' из ' + (data.users_with_value + data.users_without_value);
+
+  var ctx = document.getElementById('chart-ttv');
+  if (!ctx || !data.distribution) return;
+  if (chartTTV) chartTTV.destroy();
+
+  chartTTV = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.distribution.map(function(d) { return d.bucket; }),
+      datasets: [{
+        data: data.distribution.map(function(d) { return d.count; }),
+        backgroundColor: '#0D9488',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8' } },
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 }, color: '#94A3B8' }, grid: { color: '#F1F5F9' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Organizer Stats
+═══════════════════════════════════════════════════ */
+function renderOrganizerTable(data) {
+  var container = document.getElementById('organizer-table');
+  if (!container) return;
+  if (!data || !data.organizers || !data.organizers.length) {
+    container.innerHTML = '<p style="color:var(--text-muted)">Нет данных</p>';
+    return;
+  }
+
+  var avgHtml = '<div class="org-averages">Среднее: '
+    + data.averages.schedules_per_organizer + ' расп. / '
+    + data.averages.bookings_per_organizer + ' встреч на организатора</div>';
+
+  var rows = data.organizers.map(function(o) {
+    var name = escHtml(o.name);
+    if (o.username) name += ' <span style="color:var(--text-muted)">@' + escHtml(o.username) + '</span>';
+    var lastDate = o.last_booking ? new Date(o.last_booking).toLocaleDateString('ru-RU') : '—';
+    return '<tr><td>' + name + '</td><td>' + o.schedules + '</td><td><strong>'
+      + o.bookings + '</strong></td><td class="time-cell">' + lastDate + '</td></tr>';
+  }).join('');
+
+  container.innerHTML = avgHtml + '<table class="log-table"><thead><tr>'
+    + '<th>Организатор</th><th>Расписания</th><th>Встречи</th><th>Посл. активность</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+/* ═══════════════════════════════════════════════════
+   DASHBOARD REFRESH
+═══════════════════════════════════════════════════ */
 function startDashboardRefresh() {
   stopDashboardRefresh();
   dashboardInterval = setInterval(() => {

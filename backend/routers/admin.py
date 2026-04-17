@@ -2,6 +2,7 @@
 import uuid
 import asyncpg
 import structlog
+import statistics
 from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -642,6 +643,219 @@ async def cleanup_events(
 
 # ─────────────────────────────────────────────────────────
 # Event tracking (public — from Mini App)
+# ─────────────────────────────────────────────────────────
+# Analytics
+# ─────────────────────────────────────────────────────────
+
+@router.get("/api/admin/analytics/funnel")
+async def analytics_funnel(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    row = await conn.fetchrow("""
+        SELECT
+          (SELECT COUNT(*) FROM users WHERE telegram_id != $1) AS registered,
+          (SELECT COUNT(DISTINCT u.id) FROM users u
+           JOIN schedules s ON s.user_id = u.id
+           WHERE u.telegram_id != $1
+             AND s.is_default = FALSE) AS created_schedule,
+          (SELECT COUNT(DISTINCT u.id) FROM users u
+           JOIN schedules s ON s.user_id = u.id
+           JOIN bookings b ON b.schedule_id = s.id
+           WHERE u.telegram_id != $1
+             AND b.status != 'cancelled') AS received_booking
+    """, owner_id)
+    registered = row["registered"]
+    steps = [
+        {"name": "Регистрация", "count": registered, "percent": 100},
+        {"name": "Создал расписание", "count": row["created_schedule"],
+         "percent": round(row["created_schedule"] / registered * 100) if registered else 0},
+        {"name": "Получил бронирование", "count": row["received_booking"],
+         "percent": round(row["received_booking"] / registered * 100) if registered else 0},
+    ]
+    return {"steps": steps}
+
+
+_RETENTION_INTERVALS = {"day1": 1, "day7": 7, "day30": 30}
+
+@router.get("/api/admin/analytics/retention")
+async def analytics_retention(
+    period: str = Query("day7"),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    days = _RETENTION_INTERVALS.get(period, 7)
+    owner_id = ADMIN_TELEGRAM_ID or 0
+
+    rows = await conn.fetch("""
+        WITH cohort AS (
+          SELECT id, telegram_id, DATE(created_at) AS reg_date
+          FROM users WHERE telegram_id != $1
+        ),
+        activity AS (
+          SELECT DISTINCT c.id AS user_id, DATE(s.created_at) AS activity_date
+          FROM cohort c JOIN schedules s ON s.user_id = c.id
+          UNION
+          SELECT DISTINCT c.id, DATE(b.created_at)
+          FROM cohort c JOIN schedules s ON s.user_id = c.id
+          JOIN bookings b ON b.schedule_id = s.id
+        )
+        SELECT
+          c.reg_date,
+          COUNT(DISTINCT c.id) AS cohort_size,
+          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + $2 THEN c.id END) AS retained
+        FROM cohort c
+        LEFT JOIN activity a ON a.user_id = c.id
+        GROUP BY c.reg_date
+        HAVING COUNT(DISTINCT c.id) >= 1
+        ORDER BY c.reg_date DESC
+        LIMIT 30
+    """, owner_id, days)
+
+    cohorts = []
+    total_size = 0
+    total_retained = 0
+    for r in rows:
+        size = r["cohort_size"]
+        retained = r["retained"]
+        total_size += size
+        total_retained += retained
+        cohorts.append({
+            "date": str(r["reg_date"]),
+            "cohort_size": size,
+            "retained": retained,
+            "rate": round(retained / size * 100) if size else 0,
+        })
+
+    return {
+        "period": period,
+        "cohorts": cohorts,
+        "overall_rate": round(total_retained / total_size * 100) if total_size else 0,
+    }
+
+
+@router.get("/api/admin/analytics/organizer-stats")
+async def analytics_organizer_stats(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    rows = await conn.fetch("""
+        SELECT
+          u.id,
+          COALESCE(u.first_name, '') AS first_name,
+          COALESCE(LEFT(u.last_name, 1), '') AS last_initial,
+          u.username,
+          COUNT(DISTINCT s.id) FILTER (WHERE s.is_active = TRUE AND s.is_default = FALSE) AS schedules_count,
+          COUNT(DISTINCT b.id) FILTER (WHERE b.status != 'cancelled') AS bookings_count,
+          MAX(b.created_at) FILTER (WHERE b.status != 'cancelled') AS last_booking
+        FROM users u
+        LEFT JOIN schedules s ON s.user_id = u.id
+        LEFT JOIN bookings b ON b.schedule_id = s.id
+        WHERE u.telegram_id != $1
+        GROUP BY u.id, u.first_name, u.last_name, u.username
+        ORDER BY bookings_count DESC
+        LIMIT 20
+    """, owner_id)
+
+    organizers = []
+    total_schedules = 0
+    total_bookings = 0
+    for r in rows:
+        name = r["first_name"]
+        if r["last_initial"]:
+            name += " " + r["last_initial"] + "."
+        organizers.append({
+            "name": name.strip() or "—",
+            "username": r["username"],
+            "schedules": r["schedules_count"],
+            "bookings": r["bookings_count"],
+            "last_booking": r["last_booking"].isoformat() if r["last_booking"] else None,
+        })
+        total_schedules += r["schedules_count"]
+        total_bookings += r["bookings_count"]
+
+    n = len(organizers) or 1
+    return {
+        "organizers": organizers,
+        "averages": {
+            "schedules_per_organizer": round(total_schedules / n, 1),
+            "bookings_per_organizer": round(total_bookings / n, 1),
+        },
+    }
+
+
+@router.get("/api/admin/analytics/registrations-trend")
+async def analytics_registrations_trend(
+    days: int = Query(30, ge=1, le=365),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    rows = await conn.fetch("""
+        SELECT DATE(created_at) AS date, COUNT(*) AS count
+        FROM users
+        WHERE telegram_id != $1
+          AND created_at >= NOW() - ($2 || ' days')::interval
+        GROUP BY DATE(created_at)
+        ORDER BY date
+    """, owner_id, str(days))
+    return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
+
+
+@router.get("/api/admin/analytics/time-to-value")
+async def analytics_time_to_value(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    rows = await conn.fetch("""
+        SELECT
+          u.id,
+          EXTRACT(EPOCH FROM (MIN(b.created_at) - u.created_at)) / 3600 AS hours_to_value
+        FROM users u
+        JOIN schedules s ON s.user_id = u.id
+        JOIN bookings b ON b.schedule_id = s.id AND b.status != 'cancelled'
+        WHERE u.telegram_id != $1
+        GROUP BY u.id, u.created_at
+    """, owner_id)
+
+    hours_list = [float(r["hours_to_value"]) for r in rows if r["hours_to_value"] is not None]
+    users_with = len(hours_list)
+
+    total_users = await conn.fetchval(
+        "SELECT COUNT(*) FROM users WHERE telegram_id != $1", owner_id
+    )
+    users_without = total_users - users_with
+
+    median_hours = None
+    average_hours = None
+    if hours_list:
+        median_hours = round(statistics.median(hours_list), 1)
+        average_hours = round(statistics.mean(hours_list), 1)
+
+    buckets = [
+        ("< 1ч", 0, 1),
+        ("1-6ч", 1, 6),
+        ("6-24ч", 6, 24),
+        ("1-7д", 24, 168),
+        ("> 7д", 168, float("inf")),
+    ]
+    distribution = []
+    for label, lo, hi in buckets:
+        count = sum(1 for h in hours_list if lo <= h < hi)
+        distribution.append({"bucket": label, "count": count})
+
+    return {
+        "median_hours": median_hours,
+        "average_hours": average_hours,
+        "users_with_value": users_with,
+        "users_without_value": users_without,
+        "distribution": distribution,
+    }
+
+
 # ─────────────────────────────────────────────────────────
 
 @router.post("/api/events")

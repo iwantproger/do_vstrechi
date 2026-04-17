@@ -389,6 +389,40 @@ body {
   font-size: 14px;
 }
 
+/* ═══════════════════════════════════════════════════
+   ANALYTICS: Funnel, Retention, TTV, Organizers
+═══════════════════════════════════════════════════ */
+.funnel-step { margin-bottom: 12px; }
+.funnel-label { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; color:var(--text); }
+.funnel-numbers { font-weight:600; }
+.funnel-bar-bg { height:28px; background:var(--bg); border-radius:6px; overflow:hidden; }
+.funnel-bar { height:100%; border-radius:6px; transition:width 0.5s ease; min-width:2px; }
+
+.retention-overall { text-align:center; margin-bottom:16px; }
+.retention-rate { font-size:36px; font-weight:700; color:var(--primary); }
+.retention-label { display:block; font-size:13px; color:var(--text-muted); margin-top:4px; }
+.retention-table { width:100%; border-collapse:collapse; font-size:13px; }
+.retention-table th { text-align:left; padding:8px; color:var(--text-muted); font-weight:600; border-bottom:2px solid var(--border); }
+.retention-table td { padding:8px; border-bottom:1px solid var(--border); }
+.retention-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; color:white; }
+
+.retention-periods { display:flex; gap:4px; }
+.period-btn {
+  background:var(--bg); color:var(--text-muted); border:1px solid var(--border);
+  padding:4px 12px; border-radius:6px; font-size:12px; font-weight:500;
+  cursor:pointer; font-family:'Inter',sans-serif; transition:all 0.15s;
+}
+.period-btn:hover { border-color:var(--primary); color:var(--primary); }
+.period-btn.active { background:var(--primary); color:white; border-color:var(--primary); }
+
+.ttv-hero { display:flex; gap:24px; justify-content:center; margin-bottom:12px; text-align:center; }
+.ttv-stat { display:flex; flex-direction:column; }
+.ttv-big { font-size:28px; font-weight:700; color:var(--primary); }
+.ttv-small { font-size:18px; font-weight:600; color:var(--text); }
+.ttv-label { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+.org-averages { font-size:13px; color:var(--text-muted); margin-bottom:12px; }
+
 /* Loading skeleton */
 .metric-value.loading {
   background: linear-gradient(90deg, var(--border) 25%, #f1f5f9 50%, var(--border) 75%);
