@@ -1011,8 +1011,11 @@ function onTelegramAuth(user) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   /* ── Context detection: Telegram Mini App vs Browser ── */
-  var tgInitData = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData;
-  var isInTelegram = typeof tgInitData === 'string' && tgInitData.length > 0;
+  /* tg.platform is always set by the Telegram client (android/ios/tdesktop/…);
+     in a regular browser the SDK defaults it to 'unknown'.
+     Previous check relied on initData.length > 0, but initData can be empty
+     in certain launch modes (MenuButton, direct links) even inside Telegram. */
+  var isInTelegram = !!(tg && tg.platform && tg.platform !== 'unknown');
 
   var landingEl = document.getElementById('landing');
   var appEl = document.getElementById('app');
