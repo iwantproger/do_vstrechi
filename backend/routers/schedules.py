@@ -256,25 +256,27 @@ async def get_schedule_share(
         raise HTTPException(404, "Расписание не найдено или на паузе")
 
     bot_username = os.getenv("BOT_USERNAME", "do_vstrechi_bot")
-    link = f"https://t.me/{bot_username}/app?startapp={schedule_id}"
+    mini_app_url = os.getenv("MINI_APP_URL", "https://dovstrechiapp.ru")
+    tg_link = f"https://t.me/{bot_username}/app?startapp={schedule_id}"
+    web_link = f"{mini_app_url}?schedule_id={schedule_id}"
 
     text_html = (
-        f"Вот мои свободные слоты — выбирайте удобное время:\n"
-        f'👉 <a href="{link}">Записаться на встречу</a>\n\n'
+        f"Вот мои свободные слоты — выбирайте удобное время!\n\n"
         f"До встречи! 🙌\n\n"
-        f"Если ссылка не открывается, скопируй:\n"
-        f"<code>{link}</code>"
+        f'Или <a href="{web_link}">открыть в браузере</a>\n\n'
+        f"Ссылка для копирования:\n"
+        f"<code>{tg_link}</code>"
     )
 
     text_plain = (
-        f"Вот мои свободные слоты — выбирайте удобное время:\n"
-        f"👉 Записаться на встречу\n"
-        f"{link}\n\n"
-        f"До встречи! 🙌"
+        f"Вот мои свободные слоты — выбирайте удобное время!\n"
+        f"До встречи! 🙌\n\n"
+        f"Открыть в браузере:\n{web_link}"
     )
 
     return {
-        "direct_link": link,
+        "direct_link": tg_link,
+        "browser_link": web_link,
         "text_html": text_html,
         "text_plain": text_plain,
     }

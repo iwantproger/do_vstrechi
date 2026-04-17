@@ -559,7 +559,8 @@ async function shareTelegram() {
 
   /* t.me/share/url не поддерживает Markdown/HTML в text,
      ссылка уже в параметре url — текст БЕЗ дублирования URL */
-  var text = 'Вот мои свободные слоты — выбирайте удобное время!\nДо встречи! 🙌';
+  var browserLink = resp.data ? resp.data.browser_link : (location.origin + '?schedule_id=' + schedId);
+  var text = 'Вот мои свободные слоты — выбирайте удобное время!\nДо встречи! 🙌\n\nИли откройте в браузере:\n' + browserLink;
 
   var shareUrl = 'https://t.me/share/url'
     + '?url=' + encodeURIComponent(link)

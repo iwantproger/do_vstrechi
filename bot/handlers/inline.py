@@ -9,6 +9,7 @@ from aiogram.types import (
     InputTextMessageContent,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    LinkPreviewOptions,
 )
 
 from api import api
@@ -76,6 +77,9 @@ async def handle_inline_query(query: InlineQuery):
                 input_message_content=InputTextMessageContent(
                     message_text=msg,
                     parse_mode="HTML",
+                    link_preview_options=LinkPreviewOptions(
+                        url=link,
+                    ),
                 ),
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(text="📅 Записаться", url=link)
