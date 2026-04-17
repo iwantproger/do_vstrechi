@@ -78,12 +78,11 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         active_schedules = stats.get("active_schedules", 0) or 0
         upcoming_bookings = stats.get("upcoming_bookings", 0) or 0
 
-    # 1. Set reply keyboard (short message)
-    await msg.answer("👋", reply_markup=get_main_keyboard())
-
-    # 2. Main message with inline keyboard
     if active_schedules == 0:
         # New user — onboarding
+        # Silently create default schedule
+        await api("post", f"/api/schedules/default?telegram_id={user.id}")
+
         text = (
             "📅 <b>До встречи!</b> — это поиск свободного времени "
             "между тобой и другим человеком\n\n"
@@ -91,78 +90,40 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
             "2. Отправь ссылку другому человеку\n"
             "3. Он выбирает слот и записывается\n"
             "4. Ты получаешь уведомление и подтверждаешь\n\n"
-            "Без сайтов, без регистрации — всё внутри Telegram."
+            "Без сайтов, без регистрации — всё внутри Telegram.\n\n"
+            "У тебя уже есть готовое расписание — посмотри его по кнопке ниже."
         )
-        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Создать своё расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
+        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=get_main_keyboard())
+        await msg.answer("👇 Выбери:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Готовое расписание", callback_data="show_default_schedule")],
+            [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
-        ])
-        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
-
-        # Try to create default schedule
-        default_resp = await api("post", f"/api/schedules/default?telegram_id={user.id}")
-        default_schedule = None
-        if default_resp and isinstance(default_resp, dict) and default_resp.get("created"):
-            default_schedule = default_resp.get("schedule")
-
-        if default_schedule:
-            sid = str(default_schedule["id"])
-            s_title = default_schedule.get("title", "")
-            s_duration = default_schedule.get("duration", 45)
-            s_buffer = default_schedule.get("buffer_time", 15)
-            s_desc = default_schedule.get("description", "")
-
-            schedule_text = (
-                "📋 У тебя уже есть готовое расписание:\n\n"
-                f"📅 <b>{s_title}</b>\n"
-                f"⏱ {s_duration} мин · {s_buffer} мин перерыв\n"
-                "📆 Пн–Пт, 09:00–18:00\n"
-                "⏰ Запись не менее чем за 1 час\n"
-                "✅ Требуется подтверждение\n\n"
-                f"📝 {s_desc}\n\n"
-                "💡 Вы можете использовать inline-режим: в любом чате "
-                "введите @do_vstrechi_bot и выберите расписание."
-            )
-
-            share_url = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
-            share_text = f"Запишись на встречу: {s_title}"
-            tg_share = f"https://t.me/share/url?url={quote(share_url)}&text={quote(share_text)}"
-
-            schedule_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
-                [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
-                [InlineKeyboardButton(text="✏️ Редактировать", url=f"https://t.me/do_vstrechi_bot/app?startapp=edit_{sid}")],
-                [InlineKeyboardButton(text="➕ Создать своё расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
-                [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
-            ])
-            await msg.answer(schedule_text, parse_mode=ParseMode.HTML, reply_markup=schedule_kb)
+        ]))
 
     elif upcoming_bookings > 0:
-        # Returning user with upcoming bookings
         text = (
             f"👋 {user.first_name}, с возвращением!\n\n"
             f"У тебя {upcoming_bookings} предстоящих встреч."
         )
-        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=get_main_keyboard())
+        await msg.answer("👇 Выбери:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
-            [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
+            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
-        ])
-        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
+        ]))
     else:
-        # Returning user without upcoming bookings
         text = (
             f"👋 {user.first_name}, с возвращением!\n\n"
             "Пока нет предстоящих встреч. Поделись ссылкой на расписание — и записи появятся."
         )
-        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=get_main_keyboard())
+        await msg.answer("👇 Выбери:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="🔗 Мои расписания", callback_data="my_schedules")],
-            [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
+            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
-        ])
-        await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
+        ]))
 
     # Delete user's /start message
     try:
@@ -182,9 +143,66 @@ async def cb_how_it_works(cb: CallbackQuery):
         "Готов попробовать?"
     )
     inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
+        [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))],
     ])
     await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
+    await cb.answer()
+
+
+@router.callback_query(F.data == "show_default_schedule")
+async def cb_show_default_schedule(cb: CallbackQuery):
+    """Show default schedule details by button press."""
+    resp = await api("get", f"/api/schedules?telegram_id={cb.from_user.id}")
+    schedules = resp.get("schedules", []) if isinstance(resp, dict) else (resp or [])
+
+    if not schedules:
+        await cb.answer("Расписание не найдено", show_alert=True)
+        return
+
+    s = schedules[0]
+    sid = str(s["id"])
+    title = s.get("title", "Расписание")
+    duration = s.get("duration", 60)
+    buffer = s.get("buffer_time", 0)
+    description = s.get("description", "")
+
+    booking_link = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
+    browser_link = f"{MINI_APP_URL}?schedule_id={sid}"
+
+    text = (
+        f"📅 <b>{title}</b>\n"
+        f"⏱ {duration} мин · {buffer} мин перерыв\n"
+        "📆 Пн–Пт, 09:00–18:00\n"
+        "⏰ Запись не менее чем за 1 час\n"
+        "✅ Требуется подтверждение\n"
+    )
+    if description:
+        text += f"\n📝 {description}\n"
+    text += (
+        f"\n🔗 <b>Ссылка для бронирования:</b>\n"
+        f"<code>{booking_link}</code>\n"
+        "\n💡 Inline-режим: в любом чате введите @do_vstrechi_bot"
+    )
+
+    share_text = (
+        "Вот мои свободные слоты — выбирайте удобное время!\n"
+        "До встречи! 🙌\n\n"
+        f"Или откройте в браузере:\n{browser_link}"
+    )
+    tg_share = f"https://t.me/share/url?url={quote(booking_link)}&text={quote(share_text)}"
+
+    buttons = [
+        [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
+        [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
+        [InlineKeyboardButton(text="✏️ Редактировать", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=edit&schedule_id={sid}"))],
+        [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))],
+    ]
+
+    await cb.message.answer(
+        text, parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        disable_web_page_preview=True,
+    )
     await cb.answer()
 
 
@@ -192,10 +210,11 @@ async def cb_how_it_works(cb: CallbackQuery):
 async def cb_copy_link(cb: CallbackQuery):
     schedule_id = cb.data.replace("copy_link_", "", 1)
     link = f"https://t.me/do_vstrechi_bot/app?startapp={schedule_id}"
-    await cb.answer(
-        f"Ссылка на бронирование:\n{link}\n\nДолгое нажатие на ссылку — скопировать",
-        show_alert=True,
+    await cb.message.answer(
+        f"🔗 Нажмите на ссылку чтобы скопировать:\n\n<code>{link}</code>",
+        parse_mode=ParseMode.HTML,
     )
+    await cb.answer("👆 Нажмите на ссылку выше")
 
 
 @router.message(Command("help"))
@@ -364,7 +383,7 @@ async def reply_schedules(msg: Message):
             "📅 <b>Расписания</b>\n\nУ вас пока нет расписаний.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create"),
+                InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create")),
             ]]),
         )
         return
@@ -378,7 +397,7 @@ async def reply_schedules(msg: Message):
             text=f"⚙️ {s['title']}",
             callback_data=f"schedule_{s['id']}",
         )])
-    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")])
+    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=create"))])
 
     await msg.answer(text, parse_mode=ParseMode.HTML,
                      reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))

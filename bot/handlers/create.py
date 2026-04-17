@@ -212,7 +212,12 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
         days_str = ", ".join(DAYS_RU[d] for d in sorted(data.get("work_days", [])))
         buffer_time = data.get("buffer_time", 0)
         booking_url = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
-        share_text = f"Запишись на встречу: {data['title']}"
+        browser_link = f"{MINI_APP_URL}?schedule_id={sid}"
+        share_text = (
+            "Вот мои свободные слоты — выбирайте удобное время!\n"
+            "До встречи! 🙌\n\n"
+            f"Или откройте в браузере:\n{browser_link}"
+        )
         tg_share = f"https://t.me/share/url?url={quote(booking_url)}&text={quote(share_text)}"
 
         await cb.message.edit_text(
@@ -230,7 +235,7 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
                 [InlineKeyboardButton(
                     text="🌐 Открыть в приложении",
-                    url=f"https://t.me/do_vstrechi_bot/app?startapp=view_{sid}",
+                    web_app=WebAppInfo(url=f"{MINI_APP_URL}?action=view&schedule_id={sid}"),
                 )],
                 [InlineKeyboardButton(
                     text="👁 Как видят другие",
