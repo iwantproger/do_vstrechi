@@ -18,7 +18,7 @@ window.addEventListener('unhandledrejection', function(e) {
 
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.4.0';
 const BOT_USERNAME = location.hostname.startsWith('beta.') ? 'beta_do_vstrechi_bot' : 'do_vstrechi_bot';
 /* ВЕРСИОНИРОВАНИЕ:
    - Patch (1.0.X → 1.0.X+1): багфиксы, мелкие правки
@@ -26,6 +26,63 @@ const BOT_USERNAME = location.hostname.startsWith('beta.') ? 'beta_do_vstrechi_b
    - Major (X.0.0 → X+1.0.0): большие переделки, breaking changes
    - ОДНА запись на деплой. Если несколько деплоев в день — буквенный суффикс: 1.1.0a */
 const CHANGELOG = [
+  {
+    version: '1.4.0',
+    date: '17 апреля 2026',
+    simple: [
+      '✨ Новый онбординг — при первом запуске бот объясняет как работает сервис и создаёт готовое расписание',
+      '✨ Готовое расписание «Свободное время» — можно делиться ссылкой сразу, без настройки',
+      '✨ Кнопка «Поделиться в Telegram» — отправляет красивое сообщение с ссылкой',
+      '✨ Создание расписания в боте — кнопочный выбор дней, навигация Назад/Отмена',
+      '✨ Кнопка «Создать расписание» открывает мини-приложение на нужном экране',
+      '✨ Управление админами — владелец может добавлять/удалять через бота',
+      '✨ Команда /reset — сброс данных для тестирования (только админы)',
+      '🎨 Обновлён дизайн админ-панели — новые шрифты, метрики, иконки',
+      '🐛 Исправлены ссылки на бронирование в бета-среде',
+      '🐛 Уведомление гостю показывает когда будут напоминания',
+      '⚡️ Бот для вернувшегося пользователя показывает актуальные встречи и расписания',
+    ],
+    technical: [
+      'feat(онбординг): POST /api/schedules/default — автосоздание видимого расписания при первом /start',
+      'feat(онбординг): cmd_start — разный flow для нового (active_schedules=0) и вернувшегося; 3 варианта returning user',
+      'feat(онбординг): cb_show_default_schedule — показ готового расписания по кнопке с share/edit/create',
+      'feat(бот): FSM — кнопочный выбор дней (toggle Пн-Вс), быстрый выбор Будни/Все дни, Back/Cancel на каждом шаге',
+      'feat(бот): кнопка «Создать расписание» → web_app с ?action=create; fallback «Создать в чате» → FSM',
+      'feat(бот): улучшенное уведомление гостю — динамические напоминания (24ч/1ч), deep link настройки, CTA конверсии',
+      'feat(бот): /admin — управление списком админов (owner: add/remove по ID или forward); /reset — полный сброс данных',
+      'feat(backend): ADMIN_TELEGRAM_IDS (comma-separated set), ADMIN_OWNER_ID, get_admin_or_internal dependency',
+      'feat(backend): POST /api/admin/reset-user — FK-safe удаление: sent_reminders → event_mapping → external_busy_slots → sync_log → calendar_* → bookings → schedules',
+      'feat(frontend): deep link routing — startParam (create/edit_ID/view_ID) + URL ?action= params; debug console.log',
+      'feat(admin): редизайн dashboard — DM Sans, чистые метрики, SVG иконки',
+      'fix(stats): active_schedules исключает is_default=TRUE (hidden quick-add defaults)',
+      'fix(SQL): RETURNING COUNT(*) → RETURNING id + len() (aggregate not allowed in RETURNING)',
+      'fix(deploy): --no-cache в deploy-beta.yml — Docker кешировал COPY layers после git reset',
+      'fix(бот): динамический BOT_USERNAME из config — beta/prod ссылки автоматически',
+      'fix(share): формат сообщения при «Поделиться» унифицирован с Mini App (browser link fallback)',
+    ],
+  },
+  {
+    version: '1.3.0',
+    date: '15 апреля 2026',
+    simple: [
+      '⚡️ Бот работает через webhook — мгновенная реакция на сообщения',
+      '⚡️ Состояния бота сохраняются в Redis — не теряются при перезапуске',
+      '🔒 Row Level Security на таблице бронирований',
+      '✨ Встречи автоматически завершаются через 30 минут после окончания',
+      '✨ Поддержка произвольной ссылки на встречу (Zoom, Google Meet и др.)',
+      '✨ Мониторинг здоровья сервера каждые 5 минут с уведомлениями в Telegram',
+      '✨ Автоматические бэкапы базы данных каждый день',
+    ],
+    technical: [
+      'feat(бот): webhook mode с polling fallback (WEBHOOK_ENABLED, WEBHOOK_HOST, WEBHOOK_PATH)',
+      'feat(бот): Redis FSM storage (aiogram RedisStorage) с graceful fallback на MemoryStorage',
+      'feat(API): POST /api/bookings/complete-past — auto-complete confirmed→completed; пагинация bookings + schedules',
+      'feat(расписания): custom_link — произвольная ссылка при platform=other; migration 014',
+      'feat(DevOps): healthcheck.sh + backup.sh + cron; make restore-prod/restore-beta',
+      'security: PostgreSQL RLS on bookings (pilot) — defence-in-depth',
+      'fix: _session_checked cap 10000, Docker Hub rate limit (ECR Public image)',
+    ],
+  },
   {
     version: '1.2.0',
     date: '15 апреля 2026',
