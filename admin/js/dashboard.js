@@ -1,4 +1,21 @@
 /* ═══════════════════════════════════════════════════
+   CHART.JS GLOBAL DEFAULTS
+═══════════════════════════════════════════════════ */
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#94A3B8';
+Chart.defaults.plugins.legend.display = false;
+Chart.defaults.elements.line.borderWidth = 2;
+Chart.defaults.elements.line.tension = 0.35;
+Chart.defaults.elements.point.radius = 0;
+Chart.defaults.elements.point.hoverRadius = 5;
+Chart.defaults.elements.bar.borderRadius = 6;
+Chart.defaults.plugins.tooltip.backgroundColor = '#0F172A';
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 6;
+Chart.defaults.plugins.tooltip.displayColors = false;
+
+/* ═══════════════════════════════════════════════════
    DASHBOARD
 ═══════════════════════════════════════════════════ */
 let chartTrend = null;
@@ -38,41 +55,36 @@ async function loadDashboard() {
     showDashboardLoading(false);
   }
 
-  // Analytics — Promise.allSettled so one failure doesn't block others
-  var results = await Promise.allSettled([
-    api('GET', '/api/admin/analytics/funnel'),
-    api('GET', '/api/admin/analytics/retention?period=day7'),
-    api('GET', '/api/admin/analytics/organizer-stats'),
-    api('GET', '/api/admin/analytics/registrations-trend?days=30'),
-    api('GET', '/api/admin/analytics/time-to-value'),
-    api('GET', '/api/admin/system/info'),
-  ]);
-
-  // Show prod launch date in stats note
-  var sysInfo = results[5] && results[5].status === 'fulfilled' ? results[5].value : null;
-  if (sysInfo && sysInfo.prod_launch_date) {
-    var noteEl = document.getElementById('stats-note');
-    if (noteEl) {
-      var parts = sysInfo.prod_launch_date.split('-');
-      var formatted = parts[2] + '.' + parts[1] + '.' + parts[0];
-      noteEl.textContent = 'Статистика без учёта аккаунта владельца \u00B7 с ' + formatted;
+  // Analytics — sequential loading (avoids pool exhaustion, easier to debug)
+  var analyticsQueries = [
+    { id: 'funnel-chart', url: '/api/admin/analytics/funnel', render: renderFunnelChart },
+    { id: 'retention-chart', url: '/api/admin/analytics/retention?period=day7', render: renderRetentionTable },
+    { id: 'organizer-table', url: '/api/admin/analytics/organizer-stats', render: renderOrganizerTable },
+    { id: null, url: '/api/admin/analytics/registrations-trend?days=30', render: renderRegistrationsTrend },
+    { id: null, url: '/api/admin/analytics/time-to-value', render: renderTTVChart },
+  ];
+  for (var qi = 0; qi < analyticsQueries.length; qi++) {
+    var q = analyticsQueries[qi];
+    try {
+      var data = await api('GET', q.url);
+      q.render(data);
+    } catch (err) {
+      console.error('[Dashboard] ' + q.url + ' failed:', err);
+      if (q.id) setAnalyticsError(q.id);
     }
   }
 
-  var val = function(i) { return results[i].status === 'fulfilled' ? results[i].value : null; };
-
-  if (val(0)) renderFunnelChart(val(0));
-  else setAnalyticsError('funnel-chart');
-  if (val(1)) renderRetentionTable(val(1));
-  else setAnalyticsError('retention-chart');
-  if (val(2)) renderOrganizerTable(val(2));
-  else setAnalyticsError('organizer-table');
-  if (val(3)) renderRegistrationsTrend(val(3));
-  if (val(4)) renderTTVChart(val(4));
-
-  results.forEach(function(r, i) {
-    if (r.status === 'rejected') console.error('Analytics endpoint ' + i + ' failed', r.reason);
-  });
+  // Prod launch date in stats note
+  try {
+    var sysInfo = await api('GET', '/api/admin/system/info');
+    if (sysInfo && sysInfo.prod_launch_date) {
+      var noteEl = document.getElementById('stats-note');
+      if (noteEl) {
+        var parts = sysInfo.prod_launch_date.split('-');
+        noteEl.textContent = 'С ' + parts[2] + '.' + parts[1] + '.' + parts[0] + ' \u00B7 без аккаунта владельца';
+      }
+    }
+  } catch (e) { /* non-critical */ }
 }
 
 function updateMetric(elementId, value, modifier) {
