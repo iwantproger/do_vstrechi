@@ -12,7 +12,7 @@ from aiogram.types import (
 )
 
 from api import api
-from config import MINI_APP_URL
+from config import MINI_APP_URL, BOT_USERNAME
 from keyboards import kb_duration, kb_buffer, kb_platform, kb_back_main, kb_work_days, kb_fsm_nav
 from formatters import DAYS_RU
 from states import CreateSchedule
@@ -211,7 +211,7 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
         sid = str(result["id"])
         days_str = ", ".join(DAYS_RU[d] for d in sorted(data.get("work_days", [])))
         buffer_time = data.get("buffer_time", 0)
-        booking_url = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
+        booking_url = f"https://t.me/{BOT_USERNAME}/app?startapp={sid}"
         browser_link = f"{MINI_APP_URL}?schedule_id={sid}"
         share_text = (
             "Вот мои свободные слоты — выбирайте удобное время!\n"
@@ -228,7 +228,7 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
             f"🕐 {data['start_time']} — {data['end_time']}\n\n"
             f"🔗 <b>Ваша ссылка на бронирование:</b>\n"
             f"<code>{booking_url}</code>\n\n"
-            "💡 Также можно использовать inline-режим: в любом чате введите @do_vstrechi_bot",
+            "💡 Также можно использовать inline-режим: в любом чате введите @{BOT_USERNAME}",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
@@ -239,7 +239,7 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
                 )],
                 [InlineKeyboardButton(
                     text="👁 Как видят другие",
-                    url=f"https://t.me/do_vstrechi_bot/app?startapp={sid}",
+                    url=f"https://t.me/{BOT_USERNAME}/app?startapp={sid}",
                 )],
                 [InlineKeyboardButton(text="🔍 Проверить inline-режим", callback_data="check_inline")],
                 [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")],
@@ -341,7 +341,7 @@ async def cb_check_inline(cb: CallbackQuery):
         if me.supports_inline_queries:
             await cb.message.answer(
                 "✅ <b>Inline-режим работает!</b>\n\n"
-                "В любом чате введите <code>@do_vstrechi_bot</code> "
+                "В любом чате введите <code>@{BOT_USERNAME}</code> "
                 "и выберите расписание для отправки.",
                 parse_mode=ParseMode.HTML,
             )
