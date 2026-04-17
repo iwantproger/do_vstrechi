@@ -999,79 +999,108 @@ async def _do_reset(request: Request, session: dict, conn):
         raise HTTPException(404, f"User {telegram_id} not found in DB")
     user_id = user["id"]
 
-    # Sent reminders for this user's bookings
+    # Collect booking IDs for this user (as organizer)
+    org_booking_ids = [r["id"] for r in await conn.fetch(
+        "SELECT b.id FROM bookings b JOIN schedules s ON b.schedule_id = s.id WHERE s.user_id = $1",
+        user_id,
+    )]
+    # Collect booking IDs as guest
+    guest_booking_ids = [r["id"] for r in await conn.fetch(
+        "SELECT id FROM bookings WHERE guest_telegram_id = $1", telegram_id,
+    )]
+    all_booking_ids = list(set(org_booking_ids + guest_booking_ids))
+
+    # Delete in FK-safe order — every step wrapped in try/except
+    # 1. sent_reminders → bookings
+    for table in ["sent_reminders", "event_mapping"]:
+        try:
+            if all_booking_ids:
+                await conn.execute(
+                    f"DELETE FROM {table} WHERE booking_id = ANY($1::uuid[])",
+                    all_booking_ids,
+                )
+        except Exception:
+            pass
+
+    # 2. external_busy_slots → calendar_connections
     try:
         await conn.execute("""
-            DELETE FROM sent_reminders
-            WHERE booking_id IN (
-                SELECT b.id FROM bookings b
-                JOIN schedules s ON b.schedule_id = s.id
-                WHERE s.user_id = $1
-            )
+            DELETE FROM external_busy_slots WHERE connection_id IN (
+                SELECT cc.id FROM calendar_connections cc
+                JOIN calendar_accounts ca ON ca.id = cc.account_id
+                WHERE ca.user_id = $1)
         """, user_id)
     except Exception:
         pass
 
-    # Calendar: rules → connections → accounts
+    # 3. sync_log → calendar_accounts/connections
     try:
         await conn.execute("""
-            DELETE FROM schedule_calendar_rules
-            WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)
+            DELETE FROM sync_log WHERE account_id IN (
+                SELECT id FROM calendar_accounts WHERE user_id = $1)
         """, user_id)
     except Exception:
         pass
+
+    # 4. schedule_calendar_rules → schedules, calendar_connections
+    try:
+        await conn.execute(
+            "DELETE FROM schedule_calendar_rules WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)",
+            user_id,
+        )
+    except Exception:
+        pass
+
+    # 5. calendar_connections → calendar_accounts
     try:
         await conn.execute("""
-            DELETE FROM calendar_connections
-            WHERE account_id IN (SELECT id FROM calendar_accounts WHERE user_id = $1)
+            DELETE FROM calendar_connections WHERE account_id IN (
+                SELECT id FROM calendar_accounts WHERE user_id = $1)
         """, user_id)
     except Exception:
         pass
+
+    # 6. calendar_accounts
     try:
         await conn.execute("DELETE FROM calendar_accounts WHERE user_id = $1", user_id)
     except Exception:
         pass
 
-    # Event mapping (FK → bookings) — must delete before bookings
+    # 7. Bookings (organizer + guest)
+    org_deleted = 0
+    guest_deleted = 0
     try:
-        await conn.execute("""
-            DELETE FROM event_mapping
-            WHERE booking_id IN (
-                SELECT b.id FROM bookings b
-                JOIN schedules s ON b.schedule_id = s.id
-                WHERE s.user_id = $1
-            )
-        """, user_id)
+        r = await conn.execute(
+            "DELETE FROM bookings WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)",
+            user_id,
+        )
+        org_deleted = int(r.split()[-1])
+    except Exception:
+        pass
+    try:
+        r = await conn.execute("DELETE FROM bookings WHERE guest_telegram_id = $1", telegram_id)
+        guest_deleted = int(r.split()[-1])
     except Exception:
         pass
 
-    # Bookings as organizer
-    org_rows = await conn.fetch(
-        "DELETE FROM bookings WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1) RETURNING id",
-        user_id,
-    )
-    org_deleted = len(org_rows)
+    # 8. Schedules
+    sched_deleted = 0
+    try:
+        r = await conn.execute("DELETE FROM schedules WHERE user_id = $1", user_id)
+        sched_deleted = int(r.split()[-1])
+    except Exception:
+        pass
 
-    # Bookings as guest
-    guest_rows = await conn.fetch(
-        "DELETE FROM bookings WHERE guest_telegram_id = $1 RETURNING id",
-        telegram_id,
-    )
-    guest_deleted = len(guest_rows)
-
-    # Schedules (including default)
-    sched_rows = await conn.fetch(
-        "DELETE FROM schedules WHERE user_id = $1 RETURNING id", user_id
-    )
-    sched_deleted = len(sched_rows)
-
-    client_ip = request.headers.get("X-Real-IP", request.client.host)
-    await log_admin_action("reset_user", client_ip, {
-        "telegram_id": telegram_id,
-        "schedules_deleted": sched_deleted,
-        "org_bookings_deleted": org_deleted,
-        "guest_bookings_deleted": guest_deleted,
-    }, conn)
+    try:
+        client_ip = request.headers.get("X-Real-IP", request.client.host)
+        await log_admin_action("reset_user", client_ip, {
+            "telegram_id": telegram_id,
+            "schedules_deleted": sched_deleted,
+            "org_bookings_deleted": org_deleted,
+            "guest_bookings_deleted": guest_deleted,
+        }, conn)
+    except Exception:
+        pass
 
     return {
         "status": "ok",
