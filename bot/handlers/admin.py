@@ -156,9 +156,12 @@ async def fsm_admin_id(msg: Message, state: FSMContext):
         )
     else:
         ADMIN_TELEGRAM_IDS.add(new_id)
+        # Debug: test basic API connectivity
+        health = await api("get", "/health")
         await msg.answer(
             f"✅ Админ <code>{new_id}</code> добавлен (локально).\n"
-            "Backend API недоступен — при рестарте нужно добавить повторно.",
+            f"API result: <code>{result}</code>\n"
+            f"Health: <code>{health}</code>",
             parse_mode=ParseMode.HTML,
         )
 
@@ -246,8 +249,11 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.HTML,
         )
     else:
+        health = await api("get", "/health")
         await cb.message.edit_text(
-            "❌ Ошибка сброса. Backend API недоступен.\n"
-            "Проверьте логи.",
+            f"❌ Ошибка сброса.\n"
+            f"API result: <code>{result}</code>\n"
+            f"Health: <code>{health}</code>",
+            parse_mode=ParseMode.HTML,
         )
     await cb.answer()
