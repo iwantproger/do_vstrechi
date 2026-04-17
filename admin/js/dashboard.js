@@ -334,16 +334,34 @@ function renderRegistrationsTrend(data) {
 /* ═══════════════════════════════════════════════════
    ANALYTICS: Time to Value
 ═══════════════════════════════════════════════════ */
+function formatDuration(hours) {
+  if (hours == null || isNaN(hours)) return '—';
+  var totalSeconds = Math.round(hours * 3600);
+  var d = Math.floor(totalSeconds / 86400);
+  var h = Math.floor((totalSeconds % 86400) / 3600);
+  var m = Math.floor((totalSeconds % 3600) / 60);
+  var s = totalSeconds % 60;
+  if (d > 0) return d + 'д ' + h + 'ч ' + m + 'м';
+  if (h > 0) return h + 'ч ' + m + 'м ' + s + 'с';
+  if (m > 0) return m + 'м ' + s + 'с';
+  return s + 'с';
+}
+
 function renderTTVChart(data) {
   if (!data) return;
+
   var medianEl = document.getElementById('ttv-median');
+  var averageEl = document.getElementById('ttv-average');
   var usersEl = document.getElementById('ttv-users');
-  if (medianEl) medianEl.textContent = data.median_hours != null ? data.median_hours + 'ч' : '—';
-  if (usersEl) usersEl.textContent = data.users_with_value + ' из ' + (data.users_with_value + data.users_without_value);
+  if (medianEl) medianEl.textContent = formatDuration(data.median_hours);
+  if (averageEl) averageEl.textContent = formatDuration(data.average_hours);
+  if (usersEl) usersEl.textContent = (data.users_with_value || 0) + ' из ' + ((data.users_with_value || 0) + (data.users_without_value || 0));
 
   var ctx = document.getElementById('chart-ttv');
-  if (!ctx || !data.distribution) return;
+  if (!ctx || !data.distribution || !data.distribution.length) return;
   if (chartTTV) chartTTV.destroy();
+
+  var barColors = ['#10B981', '#14B8A6', '#0D9488', '#F59E0B', '#EF4444'];
 
   chartTTV = new Chart(ctx, {
     type: 'bar',
@@ -351,13 +369,18 @@ function renderTTVChart(data) {
       labels: data.distribution.map(function(d) { return d.bucket; }),
       datasets: [{
         data: data.distribution.map(function(d) { return d.count; }),
-        backgroundColor: '#0D9488',
+        backgroundColor: data.distribution.map(function(d, i) {
+          return barColors[Math.min(i, barColors.length - 1)];
+        }),
         borderRadius: 6,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(item) { return item.raw + ' пользователей'; } } }
+      },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Inter' }, color: '#94A3B8' } },
         y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 }, color: '#94A3B8' }, grid: { color: '#F1F5F9' } }

@@ -118,6 +118,67 @@
         </div>
         <div class="stats-note">Статистика без учёта аккаунта владельца</div>
 
+        <!-- Analytics: Funnel -->
+        <div class="chart-card full-width">
+          <h3>&#x1F504; Воронка пользователей</h3>
+          <div id="funnel-chart"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- Analytics: Registrations trend -->
+        <div class="chart-card full-width">
+          <h3>&#x1F4C8; Регистрации за 30 дней</h3>
+          <div class="chart-container"><canvas id="chart-registrations"></canvas></div>
+        </div>
+
+        <!-- Analytics: Retention -->
+        <div class="chart-card full-width">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="margin:0">&#x1F4CA; Retention</h3>
+            <div class="retention-periods">
+              <button class="period-btn" onclick="loadRetention('day1')">Day 1</button>
+              <button class="period-btn active" onclick="loadRetention('day7')">Day 7</button>
+              <button class="period-btn" onclick="loadRetention('day30')">Day 30</button>
+            </div>
+          </div>
+          <div id="retention-chart"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- Analytics: Time to Value -->
+        <div class="chart-card full-width">
+          <h3>&#x23F1; Время до ценности (TTV)</h3>
+          <p class="section-description">
+            Время от регистрации пользователя до момента, когда он получает первое реальное бронирование
+            от гостя. Путь: <strong>регистрация &#x2192; создание расписания &#x2192; гость бронирует встречу</strong>.
+            Чем короче &#x2014; тем быстрее пользователь ощущает пользу продукта.
+          </p>
+          <div class="ttv-metrics">
+            <div class="ttv-metric-main">
+              <div class="ttv-value" id="ttv-median">&mdash;</div>
+              <div class="ttv-label">Медиана</div>
+            </div>
+            <div class="ttv-metric-secondary">
+              <div>
+                <span class="ttv-small-value" id="ttv-average">&mdash;</span>
+                <span class="ttv-small-label">Среднее</span>
+              </div>
+              <div>
+                <span class="ttv-small-value" id="ttv-users">&mdash;</span>
+                <span class="ttv-small-label">Достигли ценности</span>
+              </div>
+            </div>
+          </div>
+          <div class="chart-container" style="height:180px"><canvas id="chart-ttv"></canvas></div>
+        </div>
+
+        <!-- Analytics: Top organizers -->
+        <div class="chart-card full-width">
+          <h3>&#x1F3C6; Топ организаторов</h3>
+          <div id="organizer-table"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- Divider -->
+        <div class="section-divider"><span>Операционные метрики</span></div>
+
         <div class="chart-card full-width">
           <h3>Бронирования за 30 дней</h3>
           <div class="chart-container">
@@ -134,47 +195,6 @@
             <h3>Статистика по дням недели</h3>
             <canvas id="chart-weekday"></canvas>
           </div>
-        </div>
-
-        <!-- Analytics: Funnel -->
-        <div class="chart-card full-width">
-          <h3>&#x1F504; Воронка пользователей</h3>
-          <div id="funnel-chart"><p style="color:var(--text-muted)">Загрузка...</p></div>
-        </div>
-
-        <!-- Analytics: Registrations trend + TTV -->
-        <div class="charts-row">
-          <div class="chart-card">
-            <h3>&#x1F4C8; Регистрации за 30 дней</h3>
-            <div class="chart-container"><canvas id="chart-registrations"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <h3>&#x23F1; Время до ценности</h3>
-            <div class="ttv-hero">
-              <div class="ttv-stat"><span class="ttv-big" id="ttv-median">&mdash;</span><span class="ttv-label">медиана</span></div>
-              <div class="ttv-stat"><span class="ttv-small" id="ttv-users">&mdash;</span><span class="ttv-label">дошли до ценности</span></div>
-            </div>
-            <div class="chart-container" style="height:160px"><canvas id="chart-ttv"></canvas></div>
-          </div>
-        </div>
-
-        <!-- Analytics: Retention -->
-        <div class="chart-card full-width">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="margin:0">&#x1F4CA; Retention</h3>
-            <div class="retention-periods">
-              <button class="period-btn" onclick="loadRetention('day1')">Day 1</button>
-              <button class="period-btn active" onclick="loadRetention('day7')">Day 7</button>
-              <button class="period-btn" onclick="loadRetention('day30')">Day 30</button>
-            </div>
-          </div>
-          <div id="retention-chart"><p style="color:var(--text-muted)">Загрузка...</p></div>
-        </div>
-
-        <!-- Analytics: Top organizers -->
-        <div class="chart-card full-width">
-          <h3>&#x1F3C6; Топ организаторов</h3>
-          <div id="organizer-table"><p style="color:var(--text-muted)">Загрузка...</p></div>
         </div>
       </div>
 
