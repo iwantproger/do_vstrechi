@@ -170,7 +170,7 @@ async def cb_admin_cancel(cb: CallbackQuery, state: FSMContext):
     await cb.answer()
 
 
-# ── /reset: wipe own data (admins only) ───────────────
+# ── /reset: wipe data (admins: own, owner: any user) ──
 
 @router.message(Command("reset"))
 async def cmd_reset(msg: Message, state: FSMContext):
@@ -178,31 +178,61 @@ async def cmd_reset(msg: Message, state: FSMContext):
         return
 
     await state.clear()
-    await msg.answer(
-        "⚠️ <b>Сброс данных</b>\n\n"
-        "Это удалит ВСЕ ваши данные:\n"
-        "• Все расписания (включая дефолтное)\n"
-        "• Все бронирования (как организатор и как гость)\n"
-        "• Подключения календарей\n\n"
-        "После сброса вы увидите онбординг как новый пользователь.\n\n"
-        "<b>Вы уверены?</b>",
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [
+
+    # Owner can reset another user: /reset 7504241258
+    args = msg.text.strip().split()
+    target_id = None
+    if len(args) > 1 and args[1].isdigit():
+        if not is_owner(msg.from_user.id):
+            await msg.answer("Сброс чужих данных — только для owner.")
+            return
+        target_id = int(args[1])
+
+    if target_id:
+        await state.update_data(reset_target=target_id)
+        await msg.answer(
+            f"⚠️ <b>Сброс данных пользователя {target_id}</b>\n\n"
+            "Будут удалены ВСЕ его данные:\n"
+            "• Расписания, бронирования, календари\n\n"
+            "<b>Вы уверены?</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🗑 Да, сбросить", callback_data="reset_confirm"),
+                InlineKeyboardButton(text="✕ Отмена", callback_data="admin_cancel"),
+            ]]),
+        )
+    else:
+        await msg.answer(
+            "⚠️ <b>Сброс данных</b>\n\n"
+            "Это удалит ВСЕ ваши данные:\n"
+            "• Все расписания (включая дефолтное)\n"
+            "• Все бронирования (как организатор и как гость)\n"
+            "• Подключения календарей\n\n"
+            "После сброса вы увидите онбординг как новый пользователь.\n\n"
+            "<b>Вы уверены?</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🗑 Да, сбросить всё", callback_data="reset_confirm"),
                 InlineKeyboardButton(text="✕ Отмена", callback_data="admin_cancel"),
-            ],
-        ]),
-    )
+            ]]),
+        )
 
 
 @router.callback_query(F.data == "reset_confirm")
-async def cb_reset_confirm(cb: CallbackQuery):
+async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
     if not is_admin(cb.from_user.id):
         await cb.answer("Только для админов", show_alert=True)
         return
 
-    result = await api("post", f"/api/admin/reset-user?telegram_id={cb.from_user.id}")
+    data = await state.get_data()
+    target_id = data.get("reset_target")
+    await state.clear()
+
+    json_body = {}
+    if target_id:
+        json_body["target_telegram_id"] = target_id
+
+    result = await api("post", f"/api/admin/reset-user?telegram_id={cb.from_user.id}", json=json_body)
 
     if result and result.get("status") == "ok":
         deleted = result.get("deleted", {})

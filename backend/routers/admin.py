@@ -947,8 +947,19 @@ async def reset_user_data(
     session: dict = Depends(get_admin_or_internal),
     conn: asyncpg.Connection = Depends(db),
 ):
-    """Full reset of admin's own data — for testing onboarding from scratch."""
+    """Reset user data. Admins reset own data; owner can reset any user via target_id body param."""
     telegram_id = session["telegram_id"]
+
+    # Owner can reset another user
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    target_id = body.get("target_telegram_id")
+    if target_id and isinstance(target_id, int):
+        if telegram_id != ADMIN_OWNER_ID:
+            raise HTTPException(403, "Only owner can reset other users")
+        telegram_id = target_id
 
     user = await conn.fetchrow(
         "SELECT id FROM users WHERE telegram_id = $1", telegram_id
