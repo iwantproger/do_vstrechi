@@ -990,23 +990,38 @@ async def reset_user_data(
     except Exception:
         pass
 
+    # Event mapping (FK → bookings) — must delete before bookings
+    try:
+        await conn.execute("""
+            DELETE FROM event_mapping
+            WHERE booking_id IN (
+                SELECT b.id FROM bookings b
+                JOIN schedules s ON b.schedule_id = s.id
+                WHERE s.user_id = $1
+            )
+        """, user_id)
+    except Exception:
+        pass
+
     # Bookings as organizer
-    org_deleted = await conn.fetchval("""
-        DELETE FROM bookings
-        WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)
-        RETURNING COUNT(*)
-    """, user_id) or 0
+    org_rows = await conn.fetch(
+        "DELETE FROM bookings WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1) RETURNING id",
+        user_id,
+    )
+    org_deleted = len(org_rows)
 
     # Bookings as guest
-    guest_deleted = await conn.fetchval(
-        "DELETE FROM bookings WHERE guest_telegram_id = $1 RETURNING COUNT(*)",
+    guest_rows = await conn.fetch(
+        "DELETE FROM bookings WHERE guest_telegram_id = $1 RETURNING id",
         telegram_id,
-    ) or 0
+    )
+    guest_deleted = len(guest_rows)
 
     # Schedules (including default)
-    sched_deleted = await conn.fetchval(
-        "DELETE FROM schedules WHERE user_id = $1 RETURNING COUNT(*)", user_id
-    ) or 0
+    sched_rows = await conn.fetch(
+        "DELETE FROM schedules WHERE user_id = $1 RETURNING id", user_id
+    )
+    sched_deleted = len(sched_rows)
 
     client_ip = request.headers.get("X-Real-IP", request.client.host)
     await log_admin_action("reset_user", client_ip, {
