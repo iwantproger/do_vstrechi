@@ -156,12 +156,9 @@ async def fsm_admin_id(msg: Message, state: FSMContext):
         )
     else:
         ADMIN_TELEGRAM_IDS.add(new_id)
-        # Debug: test basic API connectivity
-        health = await api("get", "/health")
+        debug = await api("get", f"/api/admin/debug-auth?telegram_id={msg.from_user.id}")
         await msg.answer(
-            f"✅ Админ <code>{new_id}</code> добавлен (локально).\n"
-            f"API result: <code>{result}</code>\n"
-            f"Health: <code>{health}</code>",
+            f"Добавлен локально.\n<code>{debug}</code>",
             parse_mode=ParseMode.HTML,
         )
 

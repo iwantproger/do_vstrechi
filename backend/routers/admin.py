@@ -894,6 +894,27 @@ async def receive_event(
     return {"status": "ok"}
 
 
+# ── Debug auth (temporary) ─────────────────────────────
+
+@router.get("/api/admin/debug-auth")
+async def debug_auth(request: Request):
+    """Temporary: diagnose internal key auth without requiring auth."""
+    import hmac as _hmac
+    from config import INTERNAL_API_KEY as _KEY
+    ik = request.headers.get("X-Internal-Key") or ""
+    tid = request.query_params.get("telegram_id")
+    return {
+        "has_header": bool(ik),
+        "header_len": len(ik),
+        "backend_key_len": len(_KEY),
+        "keys_match": bool(ik and _KEY and _hmac.compare_digest(ik, _KEY)),
+        "admin_ids": sorted(ADMIN_TELEGRAM_IDS),
+        "owner_id": ADMIN_OWNER_ID,
+        "tid_param": tid,
+        "tid_in_admins": (int(tid) in ADMIN_TELEGRAM_IDS) if tid and tid.isdigit() else None,
+    }
+
+
 # ── Admin management ───────────────────────────────────
 
 @router.get("/api/admin/admins")
