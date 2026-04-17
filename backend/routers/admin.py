@@ -704,7 +704,7 @@ async def analytics_retention(
         SELECT
           c.reg_date,
           COUNT(DISTINCT c.id) AS cohort_size,
-          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + make_interval(days => $2) THEN c.id END) AS retained
+          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + make_interval(days => $2::integer) THEN c.id END) AS retained
         FROM cohort c
         LEFT JOIN activity a ON a.user_id = c.id
         GROUP BY c.reg_date
