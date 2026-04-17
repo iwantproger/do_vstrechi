@@ -52,6 +52,51 @@ async def create_schedule(
     return row_to_dict(row)
 
 
+@router.post("/api/schedules/default")
+async def create_default_schedule(
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Create a visible default schedule for a new user (called from bot on first /start)."""
+    telegram_id = auth_user["id"]
+    user = await conn.fetchrow(
+        "SELECT id, first_name FROM users WHERE telegram_id = $1", telegram_id
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    # Don't create if user already has visible active schedules
+    existing = await conn.fetchval(
+        "SELECT COUNT(*) FROM schedules WHERE user_id = $1 AND is_default = FALSE AND is_active = TRUE",
+        user["id"],
+    )
+    if existing > 0:
+        return {"created": False, "schedule": None}
+
+    first_name = user["first_name"] or "Пользователь"
+    title = f"Свободное время. {first_name}"
+    description = "Мои свободные слоты. Вы можете забронировать удобное время."
+
+    row = await conn.fetchrow(
+        """
+        INSERT INTO schedules
+            (user_id, title, description, duration, buffer_time,
+             work_days, start_time, end_time, platform,
+             min_booking_advance, requires_confirmation, is_active, is_default)
+        VALUES ($1, $2, $3, 45, 15,
+                '{0,1,2,3,4}', '09:00', '18:00', 'jitsi',
+                60, TRUE, TRUE, FALSE)
+        RETURNING *
+        """,
+        user["id"], title, description,
+    )
+    await _track_event(conn, "schedule_created", telegram_id, {
+        "schedule_id": str(row["id"]), "duration": 45, "platform": "jitsi",
+        "source": "default_onboarding",
+    })
+    return {"created": True, "schedule": row_to_dict(row)}
+
+
 @router.get("/api/schedules")
 async def list_schedules(
     auth_user: dict = Depends(get_current_user),
