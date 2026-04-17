@@ -13,7 +13,7 @@ from aiogram.types import (
 
 from api import api
 from config import MINI_APP_URL
-from keyboards import kb_duration, kb_buffer, kb_platform, kb_back_main
+from keyboards import kb_duration, kb_buffer, kb_platform, kb_back_main, kb_work_days, kb_fsm_nav
 from formatters import DAYS_RU
 from states import CreateSchedule
 
@@ -72,38 +72,93 @@ async def fsm_duration(cb: CallbackQuery, state: FSMContext):
 @router.callback_query(CreateSchedule.buffer_time, F.data.startswith("buf_"))
 async def fsm_buffer(cb: CallbackQuery, state: FSMContext):
     buf = int(cb.data.split("_")[1])
-    await state.update_data(buffer_time=buf)
+    await state.update_data(buffer_time=buf, selected_days=[])
     await state.set_state(CreateSchedule.work_days)
     await cb.message.edit_text(
         f"✓ Буфер: {buf} мин\n\n"
         "Шаг 4/5: Рабочие дни\n\n"
-        "Введи числами через пробел:\n"
-        "<code>0=Пн, 1=Вт, 2=Ср, 3=Чт, 4=Пт, 5=Сб, 6=Вс</code>\n\n"
-        "Например: <code>0 1 2 3 4</code> — будни",
+        "Выбрано: <b>не выбраны</b>\n\n"
+        "Нажимай на дни, чтобы выбрать/убрать:",
         parse_mode=ParseMode.HTML,
+        reply_markup=kb_work_days([]),
     )
     await cb.answer()
 
 
-@router.message(CreateSchedule.work_days)
-async def fsm_work_days(msg: Message, state: FSMContext):
-    try:
-        days = [int(d) for d in msg.text.strip().split() if d.isdigit() and 0 <= int(d) <= 6]
-        if not days:
-            raise ValueError
-    except Exception:
-        await msg.answer("Неверный формат. Введи числа от 0 до 6 через пробел. Например: 0 1 2 3 4")
+@router.callback_query(CreateSchedule.work_days, F.data.startswith("day_"))
+async def fsm_toggle_day(cb: CallbackQuery, state: FSMContext):
+    """Toggle отдельного дня."""
+    day = int(cb.data.split("_")[1])
+    data = await state.get_data()
+    selected = data.get("selected_days", [])
+
+    if day in selected:
+        selected.remove(day)
+    else:
+        selected.append(day)
+        selected.sort()
+
+    await state.update_data(selected_days=selected)
+    days_str = ", ".join(DAYS_RU[d] for d in selected) if selected else "не выбраны"
+    await cb.message.edit_text(
+        "Шаг 4/5: Рабочие дни\n\n"
+        f"Выбрано: <b>{days_str}</b>\n\n"
+        "Нажимай на дни, чтобы выбрать/убрать:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=kb_work_days(selected),
+    )
+    await cb.answer()
+
+
+@router.callback_query(CreateSchedule.work_days, F.data == "days_weekdays")
+async def fsm_weekdays(cb: CallbackQuery, state: FSMContext):
+    selected = [0, 1, 2, 3, 4]
+    await state.update_data(selected_days=selected)
+    days_str = ", ".join(DAYS_RU[d] for d in selected)
+    await cb.message.edit_text(
+        "Шаг 4/5: Рабочие дни\n\n"
+        f"Выбрано: <b>{days_str}</b>\n\n"
+        "Нажимай на дни, чтобы выбрать/убрать:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=kb_work_days(selected),
+    )
+    await cb.answer()
+
+
+@router.callback_query(CreateSchedule.work_days, F.data == "days_all")
+async def fsm_all_days(cb: CallbackQuery, state: FSMContext):
+    selected = [0, 1, 2, 3, 4, 5, 6]
+    await state.update_data(selected_days=selected)
+    days_str = ", ".join(DAYS_RU[d] for d in selected)
+    await cb.message.edit_text(
+        "Шаг 4/5: Рабочие дни\n\n"
+        f"Выбрано: <b>{days_str}</b>\n\n"
+        "Нажимай на дни, чтобы выбрать/убрать:",
+        parse_mode=ParseMode.HTML,
+        reply_markup=kb_work_days(selected),
+    )
+    await cb.answer()
+
+
+@router.callback_query(CreateSchedule.work_days, F.data == "days_done")
+async def fsm_days_done(cb: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    selected = data.get("selected_days", [])
+    if not selected:
+        await cb.answer("Выбери хотя бы один день", show_alert=True)
         return
 
-    await state.update_data(work_days=days)
+    await state.update_data(work_days=selected)
     await state.set_state(CreateSchedule.start_time)
-    days_str = ", ".join(DAYS_RU[d] for d in sorted(days))
-    await msg.answer(
+    days_str = ", ".join(DAYS_RU[d] for d in sorted(selected))
+    await cb.message.edit_text(
         f"✓ Дни: {days_str}\n\n"
         "Шаг 4б: Начало рабочего дня\n"
         "Введи время в формате <code>ЧЧ:ММ</code>, например: <code>09:00</code>",
         parse_mode=ParseMode.HTML,
+        reply_markup=kb_fsm_nav,
     )
+    await cb.answer()
 
 
 @router.message(CreateSchedule.start_time)
@@ -120,6 +175,7 @@ async def fsm_start_time(msg: Message, state: FSMContext):
         f"✓ Начало: {t}\n\n"
         "Конец рабочего дня (например: <code>18:00</code>):",
         parse_mode=ParseMode.HTML,
+        reply_markup=kb_fsm_nav,
     )
 
 
@@ -180,6 +236,7 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
                     text="👁 Как видят клиенты",
                     web_app=WebAppInfo(url=f"{MINI_APP_URL}?schedule_id={sid}"),
                 )],
+                [InlineKeyboardButton(text="🔍 Проверить inline-режим", callback_data="check_inline")],
                 [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")],
             ]),
         )
@@ -188,4 +245,113 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
             "❌ Ошибка создания расписания. Попробуй ещё раз.",
             reply_markup=kb_back_main,
         )
+    await cb.answer()
+
+
+# ── FSM navigation ─────────────────────────────────────
+
+@router.callback_query(F.data == "fsm_cancel")
+async def fsm_cancel(cb: CallbackQuery, state: FSMContext):
+    """Отмена создания расписания."""
+    await state.clear()
+    await cb.message.edit_text(
+        "❌ Создание расписания отменено.",
+        reply_markup=kb_back_main,
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "fsm_back")
+async def fsm_back(cb: CallbackQuery, state: FSMContext):
+    """Возврат на предыдущий шаг."""
+    current = await state.get_state()
+    data = await state.get_data()
+
+    if current == CreateSchedule.duration.state:
+        await state.set_state(CreateSchedule.title)
+        await cb.message.edit_text(
+            "➕ <b>Создание расписания</b>\n\n"
+            "Шаг 1/5: Введи название расписания.\n"
+            "Например: <i>Консультация по маркетингу</i>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb_fsm_nav,
+        )
+    elif current == CreateSchedule.buffer_time.state:
+        await state.set_state(CreateSchedule.duration)
+        await cb.message.edit_text(
+            "Шаг 2/5: Выбери длительность встречи:",
+            reply_markup=kb_duration,
+        )
+    elif current == CreateSchedule.work_days.state:
+        await state.set_state(CreateSchedule.buffer_time)
+        dur = data.get("duration", "?")
+        await cb.message.edit_text(
+            f"✓ Длительность: {dur} мин\n\n"
+            "Шаг 3/5: Буфер между встречами\n"
+            "(время на отдых/подготовку):",
+            reply_markup=kb_buffer,
+        )
+    elif current == CreateSchedule.start_time.state:
+        selected = data.get("selected_days", [])
+        await state.set_state(CreateSchedule.work_days)
+        days_str = ", ".join(DAYS_RU[d] for d in selected) if selected else "не выбраны"
+        await cb.message.edit_text(
+            "Шаг 4/5: Рабочие дни\n\n"
+            f"Выбрано: <b>{days_str}</b>\n\n"
+            "Нажимай на дни, чтобы выбрать/убрать:",
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb_work_days(selected),
+        )
+    elif current == CreateSchedule.end_time.state:
+        await state.set_state(CreateSchedule.start_time)
+        await cb.message.edit_text(
+            "Шаг 4б: Начало рабочего дня\n"
+            "Введи время в формате <code>ЧЧ:ММ</code>, например: <code>09:00</code>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb_fsm_nav,
+        )
+    elif current == CreateSchedule.platform.state:
+        await state.set_state(CreateSchedule.end_time)
+        start = data.get("start_time", "?")
+        await cb.message.edit_text(
+            f"✓ Начало: {start}\n\n"
+            "Конец рабочего дня (например: <code>18:00</code>):",
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb_fsm_nav,
+        )
+    else:
+        await cb.answer("Вы на первом шаге")
+        return
+
+    await cb.answer()
+
+
+# ── Inline mode check ──────────────────────────────────
+
+@router.callback_query(F.data == "check_inline")
+async def cb_check_inline(cb: CallbackQuery):
+    """Проверить доступность inline-режима."""
+    try:
+        me = await cb.bot.get_me()
+        if me.supports_inline_queries:
+            await cb.message.answer(
+                "✅ <b>Inline-режим работает!</b>\n\n"
+                "В любом чате введите <code>@do_vstrechi_bot</code> "
+                "и выберите расписание для отправки.",
+                parse_mode=ParseMode.HTML,
+            )
+        else:
+            await cb.message.answer(
+                "⚠️ <b>Inline-режим не включён</b>\n\n"
+                "Чтобы включить:\n"
+                "1. Откройте @BotFather\n"
+                "2. Выберите бота\n"
+                "3. Bot Settings → Inline Mode → Turn on\n\n"
+                "После включения попробуйте снова.",
+                parse_mode=ParseMode.HTML,
+            )
+            log.warning(f"Inline mode disabled for bot, user {cb.from_user.id} checked")
+    except Exception as e:
+        log.error(f"Inline check error: {e}")
+        await cb.message.answer("❌ Не удалось проверить inline-режим.")
     await cb.answer()
