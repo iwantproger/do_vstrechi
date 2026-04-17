@@ -1008,26 +1008,21 @@ function initLandingPage() {
 function onTelegramAuth(user) {
   window.open('https://t.me/' + BOT_USERNAME, '_blank');
 }
-function openViaBotMenu() {
-  if (tg && tg.openTelegramLink) {
-    tg.openTelegramLink('https://t.me/' + BOT_USERNAME);
-  }
-  if (tg && tg.close) tg.close();
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
-  /* ── Context detection: Telegram Mini App vs Browser ── */
-  /* tg.platform is always set by the Telegram client (android/ios/tdesktop/…);
-     in a regular browser the SDK defaults it to 'unknown'.
-     Previous check relied on initData.length > 0, but initData can be empty
-     in certain launch modes (MenuButton, direct links) even inside Telegram. */
-  var isInTelegram = !!(tg && tg.platform && tg.platform !== 'unknown');
+  /* ── Auth & guest-mode detection ── */
+  var hasAuth = !!(tg && tg.initData);
+  var urlParams = new URLSearchParams(window.location.search);
+  var startParam = tg?.initDataUnsafe?.start_param || '';
+  var scheduleId = urlParams.get('schedule_id') || '';
+  if (!scheduleId && startParam && !startParam.startsWith('booking_') && !startParam.startsWith('notify_')) {
+    scheduleId = startParam;
+  }
 
   var landingEl = document.getElementById('landing');
   var appEl = document.getElementById('app');
 
-  if (!isInTelegram) {
-    /* Browser context → show landing, completely disable Mini App */
+  if (!hasAuth && !scheduleId) {
+    /* No initData and no guest link → show landing */
     if (appEl) {
       appEl.style.display = 'none';
       appEl.style.animation = 'none';
@@ -1042,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return; /* STOP: do not execute any Mini App code below */
   }
 
-  /* Telegram context → landing stays hidden, continue Mini App */
+  /* Has auth or guest link → continue Mini App */
 
   /* ── Telegram SDK init — wrapped in try/catch to guarantee app visibility ── */
   try {
@@ -1100,52 +1095,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   checkCalendarConnectParam();
 
-  const urlParams = new URLSearchParams(window.location.search);
-  var startParam = tg?.initDataUnsafe?.start_param || '';
-  var hasAuth = !!(tg && tg.initData);
-
-  /* ── Guest mode: schedule booking — works without initData ── */
-  var scheduleId = urlParams.get('schedule_id') || '';
-  if (!scheduleId && startParam && !startParam.startsWith('booking_') && !startParam.startsWith('notify_')) {
-    scheduleId = startParam;
-  }
-
   if (scheduleId) {
+    /* ── Guest mode: schedule booking — works without initData ── */
     state.isGuestMode = true;
     state.scheduleId = scheduleId;
     hideNavbar();
     showScreen('s-calendar', false);
     loadCalendar(scheduleId);
-  } else if (hasAuth) {
-    /* ── Authenticated flow ── */
-    if (startParam.startsWith('booking_')) {
-      var bookingId = startParam.replace('booking_', '');
-      showNavbar();
-      await authUser();
-      setupProfile();
-      await loadHome();
-      await openMeetDetail(bookingId);
-    } else {
-      showNavbar();
-      await authUser();
-      setupProfile();
-      await loadHome();
-    }
-  } else {
-    /* ── Telegram but no initData — guide user to re-open via bot menu ── */
+  } else if (startParam.startsWith('booking_')) {
+    /* ── Deep link to booking detail ── */
+    var bookingId = startParam.replace('booking_', '');
     showNavbar();
-    var greeting = document.getElementById('home-greeting');
-    if (greeting) greeting.textContent = 'Привет! ';
-    setHomeSubtitle('', false);
-    var heroEl = document.getElementById('home-hero');
-    if (heroEl) {
-      heroEl.innerHTML = '<div style="padding:40px 20px;text-align:center">'
-        + '<div style="font-size:48px;margin-bottom:16px">👋</div>'
-        + '<div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:8px">Откройте через меню бота</div>'
-        + '<div style="font-size:14px;color:var(--t2);margin-bottom:20px">Нажмите кнопку «Открыть» в нижнем меню бота для полного доступа</div>'
-        + '<button onclick="openViaBotMenu()" style="background:var(--a);color:#07221A;border:none;border-radius:var(--r3);padding:14px 28px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">Открыть приложение</button>'
-        + '</div>';
-    }
+    await authUser();
+    setupProfile();
+    await loadHome();
+    await openMeetDetail(bookingId);
+  } else {
+    /* ── Main app flow ── */
+    showNavbar();
+    await authUser();
+    setupProfile();
+    await loadHome();
   }
 
   /* Browser fallback: inject .back-btn if Telegram BackButton is unavailable */
