@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>Admin - Do Встречи!</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/css/admin.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
@@ -39,21 +39,21 @@
     <div class="sidebar-logo">Do <span>Встречи!</span></div>
     <nav class="sidebar-nav">
       <a class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
-        <span class="icon">&#x1F4CA;</span> Дашборд
+        <span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span> Дашборд
       </a>
       <a class="nav-item" data-page="logs" onclick="navigateTo('logs')">
-        <span class="icon">&#x1F4CB;</span> Логи
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> Логи
       </a>
       <a class="nav-item" data-page="tasks" onclick="navigateTo('tasks')">
-        <span class="icon">&#x2705;</span> Задачи
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span> Задачи
       </a>
       <a class="nav-item" data-page="settings" onclick="navigateTo('settings')">
-        <span class="icon">&#x2699;&#xFE0F;</span> Настройки
+        <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Настройки
       </a>
     </nav>
     <div class="sidebar-footer">
       <a class="nav-item logout" onclick="logout()">
-        <span class="icon">&#x1F6AA;</span> Выйти
+        <span class="icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span> Выйти
       </a>
     </div>
   </aside>
@@ -67,53 +67,34 @@
     <div class="main-content">
       <!-- Dashboard -->
       <div class="page active" id="page-dashboard">
-        <div class="page-header">
-          <h2>Дашборд</h2>
+        <div style="text-align:right;margin-bottom:16px">
           <span class="last-updated" id="dashboard-updated"></span>
         </div>
 
         <div class="metrics-grid">
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(13,148,136,0.12)">&#x1F465;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-total-users"></div>
-              <div class="metric-label">Всего пользователей</div>
-            </div>
+            <div class="metric-value loading" id="m-total-users"></div>
+            <div class="metric-label">Пользователи</div>
           </div>
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(16,185,129,0.12)">&#x1F4C8;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-active-users"></div>
-              <div class="metric-label">Активных за 7 дней</div>
-            </div>
+            <div class="metric-value loading" id="m-active-users"></div>
+            <div class="metric-label">Активных 7д</div>
           </div>
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(59,130,246,0.12)">&#x1F4C5;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-total-bookings"></div>
-              <div class="metric-label">Встреч всего</div>
-            </div>
+            <div class="metric-value loading" id="m-total-bookings"></div>
+            <div class="metric-label">Встреч всего</div>
           </div>
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(139,92,246,0.12)">&#x1F4CC;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-bookings-today"></div>
-              <div class="metric-label">Встречи сегодня</div>
-            </div>
+            <div class="metric-value loading" id="m-bookings-today"></div>
+            <div class="metric-label">Сегодня</div>
           </div>
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(245,158,11,0.12)">&#x23F3;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-pending"></div>
-              <div class="metric-label">Ожидают подтверждения</div>
-            </div>
+            <div class="metric-value loading" id="m-pending"></div>
+            <div class="metric-label">Ожидают</div>
           </div>
           <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(239,68,68,0.12)">&#x26A0;&#xFE0F;</div>
-            <div class="metric-body">
-              <div class="metric-value loading" id="m-errors"></div>
-              <div class="metric-label">Ошибки за 24ч</div>
-            </div>
+            <div class="metric-value loading" id="m-errors"></div>
+            <div class="metric-label">Ошибки 24ч</div>
           </div>
         </div>
         <div class="stats-note" id="stats-note">Статистика без учёта аккаунта владельца</div>
@@ -270,21 +251,21 @@
         <div class="kanban-board">
           <div class="kanban-column" data-status="backlog">
             <div class="kanban-header">
-              <span class="kanban-title">&#x1F4CB; Backlog</span>
+              <span class="kanban-title">Backlog</span>
               <span class="kanban-count" id="count-backlog">0</span>
             </div>
             <div class="kanban-cards" id="col-backlog"></div>
           </div>
           <div class="kanban-column" data-status="in_progress">
             <div class="kanban-header">
-              <span class="kanban-title">&#x1F504; В работе</span>
+              <span class="kanban-title">В работе</span>
               <span class="kanban-count" id="count-in_progress">0</span>
             </div>
             <div class="kanban-cards" id="col-in_progress"></div>
           </div>
           <div class="kanban-column" data-status="done">
             <div class="kanban-header">
-              <span class="kanban-title">&#x2705; Готово</span>
+              <span class="kanban-title">Готово</span>
               <span class="kanban-count" id="count-done">0</span>
             </div>
             <div class="kanban-cards" id="col-done"></div>
@@ -297,7 +278,7 @@
 
         <!-- System info -->
         <div class="settings-section">
-          <h3>&#x1F5A5; Система</h3>
+          <h3>Система</h3>
           <div class="info-grid">
             <div class="info-item">
               <div class="label">Версия</div>
@@ -332,7 +313,7 @@
 
         <!-- Security -->
         <div class="settings-section">
-          <h3>&#x1F512; Безопасность</h3>
+          <h3>Безопасность</h3>
           <div class="settings-row">
             <span class="label">IP Allowlist</span>
             <span class="value" id="si-ip-allowlist">&mdash;</span>
@@ -353,7 +334,7 @@
 
         <!-- Audit log -->
         <div class="settings-section">
-          <h3>&#x1F4CB; Последние действия</h3>
+          <h3>Последние действия</h3>
           <div class="audit-mini-list" id="audit-mini-list">
             <div style="color:var(--text-muted);padding:12px;">Загрузка&hellip;</div>
           </div>
@@ -361,7 +342,7 @@
 
         <!-- Counts -->
         <div class="settings-section">
-          <h3>&#x1F4CA; Данные</h3>
+          <h3>Данные</h3>
           <div class="info-grid">
             <div class="info-item">
               <div class="label">Пользователей</div>
@@ -384,7 +365,7 @@
 
         <!-- Maintenance -->
         <div class="settings-section">
-          <h3>&#x1F9F9; Обслуживание</h3>
+          <h3>Обслуживание</h3>
           <div class="maintenance-row">
             <label for="cleanup-days">Очистить info-события старше</label>
             <select id="cleanup-days">
