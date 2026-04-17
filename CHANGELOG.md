@@ -10,6 +10,46 @@
 
 ---
 
+## [1.4.0] — 17.04.2026
+
+### Added — Онбординг и бот
+
+- `feat`: онбординг /start — разный flow для нового и вернувшегося пользователя; дефолтное расписание «Свободное время» создаётся автоматически
+- `feat`: кнопка «Готовое расписание» — показ деталей + share/edit/create кнопки
+- `feat`: FSM создания расписания — кнопочный выбор дней (toggle Пн-Вс), быстрый выбор Будни/Все дни, Back/Cancel навигация
+- `feat`: кнопка «Создать расписание» → web_app с ?action=create; fallback «Создать в чате» → FSM
+- `feat`: улучшенное уведомление гостю — динамические напоминания (24ч/1ч), deep link настройки, CTA конверсии
+- `feat`: /admin — управление списком админов (owner: add/remove по ID или forwarded message)
+- `feat`: /reset — полный сброс данных пользователя; owner может сбросить другого через /reset {telegram_id}
+
+### Added — Backend
+
+- `feat`: `POST /api/schedules/default` — автосоздание видимого расписания для нового пользователя
+- `feat`: `ADMIN_TELEGRAM_IDS` (comma-separated) + `ADMIN_OWNER_ID` — поддержка нескольких админов с fallback на `ADMIN_TELEGRAM_ID`
+- `feat`: `get_admin_or_internal` dependency — принимает X-Internal-Key (бот) или cookie (веб-панель)
+- `feat`: `GET/POST/DELETE /api/admin/admins` — управление админами через API
+- `feat`: `POST /api/admin/reset-user` — FK-safe удаление данных пользователя (8 таблиц в правильном порядке)
+
+### Added — Frontend
+
+- `feat`: deep link routing — `startParam` (create/edit_ID/view_ID) + URL `?action=` params; debug console.log
+
+### Fixed
+
+- `fix`: stats `active_schedules` исключает hidden defaults (is_default=TRUE) — согласовано с list_schedules
+- `fix`: `RETURNING COUNT(*)` → `RETURNING id` + len() — aggregate functions не допускаются в RETURNING
+- `fix`: Docker `--no-cache` в deploy-beta.yml — BuildKit кешировал COPY layers после git reset
+- `fix`: динамический `BOT_USERNAME` — beta/prod ссылки формируются из config автоматически
+- `fix`: формат «Поделиться» унифицирован с Mini App (browser link fallback)
+- `fix`: reset-user обрабатывает все FK зависимости (external_busy_slots, sync_log, event_mapping)
+
+### Changed
+
+- `refactor`: обновлён дизайн админ-панели — DM Sans, чистые метрики, SVG иконки
+- `chore`: удалены debug endpoints и временный диагностический код
+
+---
+
 ## [1.3.1] — 17.04.2026
 
 ### Added — Продуктовая аналитика в дашборде

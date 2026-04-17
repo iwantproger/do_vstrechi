@@ -52,7 +52,7 @@ if MINI_APP_URL and MINI_APP_URL not in CORS_ORIGINS:
     CORS_ORIGINS.append(MINI_APP_URL)
 
 APP_START_TIME = _time.time()
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.4.0"
 
 # Prod launch date — analytics only counts data from this date
 PROD_LAUNCH_DATE = os.environ.get("PROD_LAUNCH_DATE", "")
