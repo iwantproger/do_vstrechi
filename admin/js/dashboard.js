@@ -38,23 +38,29 @@ async function loadDashboard() {
     showDashboardLoading(false);
   }
 
-  // Analytics — separate try/catch so core dashboard always works
-  try {
-    const [funnel, retention, organizers, regTrend, ttv] = await Promise.all([
-      api('GET', '/api/admin/analytics/funnel'),
-      api('GET', '/api/admin/analytics/retention?period=day7'),
-      api('GET', '/api/admin/analytics/organizer-stats'),
-      api('GET', '/api/admin/analytics/registrations-trend?days=30'),
-      api('GET', '/api/admin/analytics/time-to-value'),
-    ]);
-    renderFunnelChart(funnel);
-    renderRetentionTable(retention);
-    renderOrganizerTable(organizers);
-    renderRegistrationsTrend(regTrend);
-    renderTTVChart(ttv);
-  } catch (err) {
-    console.error('Analytics load error', err);
-  }
+  // Analytics — Promise.allSettled so one failure doesn't block others
+  var results = await Promise.allSettled([
+    api('GET', '/api/admin/analytics/funnel'),
+    api('GET', '/api/admin/analytics/retention?period=day7'),
+    api('GET', '/api/admin/analytics/organizer-stats'),
+    api('GET', '/api/admin/analytics/registrations-trend?days=30'),
+    api('GET', '/api/admin/analytics/time-to-value'),
+  ]);
+
+  var val = function(i) { return results[i].status === 'fulfilled' ? results[i].value : null; };
+
+  if (val(0)) renderFunnelChart(val(0));
+  else setAnalyticsError('funnel-chart');
+  if (val(1)) renderRetentionTable(val(1));
+  else setAnalyticsError('retention-chart');
+  if (val(2)) renderOrganizerTable(val(2));
+  else setAnalyticsError('organizer-table');
+  if (val(3)) renderRegistrationsTrend(val(3));
+  if (val(4)) renderTTVChart(val(4));
+
+  results.forEach(function(r, i) {
+    if (r.status === 'rejected') console.error('Analytics endpoint ' + i + ' failed', r.reason);
+  });
 }
 
 function updateMetric(elementId, value, modifier) {
@@ -67,6 +73,11 @@ function updateMetric(elementId, value, modifier) {
     card.classList.remove('danger', 'warning', 'success');
     if (modifier) card.classList.add(modifier);
   }
+}
+
+function setAnalyticsError(elementId) {
+  var el = document.getElementById(elementId);
+  if (el) el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger);font-size:13px">Ошибка загрузки</div>';
 }
 
 function showDashboardLoading(show) {

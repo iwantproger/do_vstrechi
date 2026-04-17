@@ -704,7 +704,7 @@ async def analytics_retention(
         SELECT
           c.reg_date,
           COUNT(DISTINCT c.id) AS cohort_size,
-          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + $2 THEN c.id END) AS retained
+          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + make_interval(days => $2) THEN c.id END) AS retained
         FROM cohort c
         LEFT JOIN activity a ON a.user_id = c.id
         GROUP BY c.reg_date
@@ -797,10 +797,10 @@ async def analytics_registrations_trend(
         SELECT DATE(created_at) AS date, COUNT(*) AS count
         FROM users
         WHERE telegram_id != $1
-          AND created_at >= NOW() - ($2 || ' days')::interval
+          AND created_at >= NOW() - INTERVAL '1 day' * $2
         GROUP BY DATE(created_at)
         ORDER BY date
-    """, owner_id, str(days))
+    """, owner_id, days)
     return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
 
 
