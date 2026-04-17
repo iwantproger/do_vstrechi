@@ -246,11 +246,12 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.HTML,
         )
     else:
-        health = await api("get", "/health")
+        debug = await api("get", f"/api/admin/debug-auth?telegram_id={cb.from_user.id}")
+        from config import INTERNAL_API_KEY as _BOT_KEY
         await cb.message.edit_text(
             f"❌ Ошибка сброса.\n"
-            f"API result: <code>{result}</code>\n"
-            f"Health: <code>{health}</code>",
+            f"debug: <code>{debug}</code>\n"
+            f"bot_key_len: <code>{len(_BOT_KEY)}</code>",
             parse_mode=ParseMode.HTML,
         )
     await cb.answer()
