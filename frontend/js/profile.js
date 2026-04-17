@@ -55,7 +55,30 @@ async function loadProfile() {
   if (nm) nm.textContent = (u.first_name || '') + (u.last_name ? ' ' + u.last_name : '');
   if (sub) sub.textContent = u.username ? '@' + u.username : 'ID: ' + (u.telegram_id || u.id);
 
-  /* profile link — ссылка на дефолтное/первое расписание через Direct Link */
+  /* timezone */
+  var tz = detectTimezone();
+  var tzEl = document.getElementById('profile-tz-val');
+  if (tzEl) tzEl.textContent = tz;
+
+  /* version */
+  var verEl = document.getElementById('app-version-val');
+  if (verEl) verEl.textContent = APP_VERSION;
+
+  /* notification settings: render immediately (localStorage, no API dependency) */
+  var s = getNotifSettings();
+  var togBook = document.getElementById('tog-booking-notif');
+  if (togBook) { if (s.booking_notif) togBook.classList.add('on'); else togBook.classList.remove('on'); }
+  var togRem = document.getElementById('tog-reminder-notif');
+  if (togRem) { if (s.reminder_notif) togRem.classList.add('on'); else togRem.classList.remove('on'); }
+
+  renderReminderChips();
+  var chipsEl = document.getElementById('reminder-chips');
+  if (chipsEl) {
+    chipsEl.style.opacity = s.reminder_notif ? '' : '0.4';
+    chipsEl.style.pointerEvents = s.reminder_notif ? '' : 'none';
+  }
+
+  /* profile link — async: loads schedules from API */
   var linkSubEl = document.getElementById('profile-link-sub');
   if (linkSubEl) linkSubEl.textContent = '...';
   state._profileLink = null;
@@ -71,35 +94,12 @@ async function loadProfile() {
     state._profileLink = getScheduleUrl(defaultSched.id);
     state._profileTgUrl = getScheduleTelegramUrl(defaultSched.id);
     state._profileSchedTitle = defaultSched.title;
-    if (linkSubEl) linkSubEl.textContent = state._profileLink.replace(/^https?:\/\//, '');
+    if (linkSubEl) linkSubEl.textContent = state._profileTgUrl.replace(/^https?:\/\//, '');
   } else {
-    state._profileLink = 'https://t.me/do_vstrechi_bot';
-    state._profileTgUrl = 'https://t.me/do_vstrechi_bot';
+    state._profileLink = 'https://t.me/' + BOT_USERNAME;
+    state._profileTgUrl = 'https://t.me/' + BOT_USERNAME;
     state._profileSchedTitle = null;
     if (linkSubEl) linkSubEl.textContent = 'Создайте расписание для получения ссылки';
-  }
-
-  /* timezone */
-  var tz = detectTimezone();
-  var tzEl = document.getElementById('profile-tz-val');
-  if (tzEl) tzEl.textContent = tz;
-
-  /* version */
-  var verEl = document.getElementById('app-version-val');
-  if (verEl) verEl.textContent = APP_VERSION;
-
-  /* notification settings: two toggles + reminder chips */
-  var s = getNotifSettings();
-  var togBook = document.getElementById('tog-booking-notif');
-  if (togBook) { if (s.booking_notif) togBook.classList.add('on'); else togBook.classList.remove('on'); }
-  var togRem = document.getElementById('tog-reminder-notif');
-  if (togRem) { if (s.reminder_notif) togRem.classList.add('on'); else togRem.classList.remove('on'); }
-
-  renderReminderChips();
-  var chipsEl = document.getElementById('reminder-chips');
-  if (chipsEl) {
-    chipsEl.style.opacity = s.reminder_notif ? '' : '0.4';
-    chipsEl.style.pointerEvents = s.reminder_notif ? '' : 'none';
   }
 }
 
@@ -339,7 +339,7 @@ function removeCustomReminder(val) {
 }
 
 function copyProfileLink() {
-  var url = state._profileLink;
+  var url = state._profileTgUrl || state._profileLink;
   if (!url) return;
   navigator.clipboard?.writeText(url).catch(function() {});
   showToast('Ссылка скопирована ✓', 'success');
@@ -367,7 +367,7 @@ async function shareMyLink() {
   if (!state._profileTgUrl) {
     await loadProfile();
   }
-  var tgUrl = state._profileTgUrl || 'https://t.me/do_vstrechi_bot';
+  var tgUrl = state._profileTgUrl || 'https://t.me/' + BOT_USERNAME;
   var defaultSched = (state.schedules || []).find(function(s) { return s.is_default === true; })
                   || (state.schedules || [])[0];
   var text = buildShareText(defaultSched) || '📅 Запишись ко мне';

@@ -1,10 +1,12 @@
 """
 До встречи — Telegram Bot
 aiogram 3.x + FastAPI backend
+Supports webhook mode (WEBHOOK_ENABLED=true) with polling fallback.
 """
 import asyncio
 import logging
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -12,10 +14,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
 from api import close_session
-from config import BOT_TOKEN, MINI_APP_URL, REDIS_URL
+from config import (
+    BOT_TOKEN, MINI_APP_URL, REDIS_URL,
+    WEBHOOK_ENABLED, WEBHOOK_HOST, WEBHOOK_PATH, WEBHOOK_SECRET, BOT_PORT,
+)
 from handlers import start, navigation, schedules, bookings, create, inline
 from services.reminders import reminder_loop
-from services.notifications import start_internal_server
+from services.notifications import register_internal_routes, start_internal_server
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -65,30 +70,89 @@ async def main():
     dp.include_router(create.router)
     dp.include_router(inline.router)
 
+    me = await bot.get_me()
+    log.info("Bot username: @%s", me.username)
+
     await setup_bot_commands(bot)
 
     reminder_task = asyncio.create_task(reminder_loop(bot))
-    runner = await start_internal_server(bot)
 
-    try:
-        updates = await bot.get_updates(offset=-1, limit=1)
-        if updates:
-            log.info(f"Skipping ~{updates[-1].update_id} pending updates")
-    except Exception:
-        pass
+    if WEBHOOK_ENABLED and WEBHOOK_HOST:
+        # ═══════════════════════════════════════════
+        #  WEBHOOK MODE
+        # ═══════════════════════════════════════════
+        log.info(f"Starting in WEBHOOK mode: {WEBHOOK_HOST}{WEBHOOK_PATH}")
 
-    log.info("Bot starting…")
-    try:
-        await dp.start_polling(bot, skip_updates=True)
-    finally:
-        reminder_task.cancel()
+        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+
+        webapp = web.Application()
+        register_internal_routes(webapp, bot)
+
+        webhook_url = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
+        await bot.delete_webhook(drop_pending_updates=True)
+        await bot.set_webhook(
+            url=webhook_url,
+            secret_token=WEBHOOK_SECRET or None,
+            drop_pending_updates=True,
+        )
+        log.info(f"Webhook set: {webhook_url}")
+
+        handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+            secret_token=WEBHOOK_SECRET or None,
+        )
+        handler.register(webapp, path=WEBHOOK_PATH)
+        setup_application(webapp, dp, bot=bot)
+
+        runner = web.AppRunner(webapp)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", BOT_PORT)
+        await site.start()
+        log.info(f"Bot webhook+internal server on port {BOT_PORT}")
+
         try:
-            await reminder_task
-        except (asyncio.CancelledError, Exception):
+            await asyncio.Event().wait()
+        finally:
+            reminder_task.cancel()
+            try:
+                await reminder_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            await bot.delete_webhook()
+            await runner.cleanup()
+            await close_session()
+            log.info("Webhook bot stopped")
+
+    else:
+        # ═══════════════════════════════════════════
+        #  POLLING MODE (fallback)
+        # ═══════════════════════════════════════════
+        log.info("Starting in POLLING mode")
+
+        runner = await start_internal_server(bot, port=BOT_PORT)
+
+        try:
+            updates = await bot.get_updates(offset=-1, limit=1)
+            if updates:
+                log.info(f"Skipping ~{updates[-1].update_id} pending updates")
+        except Exception:
             pass
-        await runner.cleanup()
-        await close_session()
-        log.info("session closed")
+
+        log.info("Bot starting…")
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            await dp.start_polling(bot, skip_updates=True)
+        finally:
+            reminder_task.cancel()
+            try:
+                await reminder_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            await runner.cleanup()
+            await close_session()
+            log.info("Polling bot stopped")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import os
 import time as _time
 
 DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_ADMIN_URL = os.environ.get("DATABASE_ADMIN_URL", DATABASE_URL)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 BOT_INTERNAL_URL = os.environ.get("BOT_INTERNAL_URL", "http://bot:8080")

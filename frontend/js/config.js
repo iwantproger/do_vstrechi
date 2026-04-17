@@ -19,6 +19,7 @@ window.addEventListener('unhandledrejection', function(e) {
 const BACKEND = '';
 const tg = window.Telegram?.WebApp;
 const APP_VERSION = '1.2.0';
+const BOT_USERNAME = location.hostname.startsWith('beta.') ? 'beta_do_vstrechi_bot' : 'do_vstrechi_bot';
 /* ВЕРСИОНИРОВАНИЕ:
    - Patch (1.0.X → 1.0.X+1): багфиксы, мелкие правки
    - Minor (1.X.0 → 1.X+1.0): новые фичи, визуальные изменения

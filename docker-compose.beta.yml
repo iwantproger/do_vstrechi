@@ -41,7 +41,8 @@ services:
     container_name: dovstrechi_backend_beta
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres_beta:5432/${POSTGRES_DB:-dovstrechi_beta}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres_beta:5432/${POSTGRES_DB:-dovstrechi_beta}}
+      DATABASE_ADMIN_URL: postgresql://${POSTGRES_USER:-dovstrechi}:${POSTGRES_PASSWORD}@postgres_beta:5432/${POSTGRES_DB:-dovstrechi_beta}
       SECRET_KEY: ${SECRET_KEY}
       BOT_TOKEN: ${BOT_TOKEN}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
@@ -103,6 +104,11 @@ services:
       MINI_APP_URL: ${MINI_APP_URL:-https://beta.dovstrechiapp.ru}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       REDIS_URL: redis://redis_beta:6379/0
+      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-true}
+      WEBHOOK_HOST: ${WEBHOOK_HOST:-https://beta.dovstrechiapp.ru}
+      WEBHOOK_PATH: ${WEBHOOK_PATH:-/bot/webhook}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      BOT_USERNAME: ${BOT_USERNAME:-beta_do_vstrechi_bot}
     expose:
       - "8080"
     depends_on:
@@ -112,11 +118,17 @@ services:
         condition: service_healthy
     networks:
       - internal_beta
+      - shared
 
   # ─────────────────────────────────────────────
   # Support Bot
   # ─────────────────────────────────────────────
   support_bot_beta:
+    # Gated behind the "support" profile — beta does not set SUPPORT_BOT_TOKEN
+    # so the container was stuck in a restart loop. Start explicitly with
+    # `docker compose --profile support up -d support_bot_beta` when needed.
+    profiles:
+      - support
     build:
       context: ${BETA_DIR:-/opt/dovstrechi-beta}/support-bot
       dockerfile: Dockerfile

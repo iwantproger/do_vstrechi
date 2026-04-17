@@ -1,6 +1,8 @@
-"""Форматтеры: статусы, даты, бронирования."""
+"""Форматтеры: статусы, даты, бронирования, share-сообщения."""
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from config import BOT_USERNAME, MINI_APP_URL
 
 STATUS_EMOJI = {
     "pending":   "⏳",
@@ -26,6 +28,32 @@ def format_dt(dt_str: str, tz: str = "UTC") -> str:
         return local_dt.strftime("%d.%m.%Y %H:%M")
     except Exception:
         return dt_str
+
+
+def direct_link(schedule_id: str) -> str:
+    return f"https://t.me/{BOT_USERNAME}/app?startapp={schedule_id}"
+
+
+def browser_link(schedule_id: str) -> str:
+    return f"{MINI_APP_URL}?schedule_id={schedule_id}"
+
+
+def format_share_message_html(schedule_id: str) -> str:
+    """Единый HTML-текст приглашения на бронирование.
+
+    НЕ используем <a href> для t.me ссылок — Telegram открывает их
+    в in-app браузере вместо Mini App. Кнопка «Записаться» в
+    reply_markup (inline keyboard) — основной путь запуска Mini App.
+    """
+    tg_link = direct_link(schedule_id)
+    web_link = browser_link(schedule_id)
+    return (
+        f"Вот мои свободные слоты — выбирайте удобное время!\n\n"
+        f"До встречи! 🙌\n\n"
+        f'Или <a href="{web_link}">открыть в браузере</a>\n\n'
+        f"Ссылка для копирования:\n"
+        f"<code>{tg_link}</code>"
+    )
 
 
 def format_booking(b: dict, show_role: bool = False) -> str:

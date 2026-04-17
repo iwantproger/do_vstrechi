@@ -1,0 +1,26 @@
+#!/bin/sh
+# Блокирует прямой push в origin/main. Деплой в prod — только через PR.
+
+protected_branch="main"
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+while read local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/heads/"$protected_branch")
+            if [ "$current_branch" = "$protected_branch" ]; then
+                echo ""
+                echo "  ⛔ PUSH В MAIN ЗАБЛОКИРОВАН"
+                echo ""
+                echo "  Прямой push в main запрещён."
+                echo "  Используй: make deploy (через PR dev → main)"
+                echo ""
+                echo "  Чтобы обойти защиту однократно (НЕ РЕКОМЕНДУЕТСЯ):"
+                echo "    git push --no-verify ..."
+                echo ""
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+exit 0

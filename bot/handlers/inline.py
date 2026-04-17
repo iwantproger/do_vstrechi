@@ -1,4 +1,4 @@
-"""Inline-режим: поиск и шаринг расписаний через @do_vstrechi_bot в любом чате."""
+"""Inline-режим: поиск и шаринг расписаний через @bot в любом чате."""
 import logging
 from uuid import uuid4
 
@@ -9,21 +9,17 @@ from aiogram.types import (
     InputTextMessageContent,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    LinkPreviewOptions,
 )
 
 from api import api
-from config import MINI_APP_URL
-from formatters import DAYS_RU
+from config import BOT_USERNAME
+from formatters import direct_link, format_share_message_html
 
 log = logging.getLogger(__name__)
 router = Router()
 
-PLATFORM_NAMES = {
-    "jitsi": "Jitsi Meet",
-    "zoom": "Zoom",
-    "google_meet": "Google Meet",
-    "other": "Другое",
-}
+_app_url = f"https://t.me/{BOT_USERNAME}/app"
 
 
 @router.inline_query()
@@ -46,10 +42,7 @@ async def handle_inline_query(query: InlineQuery):
                         message_text="📅 Создайте расписание в «До встречи»!",
                     ),
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                        InlineKeyboardButton(
-                            text="Открыть приложение",
-                            url="https://t.me/do_vstrechi_bot/app",
-                        )
+                        InlineKeyboardButton(text="Открыть приложение", url=_app_url)
                     ]]),
                 )
             ],
@@ -67,27 +60,14 @@ async def handle_inline_query(query: InlineQuery):
     for s in active[:10]:
         sid = s["id"]
         title = s.get("title", "Без названия")
-        desc = s.get("description", "")
         dur = s.get("duration", 60)
-        plat = PLATFORM_NAMES.get(s.get("platform", ""), s.get("platform", ""))
-        days = ", ".join(DAYS_RU[d] for d in sorted(s.get("work_days", [])) if d < 7)
-        start = str(s.get("start_time", "09:00"))[:5]
-        end = str(s.get("end_time", "18:00"))[:5]
+        plat = s.get("platform", "jitsi")
+        link = direct_link(sid)
+        msg = format_share_message_html(sid)
 
-        link = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
-
-        msg = (
-            f"📅 <b>{title}</b>\n\n"
-            f"⏱ {dur} мин · {plat}\n"
-            f"📆 {days}, {start}–{end}\n"
-        )
-        if desc:
-            msg += f"📝 {desc}\n"
-        msg += f"\n👉 <a href=\"{link}\">Записаться на встречу</a>"
-
-        subtitle = f"{dur} мин · {plat} · {days}"
-        if desc:
-            subtitle += f" · {desc[:40]}"
+        subtitle = f"{dur} мин · {plat}"
+        if s.get("description"):
+            subtitle += f" · {s['description'][:40]}"
 
         results.append(
             InlineQueryResultArticle(
@@ -97,6 +77,9 @@ async def handle_inline_query(query: InlineQuery):
                 input_message_content=InputTextMessageContent(
                     message_text=msg,
                     parse_mode="HTML",
+                    link_preview_options=LinkPreviewOptions(
+                        url=link,
+                    ),
                 ),
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(text="📅 Записаться", url=link)
@@ -113,10 +96,7 @@ async def handle_inline_query(query: InlineQuery):
                 message_text="📅 Настройте расписание в «До встречи»!",
             ),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(
-                    text="Открыть приложение",
-                    url="https://t.me/do_vstrechi_bot/app",
-                )
+                InlineKeyboardButton(text="Открыть приложение", url=_app_url)
             ]]),
         )
     )

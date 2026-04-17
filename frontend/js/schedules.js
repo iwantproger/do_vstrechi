@@ -82,7 +82,7 @@ function getScheduleUrl(id) {
 }
 
 function getScheduleTelegramUrl(id) {
-  return 'https://t.me/do_vstrechi_bot/app?startapp=' + id;
+  return 'https://t.me/' + BOT_USERNAME + '/app?startapp=' + id;
 }
 
 function renderLinkCard(s, isArchived) {
@@ -540,43 +540,30 @@ function openShareSheet(schedId) {
   var id = schedId || _editScheduleId;
   if (!id) { showSheet('sheet-share'); return; }
   state._shareScheduleId = id;
-  var url = getScheduleUrl(id);
+  var url = getScheduleTelegramUrl(id);
   state._shareUrl = url;
   var el = document.getElementById('sheet-share-url');
   if (el) el.textContent = url.replace(/^https?:\/\//, '');
   showSheet('sheet-share');
 }
 
-/* Общий текст для шаринга (формат как в inline-режиме бота) */
-function buildShareText(schedule) {
-  if (!schedule) return '';
-  var title = schedule.title || 'Встреча';
-  var dur = schedule.duration || 60;
-  var plat = PLAT_NAMES[schedule.platform] || schedule.platform || '';
-  var days = formatWorkDays(schedule.work_days);
-  var start = fmtTimeStr(schedule.start_time) || '';
-  var end = fmtTimeStr(schedule.end_time) || '';
-  var desc = schedule.description || '';
-
-  var text = '📅 ' + title + '\n\n'
-    + '⏱ ' + dur + ' мин · ' + plat + '\n';
-  if (days) text += '📆 ' + days + ', ' + start + '–' + end + '\n';
-  if (desc) text += '📝 ' + desc + '\n';
-  text += '\n👉 Записаться на встречу';
-  return text;
-}
-
-function shareTelegram() {
+async function shareTelegram() {
   var schedId = state._shareScheduleId || _editScheduleId || '';
-  var url = schedId ? getScheduleTelegramUrl(schedId) : state._shareUrl;
   closeSheet('sheet-share');
-  if (!url) return;
+  if (!schedId) return;
 
-  var schedule = (state.schedules || []).find(function(s) { return s.id === schedId; });
-  var text = buildShareText(schedule) || '📅 Запишись ко мне';
+  var link = getScheduleTelegramUrl(schedId);
+
+  var resp = await apiFetch('GET', '/api/schedules/' + schedId + '/share');
+  if (resp.data) link = resp.data.direct_link;
+
+  /* t.me/share/url не поддерживает Markdown/HTML в text,
+     ссылка уже в параметре url — текст БЕЗ дублирования URL */
+  var browserLink = resp.data ? resp.data.browser_link : (location.origin + '?schedule_id=' + schedId);
+  var text = 'Вот мои свободные слоты — выбирайте удобное время!\nДо встречи! 🙌\n\nИли откройте в браузере:\n' + browserLink;
 
   var shareUrl = 'https://t.me/share/url'
-    + '?url=' + encodeURIComponent(url)
+    + '?url=' + encodeURIComponent(link)
     + '&text=' + encodeURIComponent(text);
 
   if (tg?.openTelegramLink) {
@@ -587,14 +574,19 @@ function shareTelegram() {
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
-function copyShareLink() {
-  if (state._shareUrl) copyText(state._shareUrl);
+async function copyShareLink() {
+  var schedId = state._shareScheduleId || _editScheduleId || '';
   closeSheet('sheet-share');
+  if (!schedId) return;
+
+  var resp = await apiFetch('GET', '/api/schedules/' + schedId + '/share');
+  var url = resp.data ? resp.data.direct_link : getScheduleTelegramUrl(schedId);
+  copyText(url);
   showToast('Ссылка скопирована');
 }
 
 function copyScheduleLink(id) {
-  var url = getScheduleUrl(id || _editScheduleId);
+  var url = getScheduleTelegramUrl(id || _editScheduleId);
   copyText(url);
   showToast('Ссылка скопирована');
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');

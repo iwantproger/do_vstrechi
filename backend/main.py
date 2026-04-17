@@ -115,6 +115,9 @@ class StructlogMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(StructlogMiddleware)
 
+from middleware import RLSMiddleware
+app.add_middleware(RLSMiddleware)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -169,12 +172,16 @@ async def health(conn: asyncpg.Connection = Depends(db)):
         size = pool.get_size()
         free = pool.get_idle_size()
         used = size - free
-        if free == 0:
-            log.warning("db_pool_exhausted", size=size, used=used)
+        max_size = pool.get_max_size()
+        # Only warn when the pool is actually under pressure: ≥80% of max
+        # capacity used AND no idle connections available. A short-lived
+        # free=0 on a small pool is normal during bursts.
+        if used >= max_size * 0.8 and free == 0:
+            log.warning("db_pool_near_exhaustion", size=size, used=used, max=max_size)
         return {
             "status": "healthy",
             "database": "connected",
-            "pool": {"size": size, "free": free, "used": used},
+            "pool": {"size": size, "free": free, "used": used, "max": max_size},
         }
     except Exception as e:
         log.error("health_check_failed", error=str(e))
