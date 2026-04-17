@@ -45,7 +45,19 @@ async function loadDashboard() {
     api('GET', '/api/admin/analytics/organizer-stats'),
     api('GET', '/api/admin/analytics/registrations-trend?days=30'),
     api('GET', '/api/admin/analytics/time-to-value'),
+    api('GET', '/api/admin/system/info'),
   ]);
+
+  // Show prod launch date in stats note
+  var sysInfo = results[5] && results[5].status === 'fulfilled' ? results[5].value : null;
+  if (sysInfo && sysInfo.prod_launch_date) {
+    var noteEl = document.getElementById('stats-note');
+    if (noteEl) {
+      var parts = sysInfo.prod_launch_date.split('-');
+      var formatted = parts[2] + '.' + parts[1] + '.' + parts[0];
+      noteEl.textContent = 'Статистика без учёта аккаунта владельца \u00B7 с ' + formatted;
+    }
+  }
 
   var val = function(i) { return results[i].status === 'fulfilled' ? results[i].value : null; };
 

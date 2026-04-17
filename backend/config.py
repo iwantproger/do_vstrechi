@@ -44,6 +44,19 @@ if MINI_APP_URL and MINI_APP_URL not in CORS_ORIGINS:
 APP_START_TIME = _time.time()
 APP_VERSION = "1.2.0"
 
+# Prod launch date — analytics only counts data from this date
+PROD_LAUNCH_DATE = os.environ.get("PROD_LAUNCH_DATE", "")
+
+from datetime import datetime as _dt, timezone as _tz
+def get_prod_cutoff():
+    """Return prod cutoff datetime for SQL. If not set, returns epoch (no filtering)."""
+    if PROD_LAUNCH_DATE:
+        try:
+            return _dt.strptime(PROD_LAUNCH_DATE, "%Y-%m-%d").replace(tzinfo=_tz.utc)
+        except ValueError:
+            pass
+    return _dt(2000, 1, 1, tzinfo=_tz.utc)
+
 # Pre-compute owner anonymous_id for filtering in admin dashboards
 import hashlib as _hashlib
 OWNER_ANONYMOUS_ID: str | None = (

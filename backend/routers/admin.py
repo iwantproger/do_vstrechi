@@ -16,7 +16,7 @@ from auth import (
 )
 from schemas import TelegramLoginData, TaskCreate, TaskUpdate, TaskReorder, AppEvent, CleanupRequest
 from utils import row_to_dict, rows_to_list
-from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, OWNER_ANONYMOUS_ID
+from config import CORS_ORIGINS, APP_VERSION, APP_START_TIME, ADMIN_TELEGRAM_ID, OWNER_ANONYMOUS_ID, PROD_LAUNCH_DATE, get_prod_cutoff
 
 import sys
 import time as _time
@@ -157,24 +157,28 @@ async def admin_dashboard_summary(
     await log_admin_action("view_dashboard", client_ip, {"path": "/api/admin/dashboard/summary"}, conn)
 
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     row = await conn.fetchrow("""
         SELECT
-            (SELECT COUNT(*) FROM users WHERE telegram_id != $1) AS total_users,
+            (SELECT COUNT(*) FROM users WHERE telegram_id != $1 AND created_at >= $2) AS total_users,
             (SELECT COUNT(DISTINCT s.user_id) FROM schedules s
              JOIN bookings b ON b.schedule_id = s.id
              JOIN users u ON u.id = s.user_id
              WHERE b.created_at > NOW() - INTERVAL '7 days'
-             AND u.telegram_id != $1) AS active_users_7d,
+             AND u.telegram_id != $1
+             AND u.created_at >= $2) AS active_users_7d,
             (SELECT COUNT(*) FROM bookings b
              JOIN schedules s ON s.id = b.schedule_id
              JOIN users u ON u.id = s.user_id
              WHERE u.telegram_id != $1
+             AND u.created_at >= $2
              AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS total_bookings,
             (SELECT COUNT(*) FROM bookings b
              JOIN schedules s ON s.id = b.schedule_id
              JOIN users u ON u.id = s.user_id
              WHERE DATE(b.scheduled_time) = CURRENT_DATE
              AND u.telegram_id != $1
+             AND u.created_at >= $2
              AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS bookings_today,
             (SELECT COUNT(*) FROM app_events
              WHERE severity IN ('error', 'critical')
@@ -184,8 +188,9 @@ async def admin_dashboard_summary(
              JOIN users u ON u.id = s.user_id
              WHERE b.status = 'pending'
              AND u.telegram_id != $1
+             AND u.created_at >= $2
              AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS pending_bookings
-    """, owner_id)
+    """, owner_id, cutoff)
     return row_to_dict(row)
 
 
@@ -197,19 +202,21 @@ async def admin_bookings_trend(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     rows = await conn.fetch(
         """
         SELECT DATE(b.scheduled_time) AS date, COUNT(*) AS count
         FROM bookings b
         JOIN schedules s ON s.id = b.schedule_id
         JOIN users u ON u.id = s.user_id
-        WHERE b.scheduled_time >= NOW() - ($1 || ' days')::interval
+        WHERE b.scheduled_time >= NOW() - INTERVAL '1 day' * $1
         AND u.telegram_id != $2
+        AND u.created_at >= $3
         AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $2)
         GROUP BY DATE(b.scheduled_time)
         ORDER BY date
         """,
-        str(days), owner_id,
+        days, owner_id, cutoff,
     )
     return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
 
@@ -220,14 +227,16 @@ async def admin_platforms(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     rows = await conn.fetch(
         """
         SELECT s.platform, COUNT(*) AS count FROM schedules s
         JOIN users u ON u.id = s.user_id
         WHERE s.is_active = TRUE AND u.telegram_id != $1
+        AND s.created_at >= $2
         GROUP BY s.platform
         """,
-        owner_id,
+        owner_id, cutoff,
     )
     return rows_to_list(rows)
 
@@ -542,25 +551,27 @@ async def admin_system_info(
 ):
     pool = await get_pool()
     owner_id = ADMIN_TELEGRAM_ID or 0
-    # Single SQL with CTE filtering non-owner users once, reused by subqueries.
+    cutoff = get_prod_cutoff()
     counts = await conn.fetchrow("""
         WITH non_owner_users AS (
-            SELECT id FROM users WHERE telegram_id != $1
+            SELECT id FROM users WHERE telegram_id != $1 AND created_at >= $2
         )
         SELECT
             (SELECT COUNT(*) FROM non_owner_users) AS users,
             (SELECT COUNT(*) FROM schedules s
              WHERE s.is_active = TRUE
+               AND s.created_at >= $2
                AND s.user_id IN (SELECT id FROM non_owner_users)) AS schedules_active,
             (SELECT COUNT(*) FROM bookings b
              WHERE b.schedule_id IN (
                  SELECT s.id FROM schedules s
                  WHERE s.user_id IN (SELECT id FROM non_owner_users)
              )
+             AND b.created_at >= $2
              AND (b.guest_telegram_id IS NULL OR b.guest_telegram_id != $1)) AS bookings_total,
             (SELECT COUNT(*) FROM app_events) AS events_total,
             (SELECT COUNT(*) FROM admin_tasks) AS tasks_total
-    """, owner_id)
+    """, owner_id, cutoff)
     # Static information_schema lookup — cache 5 min to avoid per-request pg_catalog scan.
     tables_count = _cache_get("tables_count")
     if tables_count is None:
@@ -572,6 +583,7 @@ async def admin_system_info(
         "version": APP_VERSION,
         "python_version": sys.version.split()[0],
         "uptime_seconds": int(_time.time() - APP_START_TIME),
+        "prod_launch_date": PROD_LAUNCH_DATE or None,
         "database": {
             "pool_size": pool.get_size(),
             "pool_free": pool.get_idle_size(),
@@ -653,19 +665,20 @@ async def analytics_funnel(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     row = await conn.fetchrow("""
         SELECT
-          (SELECT COUNT(*) FROM users WHERE telegram_id != $1) AS registered,
+          (SELECT COUNT(*) FROM users WHERE telegram_id != $1 AND created_at >= $2) AS registered,
           (SELECT COUNT(DISTINCT u.id) FROM users u
            JOIN schedules s ON s.user_id = u.id
-           WHERE u.telegram_id != $1
+           WHERE u.telegram_id != $1 AND u.created_at >= $2
              AND s.is_default = FALSE) AS created_schedule,
           (SELECT COUNT(DISTINCT u.id) FROM users u
            JOIN schedules s ON s.user_id = u.id
            JOIN bookings b ON b.schedule_id = s.id
-           WHERE u.telegram_id != $1
+           WHERE u.telegram_id != $1 AND u.created_at >= $2
              AND b.status != 'cancelled') AS received_booking
-    """, owner_id)
+    """, owner_id, cutoff)
     registered = row["registered"]
     steps = [
         {"name": "Регистрация", "count": registered, "percent": 100},
@@ -687,11 +700,12 @@ async def analytics_retention(
 ):
     days = _RETENTION_INTERVALS.get(period, 7)
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
 
     rows = await conn.fetch("""
         WITH cohort AS (
           SELECT id, telegram_id, DATE(created_at) AS reg_date
-          FROM users WHERE telegram_id != $1
+          FROM users WHERE telegram_id != $1 AND created_at >= $3
         ),
         activity AS (
           SELECT DISTINCT c.id AS user_id, DATE(s.created_at) AS activity_date
@@ -704,14 +718,14 @@ async def analytics_retention(
         SELECT
           c.reg_date,
           COUNT(DISTINCT c.id) AS cohort_size,
-          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + make_interval(days => $2::integer) THEN c.id END) AS retained
+          COUNT(DISTINCT CASE WHEN a.activity_date >= c.reg_date + make_interval(days => $2) THEN c.id END) AS retained
         FROM cohort c
         LEFT JOIN activity a ON a.user_id = c.id
         GROUP BY c.reg_date
         HAVING COUNT(DISTINCT c.id) >= 1
         ORDER BY c.reg_date DESC
         LIMIT 30
-    """, owner_id, days)
+    """, owner_id, days, cutoff)
 
     cohorts = []
     total_size = 0
@@ -741,6 +755,7 @@ async def analytics_organizer_stats(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     rows = await conn.fetch("""
         SELECT
           u.id,
@@ -753,11 +768,11 @@ async def analytics_organizer_stats(
         FROM users u
         LEFT JOIN schedules s ON s.user_id = u.id
         LEFT JOIN bookings b ON b.schedule_id = s.id
-        WHERE u.telegram_id != $1
+        WHERE u.telegram_id != $1 AND u.created_at >= $2
         GROUP BY u.id, u.first_name, u.last_name, u.username
         ORDER BY bookings_count DESC
         LIMIT 20
-    """, owner_id)
+    """, owner_id, cutoff)
 
     organizers = []
     total_schedules = 0
@@ -793,14 +808,16 @@ async def analytics_registrations_trend(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     rows = await conn.fetch("""
         SELECT DATE(created_at) AS date, COUNT(*) AS count
         FROM users
         WHERE telegram_id != $1
+          AND created_at >= $3
           AND created_at >= NOW() - INTERVAL '1 day' * $2
         GROUP BY DATE(created_at)
         ORDER BY date
-    """, owner_id, days)
+    """, owner_id, days, cutoff)
     return [{"date": str(r["date"]), "count": r["count"]} for r in rows]
 
 
@@ -810,6 +827,7 @@ async def analytics_time_to_value(
     conn: asyncpg.Connection = Depends(db),
 ):
     owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
     rows = await conn.fetch("""
         SELECT
           u.id,
@@ -817,15 +835,15 @@ async def analytics_time_to_value(
         FROM users u
         JOIN schedules s ON s.user_id = u.id
         JOIN bookings b ON b.schedule_id = s.id AND b.status != 'cancelled'
-        WHERE u.telegram_id != $1
+        WHERE u.telegram_id != $1 AND u.created_at >= $2
         GROUP BY u.id, u.created_at
-    """, owner_id)
+    """, owner_id, cutoff)
 
     hours_list = [float(r["hours_to_value"]) for r in rows if r["hours_to_value"] is not None]
     users_with = len(hours_list)
 
     total_users = await conn.fetchval(
-        "SELECT COUNT(*) FROM users WHERE telegram_id != $1", owner_id
+        "SELECT COUNT(*) FROM users WHERE telegram_id != $1 AND created_at >= $2", owner_id, cutoff
     )
     users_without = total_users - users_with
 

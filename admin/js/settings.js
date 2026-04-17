@@ -35,6 +35,7 @@ function renderSystemInfo(info) {
   setText('si-tables', info.database?.tables_count ?? '—');
   setText('si-events', (info.counts?.events_total || 0).toLocaleString('ru-RU'));
 
+  setText('si-launch-date', info.prod_launch_date || 'не задана');
   setText('si-ip-allowlist', info.environment?.admin_ip_allowlist || 'не задан');
   setText('si-cors', (info.environment?.cors_origins || []).join(', '));
   setText('si-rate-limits', info.environment?.rate_limits || '—');
