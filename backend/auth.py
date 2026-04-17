@@ -198,6 +198,22 @@ async def get_admin_user(request: Request, conn=Depends(db)):
     return session
 
 
+async def get_admin_or_internal(request: Request, conn=Depends(db)) -> dict:
+    """Accept either admin cookie (web panel) or X-Internal-Key (bot).
+    For internal key: telegram_id from query params must be in ADMIN_TELEGRAM_IDS.
+    """
+    internal_key = request.headers.get("X-Internal-Key")
+    if internal_key and INTERNAL_API_KEY and hmac.compare_digest(internal_key, INTERNAL_API_KEY):
+        tid_str = request.query_params.get("telegram_id")
+        if tid_str:
+            tid = int(tid_str)
+            if tid in ADMIN_TELEGRAM_IDS:
+                return {"telegram_id": tid, "via": "internal_key"}
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+    return await get_admin_user(request, conn)
+
+
 async def log_admin_action(action: str, ip: str, details: dict | None, conn):
     """Insert into admin_audit_log."""
     await conn.execute(

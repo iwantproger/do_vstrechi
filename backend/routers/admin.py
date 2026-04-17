@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from database import db, get_pool
 from auth import (
-    get_admin_user, get_optional_user,
+    get_admin_user, get_admin_or_internal, get_optional_user,
     verify_telegram_login, create_admin_session, log_admin_action,
     _check_login_rate_limit, _record_login_attempt, _session_checked,
     ADMIN_SESSION_TTL_HOURS, ADMIN_IP_ALLOWLIST,
@@ -897,14 +897,14 @@ async def receive_event(
 # ── Admin management ───────────────────────────────────
 
 @router.get("/api/admin/admins")
-async def list_admins(session: dict = Depends(get_admin_user)):
+async def list_admins(session: dict = Depends(get_admin_or_internal)):
     return {"owner_id": ADMIN_OWNER_ID, "admin_ids": sorted(ADMIN_TELEGRAM_IDS)}
 
 
 @router.post("/api/admin/admins")
 async def add_admin(
     request: Request,
-    session: dict = Depends(get_admin_user),
+    session: dict = Depends(get_admin_or_internal),
     conn: asyncpg.Connection = Depends(db),
 ):
     if session["telegram_id"] != ADMIN_OWNER_ID:
@@ -923,7 +923,7 @@ async def add_admin(
 async def remove_admin(
     telegram_id: int,
     request: Request,
-    session: dict = Depends(get_admin_user),
+    session: dict = Depends(get_admin_or_internal),
     conn: asyncpg.Connection = Depends(db),
 ):
     if session["telegram_id"] != ADMIN_OWNER_ID:
@@ -944,7 +944,7 @@ async def remove_admin(
 @router.post("/api/admin/reset-user")
 async def reset_user_data(
     request: Request,
-    session: dict = Depends(get_admin_user),
+    session: dict = Depends(get_admin_or_internal),
     conn: asyncpg.Connection = Depends(db),
 ):
     """Full reset of admin's own data — for testing onboarding from scratch."""

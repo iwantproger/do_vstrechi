@@ -100,7 +100,7 @@ async def cb_admin_do_remove(cb: CallbackQuery):
         return
 
     tid = int(cb.data.replace("admin_rm_", ""))
-    result = await api("delete", f"/api/admin/admins/{tid}")
+    result = await api("delete", f"/api/admin/admins/{tid}?telegram_id={cb.from_user.id}")
 
     if result and result.get("status") == "ok":
         ADMIN_TELEGRAM_IDS.discard(tid)
@@ -144,7 +144,7 @@ async def fsm_admin_id(msg: Message, state: FSMContext):
         )
         return
 
-    result = await api("post", "/api/admin/admins", json={"telegram_id": new_id})
+    result = await api("post", f"/api/admin/admins?telegram_id={msg.from_user.id}", json={"telegram_id": new_id})
 
     if result and result.get("status") == "ok":
         ADMIN_TELEGRAM_IDS.add(new_id)
