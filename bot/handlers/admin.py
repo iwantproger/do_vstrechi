@@ -156,9 +156,9 @@ async def fsm_admin_id(msg: Message, state: FSMContext):
         )
     else:
         ADMIN_TELEGRAM_IDS.add(new_id)
-        debug = await api("get", f"/api/admin/debug-auth?telegram_id={msg.from_user.id}")
         await msg.answer(
-            f"Добавлен локально.\n<code>{debug}</code>",
+            f"✅ Админ <code>{new_id}</code> добавлен (локально).\n"
+            "Backend API недоступен — при рестарте нужно добавить повторно.",
             parse_mode=ParseMode.HTML,
         )
 
@@ -232,22 +232,9 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
     if target_id:
         json_body["target_telegram_id"] = target_id
 
-    # Use raw aiohttp to capture error details
-    import aiohttp
-    from api import get_session
-    session_http = await get_session()
-    path = f"/api/admin/reset-user?telegram_id={cb.from_user.id}"
-    try:
-        async with session_http.request("POST", path, json=json_body) as r:
-            status = r.status
-            body = await r.text()
-    except Exception as e:
-        status = 0
-        body = str(e)
+    result = await api("post", f"/api/admin/reset-user?telegram_id={cb.from_user.id}", json=json_body)
 
-    if status in (200, 201):
-        import json
-        result = json.loads(body)
+    if result and result.get("status") == "ok":
         deleted = result.get("deleted", {})
         await cb.message.edit_text(
             "✅ <b>Данные сброшены!</b>\n\n"
@@ -260,7 +247,6 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
         )
     else:
         await cb.message.edit_text(
-            f"❌ HTTP {status}:\n<code>{body[:500]}</code>",
-            parse_mode=ParseMode.HTML,
+            "❌ Ошибка сброса. Попробуйте позже или проверьте логи backend.",
         )
     await cb.answer()
