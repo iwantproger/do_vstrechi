@@ -232,9 +232,22 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
     if target_id:
         json_body["target_telegram_id"] = target_id
 
-    result = await api("post", f"/api/admin/reset-user?telegram_id={cb.from_user.id}", json=json_body)
+    # Use raw aiohttp to capture error details
+    import aiohttp
+    from api import get_session
+    session_http = await get_session()
+    path = f"/api/admin/reset-user?telegram_id={cb.from_user.id}"
+    try:
+        async with session_http.request("POST", path, json=json_body) as r:
+            status = r.status
+            body = await r.text()
+    except Exception as e:
+        status = 0
+        body = str(e)
 
-    if result and result.get("status") == "ok":
+    if status in (200, 201):
+        import json
+        result = json.loads(body)
         deleted = result.get("deleted", {})
         await cb.message.edit_text(
             "✅ <b>Данные сброшены!</b>\n\n"
@@ -246,12 +259,8 @@ async def cb_reset_confirm(cb: CallbackQuery, state: FSMContext):
             parse_mode=ParseMode.HTML,
         )
     else:
-        debug = await api("get", f"/api/admin/debug-auth?telegram_id={cb.from_user.id}")
-        from config import INTERNAL_API_KEY as _BOT_KEY
         await cb.message.edit_text(
-            f"❌ Ошибка сброса.\n"
-            f"debug: <code>{debug}</code>\n"
-            f"bot_key_len: <code>{len(_BOT_KEY)}</code>",
+            f"❌ HTTP {status}:\n<code>{body[:500]}</code>",
             parse_mode=ParseMode.HTML,
         )
     await cb.answer()

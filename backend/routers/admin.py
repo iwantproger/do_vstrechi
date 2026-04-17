@@ -969,6 +969,16 @@ async def reset_user_data(
     conn: asyncpg.Connection = Depends(db),
 ):
     """Reset user data. Admins reset own data; owner can reset any user via target_id body param."""
+    try:
+        return await _do_reset(request, session, conn)
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("reset_user_error", error=str(e), exc_info=True)
+        raise HTTPException(500, f"Reset failed: {type(e).__name__}: {e}")
+
+
+async def _do_reset(request: Request, session: dict, conn):
     telegram_id = session["telegram_id"]
 
     # Owner can reset another user
@@ -986,7 +996,7 @@ async def reset_user_data(
         "SELECT id FROM users WHERE telegram_id = $1", telegram_id
     )
     if not user:
-        raise HTTPException(404, "User not found")
+        raise HTTPException(404, f"User {telegram_id} not found in DB")
     user_id = user["id"]
 
     # Sent reminders for this user's bookings
