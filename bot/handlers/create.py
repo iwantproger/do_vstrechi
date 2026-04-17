@@ -1,13 +1,14 @@
-"""FSM flow: создание расписания (title → duration → buffer → work_days → start_time → end_time → platform)."""
+"""FSM flow: ��оздание расписания (title → duration → buffer → work_days → start_time → end_time → platform)."""
 import logging
 from datetime import datetime
+from urllib.parse import quote
 
 from aiogram import Router, F
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message, CallbackQuery,
-    InlineKeyboardMarkup, InlineKeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
 )
 
 from api import api
@@ -26,6 +27,20 @@ async def cb_create_schedule(cb: CallbackQuery, state: FSMContext):
     await state.set_state(CreateSchedule.title)
     await cb.message.edit_text(
         "➕ <b>Создание нового расписания</b>\n\n"
+        "Шаг 1/5: Введи название расписания.\n"
+        "Например: <i>Консультация по маркетингу</i>",
+        parse_mode=ParseMode.HTML,
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "create_schedule_chat")
+async def cb_create_schedule_chat(cb: CallbackQuery, state: FSMContext):
+    """Fallback: создание расписания в чате, если Mini App недоступен."""
+    await state.clear()
+    await state.set_state(CreateSchedule.title)
+    await cb.message.edit_text(
+        "➕ <b>Создание расписания в чате</b>\n\n"
         "Шаг 1/5: Введи название расписания.\n"
         "Например: <i>Консультация по маркетингу</i>",
         parse_mode=ParseMode.HTML,
@@ -137,19 +152,35 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
     result = await api("post", f"/api/schedules?telegram_id={telegram_id}", json=data)
 
     if result:
-        days_str    = ", ".join(DAYS_RU[d] for d in sorted(data.get("work_days", [])))
-        booking_url = f"{MINI_APP_URL}?schedule_id={result['id']}"
+        sid = str(result["id"])
+        days_str = ", ".join(DAYS_RU[d] for d in sorted(data.get("work_days", [])))
+        buffer_time = data.get("buffer_time", 0)
+        booking_url = f"https://t.me/do_vstrechi_bot/app?startapp={sid}"
+        share_text = f"Запишись на встречу: {data['title']}"
+        tg_share = f"https://t.me/share/url?url={quote(booking_url)}&text={quote(share_text)}"
+
         await cb.message.edit_text(
             f"🎉 <b>Расписание создано!</b>\n\n"
             f"📅 {data['title']}\n"
-            f"⏱ {data['duration']} мин\n"
+            f"⏱ {data['duration']} мин · перерыв {buffer_time} мин\n"
             f"📆 {days_str}\n"
             f"🕐 {data['start_time']} — {data['end_time']}\n\n"
-            f"🔗 <b>Ссылка для клиентов:</b>\n"
-            f"<code>{booking_url}</code>",
+            f"🔗 <b>Ваша ссылка на бронирование:</b>\n"
+            f"<code>{booking_url}</code>\n\n"
+            "💡 Также можно использовать inline-режим: в любом чате введите @do_vstrechi_bot",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")]
+                [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
+                [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
+                [InlineKeyboardButton(
+                    text="🌐 Открыть в приложении",
+                    web_app=WebAppInfo(url=f"{MINI_APP_URL}?schedule_id={sid}"),
+                )],
+                [InlineKeyboardButton(
+                    text="👁 Как видят клиенты",
+                    web_app=WebAppInfo(url=f"{MINI_APP_URL}?schedule_id={sid}"),
+                )],
+                [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")],
             ]),
         )
     else:

@@ -94,7 +94,8 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
             "Без сайтов, без регистрации — всё внутри Telegram."
         )
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Создать своё расписание", callback_data="create_schedule")],
+            [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
 
@@ -131,7 +132,8 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
                 [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
                 [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
                 [InlineKeyboardButton(text="✏️ Редактировать", web_app=WebAppInfo(url=f"{MINI_APP_URL}?edit={sid}"))],
-                [InlineKeyboardButton(text="➕ Создать своё расписание", callback_data="create_schedule")],
+                [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+                [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
             ])
             await msg.answer(schedule_text, parse_mode=ParseMode.HTML, reply_markup=schedule_kb)
 
@@ -144,7 +146,8 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
-            [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
     else:
@@ -156,7 +159,8 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="🔗 Мои расписания", callback_data="my_schedules")],
-            [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
+            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
 
@@ -178,8 +182,7 @@ async def cb_how_it_works(cb: CallbackQuery):
         "Готов попробовать?"
     )
     inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")],
-        [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
+        [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
     ])
     await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
     await cb.answer()
@@ -364,7 +367,7 @@ async def reply_schedules(msg: Message):
             "📅 <b>Расписания</b>\n\nУ вас пока нет расписаний.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule"),
+                InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL)),
             ]]),
         )
         return
@@ -378,7 +381,7 @@ async def reply_schedules(msg: Message):
             text=f"⚙️ {s['title']}",
             callback_data=f"schedule_{s['id']}",
         )])
-    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", callback_data="create_schedule")])
+    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))])
 
     await msg.answer(text, parse_mode=ParseMode.HTML,
                      reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))
