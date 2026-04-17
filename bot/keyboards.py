@@ -23,7 +23,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
 kb_main = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
     [InlineKeyboardButton(text="📅 Мои расписания",   callback_data="my_schedules")],
-    [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+    [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
     [InlineKeyboardButton(text="📋 Мои встречи",      callback_data="my_bookings")],
     [InlineKeyboardButton(text="📊 Статистика",       callback_data="stats")],
 ])

@@ -94,7 +94,7 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
             "Без сайтов, без регистрации — всё внутри Telegram."
         )
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="➕ Создать своё расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
@@ -131,8 +131,8 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
             schedule_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="📤 Поделиться в Telegram", url=tg_share)],
                 [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
-                [InlineKeyboardButton(text="✏️ Редактировать", web_app=WebAppInfo(url=f"{MINI_APP_URL}?edit={sid}"))],
-                [InlineKeyboardButton(text="➕ Создать своё расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+                [InlineKeyboardButton(text="✏️ Редактировать", url=f"https://t.me/do_vstrechi_bot/app?startapp=edit_{sid}")],
+                [InlineKeyboardButton(text="➕ Создать своё расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
                 [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
             ])
             await msg.answer(schedule_text, parse_mode=ParseMode.HTML, reply_markup=schedule_kb)
@@ -146,7 +146,7 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="📋 Мои встречи", callback_data="my_bookings")],
-            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
@@ -159,7 +159,7 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
         inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL))],
             [InlineKeyboardButton(text="🔗 Мои расписания", callback_data="my_schedules")],
-            [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
             [InlineKeyboardButton(text="💬 Создать в чате", callback_data="create_schedule_chat")],
         ])
         await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
@@ -182,7 +182,7 @@ async def cb_how_it_works(cb: CallbackQuery):
         "Готов попробовать?"
     )
     inline_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))],
+        [InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
     ])
     await cb.message.answer(text, parse_mode=ParseMode.HTML, reply_markup=inline_kb)
     await cb.answer()
@@ -192,13 +192,10 @@ async def cb_how_it_works(cb: CallbackQuery):
 async def cb_copy_link(cb: CallbackQuery):
     schedule_id = cb.data.replace("copy_link_", "", 1)
     link = f"https://t.me/do_vstrechi_bot/app?startapp={schedule_id}"
-    await cb.message.answer(
-        f"🔗 <b>Ваша ссылка на бронирование:</b>\n\n"
-        f"<code>{link}</code>\n\n"
-        "Нажмите на ссылку, чтобы скопировать.",
-        parse_mode=ParseMode.HTML,
+    await cb.answer(
+        f"Ссылка на бронирование:\n{link}\n\nДолгое нажатие на ссылку — скопировать",
+        show_alert=True,
     )
-    await cb.answer()
 
 
 @router.message(Command("help"))
@@ -367,7 +364,7 @@ async def reply_schedules(msg: Message):
             "📅 <b>Расписания</b>\n\nУ вас пока нет расписаний.",
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL)),
+                InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create"),
             ]]),
         )
         return
@@ -381,7 +378,7 @@ async def reply_schedules(msg: Message):
             text=f"⚙️ {s['title']}",
             callback_data=f"schedule_{s['id']}",
         )])
-    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", web_app=WebAppInfo(url=MINI_APP_URL))])
+    kb_rows.append([InlineKeyboardButton(text="➕ Создать расписание", url="https://t.me/do_vstrechi_bot/app?startapp=create")])
 
     await msg.answer(text, parse_mode=ParseMode.HTML,
                      reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows))

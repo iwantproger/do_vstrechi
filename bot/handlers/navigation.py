@@ -34,7 +34,7 @@ async def cb_my_schedules(cb: CallbackQuery):
         await cb.message.edit_text(
             "У тебя пока нет активных расписаний.\n\nСоздай первое!",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="➕ Создать", web_app=WebAppInfo(url=MINI_APP_URL))],
+                [InlineKeyboardButton(text="➕ Создать", url="https://t.me/do_vstrechi_bot/app?startapp=create")],
                 [InlineKeyboardButton(text="« Назад",   callback_data="main_menu")],
             ])
         )
@@ -48,7 +48,7 @@ async def cb_my_schedules(cb: CallbackQuery):
         )]
         for s in schedules
     ]
-    buttons.append([InlineKeyboardButton(text="➕ Создать новое", web_app=WebAppInfo(url=MINI_APP_URL))])
+    buttons.append([InlineKeyboardButton(text="➕ Создать новое", url="https://t.me/do_vstrechi_bot/app?startapp=create")])
     buttons.append([InlineKeyboardButton(text="« Назад",         callback_data="main_menu")])
 
     await cb.message.edit_text(

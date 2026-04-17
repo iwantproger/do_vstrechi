@@ -230,11 +230,11 @@ async def fsm_platform(cb: CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="📋 Скопировать ссылку", callback_data=f"copy_link_{sid}")],
                 [InlineKeyboardButton(
                     text="🌐 Открыть в приложении",
-                    web_app=WebAppInfo(url=f"{MINI_APP_URL}?schedule_id={sid}"),
+                    url=f"https://t.me/do_vstrechi_bot/app?startapp=view_{sid}",
                 )],
                 [InlineKeyboardButton(
-                    text="👁 Как видят клиенты",
-                    web_app=WebAppInfo(url=f"{MINI_APP_URL}?schedule_id={sid}"),
+                    text="👁 Как видят другие",
+                    url=f"https://t.me/do_vstrechi_bot/app?startapp={sid}",
                 )],
                 [InlineKeyboardButton(text="🔍 Проверить inline-режим", callback_data="check_inline")],
                 [InlineKeyboardButton(text="« Главное меню", callback_data="main_menu")],
