@@ -122,10 +122,11 @@ async def update_notification_settings(
     # Merge только переданных полей
     patch = data.model_dump(exclude_none=True)
     merged.update(patch)
-    await conn.execute(
+    result = await conn.execute(
         "UPDATE users SET reminder_settings = $1::jsonb WHERE telegram_id = $2",
         json.dumps(merged), telegram_id,
     )
+    log.info("notification_settings_updated", telegram_id=telegram_id, rows=result, patch=patch)
     return merged
 
 
