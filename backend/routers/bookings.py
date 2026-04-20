@@ -1,4 +1,5 @@
 """Роуты бронирований и напоминаний."""
+import json
 import uuid
 import asyncio
 import asyncpg
@@ -7,6 +8,15 @@ from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import available_timezones
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+
+def _jsonb(val) -> dict:
+    """asyncpg может вернуть JSONB как str в контексте RLS-транзакции."""
+    if val is None:
+        return {}
+    if isinstance(val, str):
+        return json.loads(val)
+    return dict(val)
 
 from database import db
 from auth import get_current_user, get_optional_user, get_internal_caller
@@ -81,7 +91,7 @@ async def create_booking(
         "SELECT telegram_id, timezone, reminder_settings FROM users WHERE id = $1", schedule["user_id"]
     )
     # Определяем booking_notif для организатора и гостя
-    org_settings = organizer["reminder_settings"] if organizer else {}
+    org_settings = _jsonb(organizer["reminder_settings"]) if organizer else {}
     org_booking_notif = org_settings.get("booking_notif", True) if org_settings else True
     guest_booking_notif = True
     guest_row = None
@@ -90,7 +100,7 @@ async def create_booking(
             "SELECT reminder_settings FROM users WHERE telegram_id = $1", guest_telegram_id
         )
         if guest_row and guest_row["reminder_settings"]:
-            guest_booking_notif = guest_row["reminder_settings"].get("booking_notif", True)
+            guest_booking_notif = _jsonb(guest_row["reminder_settings"]).get("booking_notif", True)
     if organizer and organizer["telegram_id"]:
         asyncio.create_task(_notify_bot_new_booking(
             booking_id=str(result["id"]),
@@ -122,7 +132,7 @@ async def create_booking(
                 _late_recipients.append(("org", organizer["telegram_id"], missed_org, organizer.get("timezone") or "UTC"))
     # Гость
     if guest_telegram_id:
-        guest_settings = (guest_row["reminder_settings"] or {}) if guest_row else {}
+        guest_settings = _jsonb(guest_row["reminder_settings"]) if guest_row else {}
         guest_reminders = guest_settings.get("reminders", ["1440", "60", "5"]) if guest_settings else ["1440", "60", "5"]
         guest_reminder_notif = guest_settings.get("reminder_notif", True) if guest_settings else True
         if guest_reminder_notif:
