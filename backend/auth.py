@@ -100,6 +100,19 @@ async def get_optional_user(request: Request) -> dict | None:
     return validate_init_data(init_data, BOT_TOKEN)
 
 
+async def get_internal_caller(request: Request) -> None:
+    """FastAPI dependency: проверяет X-Internal-Key для внутренних эндпоинтов (бот → backend).
+
+    Используется на эндпоинтах, которые должны вызываться только ботом:
+    pending-reminders-v2, sent-reminders, confirmation-requests и т.д.
+    """
+    internal_key = request.headers.get("X-Internal-Key")
+    if not internal_key or not hmac.compare_digest(internal_key, INTERNAL_API_KEY):
+        client_ip = request.headers.get("X-Real-IP", request.client.host if request.client else "unknown")
+        log.warning("unauthorized_internal_call", path=request.url.path, client_ip=client_ip)
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 # ─────────────────────────────────────────────────────────
 # Admin authentication (Telegram Login Widget)
 # ─────────────────────────────────────────────────────────

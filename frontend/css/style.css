@@ -200,6 +200,7 @@ body{font-family:var(--font);color:var(--t1)}
 .mst-noans svg{stroke:#7AAAFF}.mst-noans .mst-label{color:#7AAAFF}
 .mst-cancelled svg{stroke:#F06449;stroke-width:2.5}.mst-cancelled .mst-label{color:#F06449}
 .mst-done svg{stroke:var(--t3)}.mst-done .mst-label{color:var(--t3)}
+.mst-expired svg{stroke:var(--t3)}.mst-expired .mst-label{color:var(--t3)}
 .mst-ongoing{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .mst-ongoing-dot{width:7px;height:7px;border-radius:50%;background:#2DD4A0;flex-shrink:0;animation:pulse-dot 1.5s infinite}
 .mst-ongoing-lbl{font-size:11px;font-weight:700;color:#2DD4A0;line-height:14px}

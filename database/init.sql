@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name                 TEXT,
     timezone                  TEXT NOT NULL DEFAULT 'UTC',
     morning_summary_sent_date DATE,
-    reminder_settings         JSONB NOT NULL DEFAULT '{"reminders":["1440","60"],"customReminders":[]}',
+    reminder_settings         JSONB NOT NULL DEFAULT '{"reminders":["1440","60","5"],"customReminders":[],"booking_notif":true,"reminder_notif":true}',
     created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     guest_telegram_id   BIGINT,
     scheduled_time      TIMESTAMPTZ NOT NULL,
     status              TEXT NOT NULL DEFAULT 'pending'
-                        CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer')),
+                        CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer', 'expired')),
     meeting_link        TEXT,
     notes               TEXT,
     title               TEXT,
@@ -69,14 +69,10 @@ CREATE TABLE IF NOT EXISTS bookings (
     created_by          BIGINT,
     platform            TEXT,
     location_address    TEXT,
-    reminder_24h_sent   BOOLEAN NOT NULL DEFAULT FALSE,
-    reminder_1h_sent    BOOLEAN NOT NULL DEFAULT FALSE,
-    reminder_15m_sent   BOOLEAN NOT NULL DEFAULT FALSE,
-    reminder_5m_sent    BOOLEAN NOT NULL DEFAULT FALSE,
-    morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
     confirmation_asked    BOOLEAN NOT NULL DEFAULT FALSE,
     confirmation_asked_at TIMESTAMPTZ,
     blocks_slots        BOOLEAN NOT NULL DEFAULT TRUE,
+    guest_timezone      TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -90,14 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_bookings_schedule_time_active
     WHERE status <> 'cancelled';
 CREATE INDEX IF NOT EXISTS idx_bookings_scheduled_time_desc
     ON bookings (scheduled_time DESC);
-CREATE INDEX IF NOT EXISTS idx_bookings_reminders_pending
-    ON bookings (scheduled_time)
-    WHERE status <> 'cancelled'
-      AND (reminder_24h_sent = FALSE
-           OR reminder_1h_sent = FALSE
-           OR reminder_15m_sent = FALSE
-           OR reminder_5m_sent = FALSE
-           OR morning_reminder_sent = FALSE);
 
 -- ─────────────────────────────────────────────
 -- Row Level Security — bookings (pilot)

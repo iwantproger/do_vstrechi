@@ -29,12 +29,6 @@ async def cmd_start(msg: Message, state: FSMContext, command: CommandObject):
     args = command.args or ""
     log.info(f"User {user.id} started bot, args={args}")
 
-    # Deep link: notify_BOOKING_ID — настройка уведомлений после бронирования
-    if args.startswith("notify_"):
-        booking_id = args[len("notify_"):]
-        await handle_notify_setup(msg, booking_id)
-        return
-
     # Deep link: calendar_connected — Google Calendar успешно подключён
     if args == "calendar_connected":
         await msg.answer(
@@ -338,6 +332,9 @@ async def reply_meetings(msg: Message):
             InlineKeyboardButton(text="✅ Всё в силе",  callback_data="meetings_confirmed"),
             InlineKeyboardButton(text="❓ Нет ответа",  callback_data="meetings_noans"),
         ],
+        [
+            InlineKeyboardButton(text="🕑 Просрочено",  callback_data="meetings_expired"),
+        ],
     ])
     await msg.answer("📋 <b>Встречи</b>\nВыберите фильтр:", parse_mode=ParseMode.HTML, reply_markup=kb)
 
@@ -366,9 +363,11 @@ async def cb_meetings_filter(cb: CallbackQuery):
     elif filter_type == "confirmed":
         filtered = [b for b in bookings if b["status"] == "confirmed" and (_dt(b) or now) > now]
     elif filter_type == "noans":
-        filtered = [b for b in bookings if b["status"] == "pending" and (_dt(b) or now) < now]
+        filtered = [b for b in bookings if b["status"] == "no_answer"]
+    elif filter_type == "expired":
+        filtered = [b for b in bookings if b["status"] == "expired"]
     else:
-        filtered = [b for b in bookings if b.get("status") not in ("cancelled", "completed")]
+        filtered = [b for b in bookings if b.get("status") not in ("cancelled", "completed", "expired")]
 
     if not filtered:
         await cb.message.edit_text("📭 Нет встреч по этому фильтру")
@@ -472,63 +471,3 @@ async def cb_profile_notifications(cb: CallbackQuery):
         ]]),
     )
     await cb.answer()
-
-
-# ── Deep link: notify setup ────────────────────────────
-
-async def handle_notify_setup(msg: Message, booking_id: str):
-    """Настройка уведомлений после бронирования гостем."""
-    booking = await api("get", f"/api/bookings/{booking_id}")
-
-    if booking and isinstance(booking, dict):
-        title = booking.get("schedule_title", "встречу")
-        scheduled = booking.get("scheduled_time", "")
-        date_str = scheduled[:10] if scheduled else "—"
-        text = (
-            f"🔔 <b>Уведомления включены!</b>\n\n"
-            f"Встреча: <b>{title}</b>\n"
-            f"Дата: {date_str}\n\n"
-            f"Напомним вам:\n"
-            f"• За 24 часа до встречи\n"
-            f"• За 1 час до встречи\n\n"
-            f"Хотите настроить напоминания подробнее?"
-        )
-    else:
-        text = (
-            "🔔 <b>Уведомления включены!</b>\n\n"
-            "Напомним вам:\n"
-            "• За 24 часа до встречи\n"
-            "• За 1 час до встречи\n\n"
-            "Хотите настроить напоминания подробнее?"
-        )
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="📱 Настроить в приложении",
-            web_app=WebAppInfo(url=MINI_APP_URL),
-        )],
-    ])
-
-    await msg.answer(text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-
-
-@router.callback_query(F.data.startswith("remind_"))
-async def cb_remind_setup(callback: CallbackQuery):
-    """Настройка произвольных напоминаний — направляем в Mini App."""
-    await callback.answer(
-        "Настройки напоминаний в приложении",
-        show_alert=False,
-    )
-    try:
-        await callback.message.answer(
-            "🔔 Произвольные тайминги напоминаний настраиваются в приложении.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(
-                    text="📱 Открыть настройки",
-                    web_app=WebAppInfo(url=MINI_APP_URL),
-                )
-            ]]),
-        )
-    except Exception:
-        pass

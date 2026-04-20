@@ -294,6 +294,7 @@ function selectTime(time) {
   var formBlock = document.getElementById('cal-guest-form');
   if (formBlock) {
     formBlock.style.display = 'block';
+    _initGuestTzDisplay();
     checkBrowserAuth('browser-auth-block', 'tg-auth-link');
     /* autofill from Telegram user */
     var u = tg?.initDataUnsafe?.user;
@@ -439,6 +440,7 @@ async function _doSubmitBooking(opts) {
     guest_telegram_id: u ? u.id : null,
     scheduled_time: scheduled_time,
     notes: (notesInp ? notesInp.value : '').trim() || null,
+    guest_timezone: state.guestTimezone || userTimezone || null,
   };
 
   var btn = document.getElementById(opts.btnId);
@@ -587,6 +589,84 @@ function openOrganizerChat(username) {
 }
 
 /* ── Inline booking (progressive disclosure) ── */
+/* ── Timezone picker ── */
+var _tzList = null;
+function _getTzList() {
+  if (_tzList) return _tzList;
+  try {
+    if (typeof Intl.supportedValuesOf === 'function') {
+      _tzList = Intl.supportedValuesOf('timeZone');
+      return _tzList;
+    }
+  } catch(e) {}
+  /* Fallback: популярные РФ-зоны + мировые */
+  _tzList = [
+    'Europe/Kaliningrad','Europe/Moscow','Europe/Samara','Asia/Yekaterinburg',
+    'Asia/Omsk','Asia/Novosibirsk','Asia/Krasnoyarsk','Asia/Irkutsk',
+    'Asia/Yakutsk','Asia/Vladivostok','Asia/Magadan','Asia/Kamchatka',
+    'UTC','Europe/London','Europe/Berlin','Europe/Paris','America/New_York',
+    'America/Chicago','America/Denver','America/Los_Angeles','Asia/Tokyo',
+    'Asia/Shanghai','Asia/Kolkata','Asia/Dubai','Australia/Sydney',
+  ];
+  return _tzList;
+}
+
+function _fmtTzOffset(tz) {
+  try {
+    var now = new Date();
+    var fmt = new Intl.DateTimeFormat('en', {timeZone: tz, timeZoneName: 'shortOffset'});
+    var parts = fmt.formatToParts(now);
+    var off = parts.find(function(p) { return p.type === 'timeZoneName'; });
+    return off ? off.value : '';
+  } catch(e) { return ''; }
+}
+
+function openTzPicker() {
+  var list = _getTzList();
+  var container = document.getElementById('tz-list');
+  if (!container) return;
+  var searchInp = document.getElementById('tz-search-inp');
+  if (searchInp) searchInp.value = '';
+  _renderTzList(container, list, '');
+  showSheet('sheet-tz-picker');
+}
+
+function filterTzList(q) {
+  var list = _getTzList();
+  var container = document.getElementById('tz-list');
+  if (container) _renderTzList(container, list, q);
+}
+
+function _renderTzList(container, list, q) {
+  var lower = (q || '').toLowerCase();
+  var current = state.guestTimezone || userTimezone;
+  var filtered = lower ? list.filter(function(tz) { return tz.toLowerCase().indexOf(lower) >= 0; }) : list;
+  container.innerHTML = filtered.slice(0, 50).map(function(tz) {
+    var sel = tz === current ? ' style="background:var(--as);border-color:var(--a)"' : '';
+    var off = _fmtTzOffset(tz);
+    return '<button onclick="selectGuestTz(\'' + tz + '\')"' + sel
+      + ' style="display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);margin-bottom:4px;font-family:var(--font);font-size:13px;color:var(--t1);cursor:pointer;text-align:left'
+      + (tz === current ? ';background:var(--as);border-color:var(--a)' : '')
+      + '"><span>' + escHtml(tz.replace(/_/g, ' ')) + '</span><span style="color:var(--t3);font-size:11px">' + escHtml(off) + '</span></button>';
+  }).join('');
+  if (!filtered.length) container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px">Не найдено</div>';
+}
+
+function selectGuestTz(tz) {
+  state.guestTimezone = tz;
+  var display = document.getElementById('guest-tz-display');
+  if (display) display.textContent = tz.replace(/_/g, ' ');
+  closeSheet('sheet-tz-picker');
+  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+/* Init guest TZ display when form shows */
+function _initGuestTzDisplay() {
+  if (!state.guestTimezone) state.guestTimezone = userTimezone;
+  var display = document.getElementById('guest-tz-display');
+  if (display) display.textContent = (state.guestTimezone || 'UTC').replace(/_/g, ' ');
+}
+
 async function submitInlineBooking() {
   if (state._previewMode) { showToast('Это режим предпросмотра'); return; }
   return _doSubmitBooking({

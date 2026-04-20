@@ -1,27 +1,55 @@
 /* ═══════════════════════════════════════════
    PROFILE (s-profile)
 ═══════════════════════════════════════════ */
+var _NOTIF_DEFAULTS = { booking_notif: true, reminder_notif: true, reminders: ['1440','60','5'], customReminders: [] };
+var _notifSaveTimer = null;
+
 function getNotifSettings() {
+  return state._notifSettings || _NOTIF_DEFAULTS;
+}
+
+async function loadNotifSettingsFromServer() {
+  /* One-shot миграция из localStorage → сервер */
   try {
-    var s = JSON.parse(localStorage.getItem('sb_settings') || '{}');
-    /* Миграция: reminder (строка) → reminders (массив) */
-    if (s.reminder !== undefined && !s.reminders) {
-      s.reminders = (s.reminder === 'off') ? [] : [s.reminder];
-      delete s.reminder;
+    var raw = localStorage.getItem('sb_settings');
+    if (raw) {
+      var local = JSON.parse(raw);
+      if (local.reminders && local.reminders.length) {
+        var patch = {};
+        if (local.reminders) patch.reminders = local.reminders;
+        if (local.customReminders && local.customReminders.length) patch.customReminders = local.customReminders;
+        if (local.booking_notif !== undefined) patch.booking_notif = local.booking_notif;
+        if (local.reminder_notif !== undefined) patch.reminder_notif = local.reminder_notif;
+        await apiFetch('PATCH', '/api/users/notification-settings', patch);
+      }
+      try { localStorage.removeItem('sb_settings'); } catch(e) {}
     }
-    /* Миграция: старый notif → booking_notif + reminder_notif */
-    if (s.notif !== undefined && s.booking_notif === undefined) {
-      s.booking_notif = s.notif;
-      s.reminder_notif = s.notif;
-      delete s.notif;
-    }
-    if (!s.reminders) s.reminders = ['60'];
-    if (!s.customReminders) s.customReminders = [];
-    if (s.booking_notif === undefined) s.booking_notif = true;
-    if (s.reminder_notif === undefined) s.reminder_notif = true;
-    try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
-    return s;
-  } catch(e) { return { booking_notif: true, reminder_notif: true, reminders: ['60'], customReminders: [] }; }
+  } catch(e) { /* не критично */ }
+
+  var { data, error } = await apiFetch('GET', '/api/users/notification-settings');
+  if (data && !error) {
+    state._notifSettings = data;
+  } else {
+    state._notifSettings = Object.assign({}, _NOTIF_DEFAULTS);
+  }
+  return state._notifSettings;
+}
+
+function saveNotifSettings(patch) {
+  /* Merge локально сразу для мгновенного UI */
+  var s = getNotifSettings();
+  Object.keys(patch).forEach(function(k) { s[k] = patch[k]; });
+  state._notifSettings = s;
+  /* Debounce 500ms */
+  if (_notifSaveTimer) clearTimeout(_notifSaveTimer);
+  _notifSaveTimer = setTimeout(function() {
+    _notifSaveTimer = null;
+    apiFetch('PATCH', '/api/users/notification-settings', patch).then(function(res) {
+      if (res.error) {
+        showToast('Не удалось сохранить настройки', 'error');
+      }
+    });
+  }, 500);
 }
 
 function formatReminderMinutes(mins) {
@@ -64,7 +92,8 @@ async function loadProfile() {
   var verEl = document.getElementById('app-version-val');
   if (verEl) verEl.textContent = APP_VERSION;
 
-  /* notification settings: render immediately (localStorage, no API dependency) */
+  /* notification settings: загрузка с сервера */
+  await loadNotifSettingsFromServer();
   var s = getNotifSettings();
   var togBook = document.getElementById('tog-booking-notif');
   if (togBook) { if (s.booking_notif) togBook.classList.add('on'); else togBook.classList.remove('on'); }
@@ -240,24 +269,22 @@ function showChangelog() {
 
 function toggleBookingNotif(el) {
   el.classList.toggle('on');
-  var s = getNotifSettings();
-  s.booking_notif = el.classList.contains('on');
-  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
-  showToast(s.booking_notif ? 'Уведомления о записях включены' : 'Уведомления о записях отключены');
+  var val = el.classList.contains('on');
+  saveNotifSettings({booking_notif: val});
+  showToast(val ? 'Уведомления о записях включены' : 'Уведомления о записях отключены');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 function toggleReminderNotif(el) {
   el.classList.toggle('on');
-  var s = getNotifSettings();
-  s.reminder_notif = el.classList.contains('on');
-  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
-  showToast(s.reminder_notif ? 'Напоминания включены' : 'Напоминания отключены');
+  var val = el.classList.contains('on');
+  saveNotifSettings({reminder_notif: val});
+  showToast(val ? 'Напоминания включены' : 'Напоминания отключены');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
   var chipsEl = document.getElementById('reminder-chips');
   if (chipsEl) {
-    chipsEl.style.opacity = s.reminder_notif ? '' : '0.4';
-    chipsEl.style.pointerEvents = s.reminder_notif ? '' : 'none';
+    chipsEl.style.opacity = val ? '' : '0.4';
+    chipsEl.style.pointerEvents = val ? '' : 'none';
   }
 }
 
@@ -279,9 +306,7 @@ function toggleReminderChip(val, el) {
     var v = c.getAttribute('data-val');
     if (v) selected.push(v);
   });
-  var s = getNotifSettings();
-  s.reminders = selected;
-  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  saveNotifSettings({reminders: selected});
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
   if (selected.length === 0) {
     showToast('Напоминания отключены');
@@ -321,7 +346,7 @@ function addCustomReminder(minutes) {
   s.customReminders.sort(function(a, b) { return b - a; });
   var valStr = String(minutes);
   if (s.reminders.indexOf(valStr) < 0) s.reminders.push(valStr);
-  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  saveNotifSettings({reminders: s.reminders, customReminders: s.customReminders});
   renderReminderChips();
   showToast('Напоминание за ' + formatReminderMinutes(minutes) + ' добавлено');
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
@@ -332,7 +357,7 @@ function removeCustomReminder(val) {
   var s = getNotifSettings();
   s.customReminders = s.customReminders.filter(function(v) { return String(v) !== val; });
   s.reminders = s.reminders.filter(function(v) { return v !== val; });
-  try { localStorage.setItem('sb_settings', JSON.stringify(s)); } catch(e) {}
+  saveNotifSettings({reminders: s.reminders, customReminders: s.customReminders});
   renderReminderChips();
   showToast('Напоминание удалено');
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');

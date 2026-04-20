@@ -162,12 +162,13 @@ function updateSlider(inp, valId) {
 function getMeetingStatus(b) {
   if (b.status === 'cancelled') return 'cancelled';
   if (b.status === 'completed') return 'completed';
+  if (b.status === 'expired') return 'expired';
   const now = new Date();
   const start = new Date(b.scheduled_time);
   const dur = b.schedule_duration || b.duration || 60;
   const end = new Date(start.getTime() + dur * 60000);
   if (now >= start && now < end) return 'ongoing';
-  if (now >= end) return b.status === 'confirmed' ? 'completed' : 'noans';
+  if (now >= end) return b.status === 'confirmed' ? 'completed' : (b.status === 'no_answer' ? 'noans' : b.status);
   return b.status;
 }
 
@@ -185,6 +186,7 @@ function meetingStatusHtml(status) {
     confirmed: { cls: 'mst-confirmed', icon: '<polyline points="20 6 9 17 4 12"/>', text: 'Всё в силе' },
     pending:   { cls: 'mst-pending',   icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', text: 'Ожидает' },
     noans:     { cls: 'mst-noans',     icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', text: 'Нет ответа' },
+    expired:   { cls: 'mst-expired',   icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', text: 'Просрочена' },
     cancelled: { cls: 'mst-cancelled', icon: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', text: 'Отменено' },
     completed: { cls: 'mst-done',      icon: '<polyline points="20 6 9 17 4 12"/>', text: 'Прошла' },
   };

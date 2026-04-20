@@ -9,7 +9,8 @@ STATUS_EMOJI = {
     "confirmed": "✅",
     "cancelled": "❌",
     "completed": "✓",
-    "no_answer": "⚠️",
+    "no_answer": "❓",
+    "expired":   "🕑",
 }
 STATUS_TEXT = {
     "pending":    "Ожидает",
@@ -17,6 +18,7 @@ STATUS_TEXT = {
     "cancelled":  "Отменена",
     "completed":  "Завершена",
     "no_answer":  "Нет ответа",
+    "expired":    "Просрочена",
 }
 DAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
