@@ -21,6 +21,7 @@ from config import (
 from handlers import start, navigation, schedules, bookings, create, inline, admin
 from services.reminders import reminder_loop
 from services.notifications import register_internal_routes, start_internal_server
+from services.heartbeat import heartbeat_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ async def main():
     await setup_bot_commands(bot)
 
     reminder_task = asyncio.create_task(reminder_loop(bot))
+    heartbeat_task = asyncio.create_task(heartbeat_loop())
 
     if WEBHOOK_ENABLED and WEBHOOK_HOST:
         # ═══════════════════════════════════════════

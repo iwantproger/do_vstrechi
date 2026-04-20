@@ -333,5 +333,47 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION cleanup_old_events(INT) IS
-    'Удаляет info/warn записи app_events старше N дней (default 90). '
+    'Удаляет info/warn записи app_events старше N дней (default 90). ';
+
+-- ─────────────────────────────────────────────
+-- Infrastructure tracking (021)
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS api_latency_log (
+    id          BIGSERIAL PRIMARY KEY,
+    path        TEXT NOT NULL,
+    method      TEXT NOT NULL,
+    status_code INTEGER NOT NULL,
+    duration_ms REAL NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_api_latency_created ON api_latency_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_api_latency_path ON api_latency_log(path, created_at);
+
+CREATE TABLE IF NOT EXISTS notification_log (
+    id                BIGSERIAL PRIMARY KEY,
+    notification_type TEXT NOT NULL,
+    recipient_tid     BIGINT NOT NULL,
+    success           BOOLEAN NOT NULL DEFAULT TRUE,
+    error_message     TEXT,
+    duration_ms       REAL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notification_log_created ON notification_log(created_at);
+
+CREATE TABLE IF NOT EXISTS bot_heartbeat (
+    id          BIGSERIAL PRIMARY KEY,
+    status      TEXT NOT NULL DEFAULT 'alive',
+    uptime_sec  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_bot_heartbeat_created ON bot_heartbeat(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS inline_usage_log (
+    id               BIGSERIAL PRIMARY KEY,
+    user_telegram_id BIGINT NOT NULL,
+    query_text       TEXT,
+    results_count    INTEGER NOT NULL DEFAULT 0,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_inline_usage_created ON inline_usage_log(created_at)
     'Severity error/critical сохраняется бессрочно.';

@@ -67,9 +67,27 @@
     <div class="main-content">
       <!-- Dashboard -->
       <div class="page active" id="page-dashboard">
-        <div style="text-align:right;margin-bottom:16px">
-          <span class="last-updated" id="dashboard-updated"></span>
+        <div class="dashboard-tabs">
+          <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Обзор</button>
+          <button class="tab-btn" data-tab="activation" onclick="switchTab('activation')">Активация</button>
+          <button class="tab-btn" data-tab="guest-funnel" onclick="switchTab('guest-funnel')">Воронка гостя</button>
+          <button class="tab-btn" data-tab="retention" onclick="switchTab('retention')">Retention</button>
+          <button class="tab-btn" data-tab="quality" onclick="switchTab('quality')">Качество</button>
+          <button class="tab-btn" data-tab="system" onclick="switchTab('system')">Система</button>
         </div>
+
+        <div class="period-filter">
+          <div class="pf-group">
+            <button class="pf-btn" data-days="7" onclick="setPeriod(7)">7д</button>
+            <button class="pf-btn" data-days="14" onclick="setPeriod(14)">14д</button>
+            <button class="pf-btn active" data-days="30" onclick="setPeriod(30)">30д</button>
+            <button class="pf-btn" data-days="90" onclick="setPeriod(90)">90д</button>
+          </div>
+          <span id="period-label" style="font-size:12px;color:var(--text-tertiary)">30 дней</span>
+        </div>
+
+        <!-- TAB: Overview -->
+        <div class="tab-content" data-tab="overview" id="tab-overview" style="display:block">
 
         <div class="metrics-grid">
           <div class="metric-card">
@@ -173,9 +191,35 @@
             <canvas id="chart-platforms"></canvas>
           </div>
           <div class="chart-card">
-            <h3>Статистика по дням недели</h3>
+            <h3>По дням недели</h3>
             <canvas id="chart-weekday"></canvas>
           </div>
+        </div>
+        </div><!-- /tab-overview -->
+
+        <!-- TAB: Activation -->
+        <div class="tab-content" data-tab="activation" style="display:none">
+          <div id="tab-activation-content"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- TAB: Guest Funnel -->
+        <div class="tab-content" data-tab="guest-funnel" style="display:none">
+          <div id="tab-guest-funnel-content"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- TAB: Retention -->
+        <div class="tab-content" data-tab="retention" style="display:none">
+          <div id="tab-retention-content"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- TAB: Quality -->
+        <div class="tab-content" data-tab="quality" style="display:none">
+          <div id="tab-quality-content"><p style="color:var(--text-muted)">Загрузка...</p></div>
+        </div>
+
+        <!-- TAB: System -->
+        <div class="tab-content" data-tab="system" style="display:none">
+          <div id="tab-system-content"><p style="color:var(--text-muted)">Загрузка...</p></div>
         </div>
       </div>
 

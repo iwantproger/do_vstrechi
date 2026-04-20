@@ -1066,6 +1066,246 @@ async def analytics_growth(
 
 
 # ─────────────────────────────────────────────────────────
+# Analytics v3: ttfv-guest, k-factor, cancellations, api-latency,
+#               bot-uptime, notifications, inline-usage, db-pool
+# ─────────────────────────────────────────────────────────
+
+@router.get("/api/admin/analytics/ttfv-guest")
+async def analytics_ttfv_guest(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Time from miniapp_opened to booking_success (per session)."""
+    cutoff = get_prod_cutoff()
+    rows = await conn.fetch("""
+        SELECT
+          EXTRACT(EPOCH FROM (ae_book.created_at - ae_open.created_at)) AS seconds
+        FROM app_events ae_open
+        JOIN app_events ae_book ON ae_book.session_id = ae_open.session_id
+        WHERE ae_open.event_type = 'miniapp_opened'
+          AND ae_book.event_type = 'booking_success'
+          AND ae_open.created_at >= $1
+    """, cutoff)
+    secs = sorted([float(r["seconds"]) for r in rows if r["seconds"] is not None and r["seconds"] > 0])
+    count = len(secs)
+    median = secs[count // 2] if secs else None
+    p90 = secs[int(count * 0.9)] if secs else None
+    status = "good" if median and median <= 60 else ("warning" if median and median <= 90 else "bad") if median else None
+    return {
+        "median_seconds": round(median, 1) if median else None,
+        "p90_seconds": round(p90, 1) if p90 else None,
+        "count": count,
+        "target_seconds": 60,
+        "status": status,
+    }
+
+
+@router.get("/api/admin/analytics/k-factor")
+async def analytics_k_factor(
+    days: int = Query(30, ge=1, le=365),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) FILTER (WHERE referred_by IS NOT NULL) AS referred,
+          COUNT(*) AS total
+        FROM users
+        WHERE telegram_id != $1 AND created_at >= $2
+          AND created_at >= NOW() - INTERVAL '1 day' * $3
+    """, owner_id, cutoff, days)
+    total = row["total"] or 1
+    by_source = await conn.fetch("""
+        SELECT referral_source, COUNT(*) AS count
+        FROM users
+        WHERE referred_by IS NOT NULL AND telegram_id != $1
+          AND created_at >= $2 AND created_at >= NOW() - INTERVAL '1 day' * $3
+        GROUP BY referral_source
+    """, owner_id, cutoff, days)
+    return {
+        "k_factor": round((row["referred"] or 0) / total, 2),
+        "referred_users": row["referred"] or 0,
+        "total_users": row["total"] or 0,
+        "by_source": {r["referral_source"] or "unknown": r["count"] for r in by_source},
+    }
+
+
+@router.get("/api/admin/analytics/cancellations")
+async def analytics_cancellations(
+    days: int = Query(30, ge=1, le=365),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    cutoff = get_prod_cutoff()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) FILTER (WHERE cancelled_by = 'guest') AS by_guest,
+          COUNT(*) FILTER (WHERE cancelled_by = 'organizer') AS by_organizer,
+          COUNT(*) FILTER (WHERE cancelled_by = 'system') AS by_system,
+          COUNT(*) FILTER (WHERE status = 'cancelled') AS total_cancelled,
+          COUNT(*) FILTER (WHERE is_no_show = TRUE) AS no_show,
+          COUNT(*) AS total
+        FROM bookings
+        WHERE created_at >= $1 AND created_at >= NOW() - INTERVAL '1 day' * $2
+    """, cutoff, days)
+    total = row["total"] or 1
+    return {
+        "by_guest": {"count": row["by_guest"] or 0, "rate": round((row["by_guest"] or 0) / total * 100, 1)},
+        "by_organizer": {"count": row["by_organizer"] or 0, "rate": round((row["by_organizer"] or 0) / total * 100, 1)},
+        "total_cancelled": {"count": row["total_cancelled"] or 0, "rate": round((row["total_cancelled"] or 0) / total * 100, 1)},
+        "no_show": {"count": row["no_show"] or 0, "rate": round((row["no_show"] or 0) / total * 100, 1)},
+    }
+
+
+@router.get("/api/admin/analytics/api-latency")
+async def analytics_api_latency(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    rows = await conn.fetch("""
+        SELECT
+          path,
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms) AS p50,
+          PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95,
+          PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) AS p99,
+          COUNT(*) AS request_count,
+          AVG(duration_ms) AS avg_ms
+        FROM api_latency_log
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY path
+        ORDER BY p95 DESC
+    """)
+    endpoints = [
+        {"path": r["path"], "p50": round(r["p50"], 1), "p95": round(r["p95"], 1),
+         "p99": round(r["p99"], 1), "count": r["request_count"]}
+        for r in rows
+    ]
+    # Overall
+    overall = await conn.fetchrow("""
+        SELECT
+          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms) AS p50,
+          PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95,
+          PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) AS p99
+        FROM api_latency_log WHERE created_at >= NOW() - INTERVAL '24 hours'
+    """)
+    return {
+        "endpoints": endpoints,
+        "overall": {
+            "p50": round(overall["p50"], 1) if overall and overall["p50"] else 0,
+            "p95": round(overall["p95"], 1) if overall and overall["p95"] else 0,
+            "p99": round(overall["p99"], 1) if overall and overall["p99"] else 0,
+        } if overall else {"p50": 0, "p95": 0, "p99": 0},
+    }
+
+
+@router.get("/api/admin/analytics/bot-uptime")
+async def analytics_bot_uptime(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) AS heartbeats_24h,
+          ROUND(COUNT(*)::numeric / 1440 * 100, 1) AS uptime_percent,
+          MAX(created_at) AS last_seen
+        FROM bot_heartbeat
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+    """)
+    last_seen = row["last_seen"] if row else None
+    minutes_since = 0
+    if last_seen:
+        from datetime import datetime, timezone
+        minutes_since = int((datetime.now(timezone.utc) - last_seen).total_seconds() / 60)
+    status = "online" if minutes_since < 3 else ("degraded" if minutes_since < 10 else "offline")
+    return {
+        "uptime_percent": float(row["uptime_percent"]) if row and row["uptime_percent"] else 0,
+        "heartbeats_24h": row["heartbeats_24h"] if row else 0,
+        "last_seen": last_seen.isoformat() if last_seen else None,
+        "minutes_since_last": minutes_since,
+        "status": status,
+    }
+
+
+@router.get("/api/admin/analytics/notifications")
+async def analytics_notifications(
+    days: int = Query(1, ge=1, le=30),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    rows = await conn.fetch("""
+        SELECT
+          notification_type,
+          COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE success = TRUE) AS sent,
+          COUNT(*) FILTER (WHERE success = FALSE) AS failed,
+          AVG(duration_ms) FILTER (WHERE success = TRUE) AS avg_ms
+        FROM notification_log
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+        GROUP BY notification_type
+    """, days)
+    types = []
+    total_sent = 0
+    total_all = 0
+    for r in rows:
+        t = r["total"]
+        s = r["sent"]
+        total_sent += s
+        total_all += t
+        types.append({
+            "type": r["notification_type"],
+            "total": t, "sent": s, "failed": r["failed"],
+            "delivery_rate": round(s / t * 100, 1) if t else 100,
+            "avg_ms": round(r["avg_ms"], 1) if r["avg_ms"] else 0,
+        })
+    return {
+        "types": types,
+        "overall_delivery_rate": round(total_sent / total_all * 100, 1) if total_all else 100,
+        "failed_total": total_all - total_sent,
+    }
+
+
+@router.get("/api/admin/analytics/inline-usage")
+async def analytics_inline_usage(
+    days: int = Query(30, ge=1, le=365),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    cutoff = get_prod_cutoff()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) AS total_queries,
+          COUNT(DISTINCT user_telegram_id) AS unique_users
+        FROM inline_usage_log
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+          AND created_at >= $2
+    """, days, cutoff)
+    return {
+        "total_queries": row["total_queries"] if row else 0,
+        "unique_users": row["unique_users"] if row else 0,
+    }
+
+
+@router.get("/api/admin/analytics/db-pool")
+async def analytics_db_pool(
+    session: dict = Depends(get_admin_user),
+):
+    pool = await get_pool()
+    size = pool.get_size()
+    free = pool.get_idle_size()
+    mx = pool.get_max_size()
+    return {
+        "size": size,
+        "free": free,
+        "used": size - free,
+        "min": pool.get_min_size(),
+        "max": mx,
+        "usage_percent": round((size - free) / mx * 100, 1) if mx else 0,
+    }
+
+
+# ─────────────────────────────────────────────────────────
 
 @router.post("/api/events")
 async def receive_event(
@@ -1082,6 +1322,42 @@ async def receive_event(
         metadata=data.metadata,
         severity=data.severity,
         session_id=data.session_id,
+    )
+    return {"status": "ok"}
+
+
+# ─────────────────────────────────────────────────────────
+# Internal endpoints (called by bot, protected by X-Internal-Key)
+# ─────────────────────────────────────────────────────────
+
+from config import INTERNAL_API_KEY as _INTERNAL_KEY
+
+def _check_internal(request: Request):
+    key = request.headers.get("X-Internal-Key", "")
+    if not key or key != _INTERNAL_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@router.post("/api/internal/bot-heartbeat")
+async def bot_heartbeat(request: Request, conn: asyncpg.Connection = Depends(db)):
+    _check_internal(request)
+    data = await request.json()
+    await conn.execute(
+        "INSERT INTO bot_heartbeat (status, uptime_sec) VALUES ($1, $2)",
+        data.get("status", "alive"), data.get("uptime_sec", 0),
+    )
+    # Cleanup old heartbeats (keep 24h)
+    await conn.execute("DELETE FROM bot_heartbeat WHERE created_at < NOW() - INTERVAL '24 hours'")
+    return {"status": "ok"}
+
+
+@router.post("/api/internal/inline-usage")
+async def log_inline_usage(request: Request, conn: asyncpg.Connection = Depends(db)):
+    _check_internal(request)
+    data = await request.json()
+    await conn.execute(
+        "INSERT INTO inline_usage_log (user_telegram_id, query_text, results_count) VALUES ($1, $2, $3)",
+        data.get("user_telegram_id", 0), (data.get("query_text") or "")[:100], data.get("results_count", 0),
     )
     return {"status": "ok"}
 

@@ -36,6 +36,7 @@ from config import CORS_ORIGINS, APP_VERSION
 from database import init_pool, close_pool, run_migrations, get_pool, db
 from utils import _track_event, anonymize_id
 from event_buffer import event_buffer
+from latency_buffer import latency_buffer
 
 from routers import users, schedules, bookings, meetings, stats, admin as admin_router
 from routers import calendar as calendar_router
@@ -65,7 +66,10 @@ async def lifespan(app: FastAPI):
     await sync_engine.start()
     # Event buffer — batched INSERTs into app_events
     await event_buffer.start(pool)
+    # Latency buffer — batched INSERTs into api_latency_log
+    await latency_buffer.start(pool)
     yield
+    await latency_buffer.stop()
     await event_buffer.stop()
     await sync_engine.stop()
     await close_pool()
@@ -110,6 +114,9 @@ class StructlogMiddleware(BaseHTTPMiddleware):
                 duration_ms=duration_ms,
             )
         response.headers["X-Request-ID"] = request_id
+        # Track latency for key API paths
+        if latency_buffer.should_track(request.url.path):
+            latency_buffer.add(request.url.path, request.method, response.status_code, duration_ms)
         return response
 
 

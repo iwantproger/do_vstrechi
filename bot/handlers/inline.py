@@ -102,3 +102,14 @@ async def handle_inline_query(query: InlineQuery):
     )
 
     await query.answer(results=results, cache_time=30, is_personal=True)
+
+    # Fire-and-forget: track inline usage
+    try:
+        import asyncio
+        asyncio.create_task(api("post", "/api/internal/inline-usage", json={
+            "user_telegram_id": user_id,
+            "query_text": search[:100],
+            "results_count": len(results) - 1,
+        }))
+    except Exception:
+        pass

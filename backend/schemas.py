@@ -9,6 +9,8 @@ class UserAuth(BaseModel):
     first_name: Optional[str] = Field(None, max_length=200)
     last_name: Optional[str] = Field(None, max_length=200)
     timezone: Optional[str] = "UTC"
+    referred_by: Optional[int] = None
+    referral_source: Optional[str] = Field(None, max_length=50)
 
 
 class ScheduleCreate(BaseModel):

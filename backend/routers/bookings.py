@@ -820,9 +820,16 @@ async def cancel_booking(
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный ID")
 
+    # Determine who is cancelling: organizer or guest
+    organizer_check = await conn.fetchval(
+        "SELECT u.telegram_id FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = (SELECT schedule_id FROM bookings WHERE id = $1)",
+        bid,
+    )
+    cancelled_by = "organizer" if organizer_check == telegram_id else "guest"
+
     row = await conn.fetchrow(
         """
-        UPDATE bookings SET status = 'cancelled'
+        UPDATE bookings SET status = 'cancelled', cancelled_by = $3
         WHERE id = $1
           AND (
             schedule_id IN (
@@ -836,11 +843,11 @@ async def cancel_booking(
           AND status NOT IN ('cancelled', 'completed')
         RETURNING *
         """,
-        bid, telegram_id
+        bid, telegram_id, cancelled_by
     )
     if not row:
         raise HTTPException(status_code=404, detail="Бронирование не найдено или нельзя отменить")
-    await _track_event(conn, "booking_cancelled", telegram_id, {"booking_id": booking_id})
+    await _track_event(conn, "booking_cancelled", telegram_id, {"booking_id": booking_id, "cancelled_by": cancelled_by})
 
     sched = await conn.fetchrow(
         "SELECT s.title, u.telegram_id, u.timezone FROM schedules s JOIN users u ON u.id = s.user_id WHERE s.id = $1",

@@ -74,6 +74,12 @@ async def auth_user(
         telegram_id, data.username, data.first_name, data.last_name, tz
     )
     is_new = row["created_at"] == row["updated_at"] if row else False
+    # Save referral info on first registration only
+    if is_new and data.referred_by:
+        await conn.execute(
+            "UPDATE users SET referred_by = $1, referral_source = $2 WHERE telegram_id = $3 AND referred_by IS NULL",
+            data.referred_by, data.referral_source, telegram_id,
+        )
     await _track_event(conn, "user_auth", telegram_id, {"timezone": tz, "is_new": is_new})
     return row_to_dict(row)
 

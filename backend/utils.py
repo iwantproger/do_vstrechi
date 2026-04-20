@@ -1,5 +1,6 @@
 """Утилиты — чистые и почти-чистые функции."""
 import uuid
+import time as _time
 import hashlib
 from typing import Any
 
@@ -68,8 +69,33 @@ async def _track_event(
         log.warning("track_event_failed", event_type=event_type)
 
 
+def _log_notification(notification_type: str, recipient_tid: int, success: bool, error_msg: str | None, duration_ms: float) -> None:
+    """Fire-and-forget: log notification delivery to notification_log via latency buffer pattern."""
+    try:
+        from database import _pool
+        if _pool is None:
+            return
+        import asyncio
+        asyncio.create_task(_insert_notification_log(_pool, notification_type, recipient_tid, success, error_msg, duration_ms))
+    except Exception:
+        pass
+
+
+async def _insert_notification_log(pool, ntype, tid, success, error, dur):
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO notification_log (notification_type, recipient_tid, success, error_message, duration_ms) VALUES ($1,$2,$3,$4,$5)",
+                ntype, tid, success, error, round(dur, 2),
+            )
+    except Exception:
+        pass
+
+
 async def _notify_bot_new_booking(**kwargs: Any) -> None:
     """Fire-and-forget: tell bot to message the organizer about a new booking."""
+    start = _time.monotonic()
+    recipient = kwargs.get("organizer_telegram_id", 0)
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.post(
@@ -80,14 +106,19 @@ async def _notify_bot_new_booking(**kwargs: Any) -> None:
             result = resp.json()
             if result.get("ok"):
                 log.info("bot_notified", booking_id=kwargs.get("booking_id"))
+                _log_notification("new_booking", recipient, True, None, (_time.monotonic() - start) * 1000)
             else:
                 log.warning("bot_notification_failed", response=result)
+                _log_notification("new_booking", recipient, False, str(result)[:200], (_time.monotonic() - start) * 1000)
     except Exception as e:
         log.warning("bot_notification_error", error=str(e))
+        _log_notification("new_booking", recipient, False, str(e)[:200], (_time.monotonic() - start) * 1000)
 
 
 async def _notify_bot_late_booking(**kwargs: Any) -> None:
     """Fire-and-forget: instant-напоминание при бронировании близкой встречи."""
+    start = _time.monotonic()
+    recipient = kwargs.get("organizer_telegram_id", 0)
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             await client.post(
@@ -95,12 +126,16 @@ async def _notify_bot_late_booking(**kwargs: Any) -> None:
                 json=kwargs,
                 headers={"X-Internal-Key": INTERNAL_API_KEY},
             )
+        _log_notification("late_booking", recipient, True, None, (_time.monotonic() - start) * 1000)
     except Exception as e:
         log.warning("late_booking_notify_error", error=str(e))
+        _log_notification("late_booking", recipient, False, str(e)[:200], (_time.monotonic() - start) * 1000)
 
 
 async def _notify_bot_status_change(**kwargs: Any) -> None:
     """Fire-and-forget: notify bot that a booking changed status (confirmed/cancelled)."""
+    start = _time.monotonic()
+    recipient = kwargs.get("organizer_telegram_id", 0)
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             await client.post(
@@ -108,5 +143,7 @@ async def _notify_bot_status_change(**kwargs: Any) -> None:
                 json=kwargs,
                 headers={"X-Internal-Key": INTERNAL_API_KEY},
             )
+        _log_notification("status_change", recipient, True, None, (_time.monotonic() - start) * 1000)
     except Exception as e:
         log.warning("bot_status_notification_error", error=str(e))
+        _log_notification("status_change", recipient, False, str(e)[:200], (_time.monotonic() - start) * 1000)
