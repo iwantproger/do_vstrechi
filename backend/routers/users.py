@@ -93,8 +93,8 @@ async def get_notification_settings(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    settings = row["reminder_settings"] or {}
-    # Гарантируем наличие всех полей в ответе
+    raw = row["reminder_settings"]
+    settings = json.loads(raw) if isinstance(raw, str) else (raw or {})
     return {
         "reminders": settings.get("reminders", _NOTIF_DEFAULTS["reminders"]),
         "customReminders": settings.get("customReminders", []),
@@ -118,7 +118,7 @@ async def update_notification_settings(
     )
     if current is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    merged = dict(current) if current else dict(_NOTIF_DEFAULTS)
+    merged = json.loads(current) if isinstance(current, str) else (dict(current) if current else dict(_NOTIF_DEFAULTS))
     # Merge только переданных полей
     patch = data.model_dump(exclude_none=True)
     merged.update(patch)
