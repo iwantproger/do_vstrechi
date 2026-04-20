@@ -614,6 +614,11 @@
         <div class="inp-wrap"><div class="inp-label">Ваше имя *</div><input class="inp" id="cal-g-name" placeholder="Имя Фамилия"></div>
         <div class="inp-wrap"><div class="inp-label">Telegram или email</div><input class="inp" id="cal-g-contact" placeholder="@username или email"></div>
         <div class="inp-wrap"><div class="inp-label">Заметка для организатора</div><textarea class="inp" rows="2" id="cal-g-notes" placeholder="Что хотите обсудить?"></textarea></div>
+        <div id="guest-tz-row" style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;font-size:12px;color:var(--t2)">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Ваша таймзона: <b id="guest-tz-display" style="color:var(--t1)">...</b></span>
+          <button type="button" onclick="openTzPicker()" style="background:none;border:none;color:var(--a);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;padding:0">изменить</button>
+        </div>
         <button class="btn btn-primary" id="cal-book-btn" onclick="submitInlineBooking()" style="width:100%;margin-top:8px">Забронировать</button>
       </div>
     </div>
@@ -713,6 +718,15 @@
 <!-- ═══════════════════════════════
      OVERLAYS
 ════════════════════════════════ -->
+<div class="overlay" id="sheet-tz-picker" onclick="closeSheet('sheet-tz-picker')">
+  <div class="sheet" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Выберите таймзону</div>
+    <div style="padding:0 16px 8px"><input class="inp" id="tz-search-inp" placeholder="Поиск..." oninput="filterTzList(this.value)" style="font-size:14px"></div>
+    <div id="tz-list" style="overflow-y:auto;flex:1;padding:0 8px 16px"></div>
+  </div>
+</div>
+
 <div class="overlay" id="sheet-cancel" onclick="closeSheet('sheet-cancel')">
   <div class="sheet" onclick="event.stopPropagation()">
     <div class="sheet-handle"></div>

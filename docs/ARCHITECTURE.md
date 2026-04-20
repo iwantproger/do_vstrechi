@@ -72,9 +72,9 @@ fire-and-forget POST при создании бронирования. Бот у
 
 **FSM Storage:** Redis (`RedisStorage` из aiogram) с graceful fallback на `MemoryStorage` если Redis недоступен. FSM-состояния сохраняются при перезапуске бота.
 
-**Напоминания:** фоновый цикл `reminder_loop()` каждые 5 минут проверяет
-`GET /api/bookings/pending-reminders` и рассылает напоминания за 24ч и 1ч до встречи.
-Каждые 15 мин вызывает `POST /api/bookings/complete-past` — переводит подтверждённые встречи в статус `completed` через 30 мин после окончания.
+**Напоминания:** фоновый цикл `reminder_loop()` каждые 60 секунд проверяет
+`GET /api/bookings/pending-reminders-v2` и рассылает напоминания по настройкам `users.reminder_settings`. Дедупликация через таблицу `sent_reminders`.
+Каждые 15 тиков вызывает `POST /api/bookings/complete-past` — переводит подтверждённые встречи в статус `completed` через 30 мин после окончания.
 
 **ReplyKeyboard:** при `/start` бот устанавливает постоянную нижнюю панель (4 кнопки:
 Создать расписание, Мои расписания, Мои встречи, Помощь).
@@ -118,10 +118,8 @@ meetings, stats, admin, `calendar.py` — 12 эндпоинтов календа
 | GET | `/api/bookings/no-answer-candidates` | — | Бронирования без ответа (>1ч после запроса) | — |
 | PATCH | `/api/bookings/{booking_id}/set-no-answer` | — | Перевести в статус no_answer | path: booking_id |
 | PATCH | `/api/bookings/{booking_id}/confirmation-asked` | — | Отметить что запрос подтверждения отправлен | path: booking_id |
-| GET | `/api/bookings/pending-reminders` | — | Бронирования для напоминаний | query: reminder_type (24h/1h/15m/5m/morning) |
-| GET | `/api/bookings/pending-reminders-v2` | — | Напоминания v2 (по настройкам пользователя) | — |
-| PATCH | `/api/bookings/{booking_id}/reminder-sent` | — | Пометить напоминание отправленным | query: reminder_type |
-| POST | `/api/sent-reminders` | — | Записать отправленное напоминание (v2) | body: `{booking_id, reminder_type}` |
+| GET | `/api/bookings/pending-reminders-v2` | internal | Напоминания по настройкам пользователя (sent_reminders) | — |
+| POST | `/api/sent-reminders` | internal | Записать отправленное напоминание (idempotent) | body: `{booking_id, reminder_type}` |
 | GET | `/api/stats` | initData | Статистика пользователя | — |
 | GET | `/api/calendar/google/auth-url` | initData | URL для Google OAuth | — |
 | GET | `/api/calendar/google/callback` | — | OAuth callback от Google (redirect) | query: code, state |
@@ -287,11 +285,6 @@ erDiagram
         BOOLEAN blocks_slots
         BOOLEAN confirmation_asked
         TIMESTAMPTZ confirmation_asked_at
-        BOOLEAN reminder_24h_sent
-        BOOLEAN reminder_1h_sent
-        BOOLEAN reminder_15m_sent
-        BOOLEAN reminder_5m_sent
-        BOOLEAN morning_reminder_sent
         TEXT title
         TIMESTAMPTZ end_time
         BOOLEAN is_manual
@@ -667,11 +660,11 @@ sequenceDiagram
 3. Бот (`handle_new_booking`) отправляет сообщение организатору (с кнопками ✅/❌) и гостю
 
 **Напоминания о предстоящих встречах:**
-1. Фоновый цикл `reminder_loop()` в боте — каждые 5 минут
-2. Запрашивает `GET /api/bookings/pending-reminders?reminder_type=24h|1h`
-3. Backend возвращает confirmed бронирования с `reminder_*_sent = FALSE` в нужном временном окне
+1. Фоновый цикл `reminder_loop()` в боте — каждые 60 секунд
+2. Запрашивает `GET /api/bookings/pending-reminders-v2`
+3. Backend возвращает бронирования по `users.reminder_settings` с проверкой `NOT EXISTS` в `sent_reminders`
 4. Бот отправляет напоминание организатору и гостю
-5. Помечает отправленным: `PATCH /api/bookings/{id}/reminder-sent?reminder_type=24h|1h`
+5. Записывает в `POST /api/sent-reminders` (idempotent, ON CONFLICT DO NOTHING)
 
 **Таймзоны:** все даты/времена в уведомлениях форматируются в таймзоне организатора
 (`users.timezone`, default 'UTC') через `format_dt(dt_str, tz=...)`.

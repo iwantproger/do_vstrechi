@@ -54,14 +54,6 @@ async def run_migrations():
                 ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'UTC';
         """)
         await conn.execute("""
-            ALTER TABLE bookings
-                ADD COLUMN IF NOT EXISTS reminder_24h_sent BOOLEAN NOT NULL DEFAULT FALSE;
-        """)
-        await conn.execute("""
-            ALTER TABLE bookings
-                ADD COLUMN IF NOT EXISTS reminder_1h_sent BOOLEAN NOT NULL DEFAULT FALSE;
-        """)
-        await conn.execute("""
             ALTER TABLE schedules
                 ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT FALSE;
         """)
@@ -82,18 +74,6 @@ async def run_migrations():
             ALTER TABLE schedules
                 ADD COLUMN IF NOT EXISTS requires_confirmation BOOLEAN NOT NULL DEFAULT TRUE;
         """)
-        await conn.execute("""
-            ALTER TABLE bookings
-                ADD COLUMN IF NOT EXISTS reminder_15m_sent BOOLEAN NOT NULL DEFAULT FALSE;
-        """)
-        await conn.execute("""
-            ALTER TABLE bookings
-                ADD COLUMN IF NOT EXISTS reminder_5m_sent BOOLEAN NOT NULL DEFAULT FALSE;
-        """)
-        await conn.execute("""
-            ALTER TABLE bookings
-                ADD COLUMN IF NOT EXISTS morning_reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
-        """)
         # 008: no_answer status + confirmation tracking
         await conn.execute("""
             ALTER TABLE bookings
@@ -108,7 +88,7 @@ async def run_migrations():
             await conn.execute("ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check")
             await conn.execute("""
                 ALTER TABLE bookings ADD CONSTRAINT bookings_status_check
-                CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer'))
+                CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'no_answer', 'expired'))
             """)
         except Exception:
             pass  # constraint may already be correct

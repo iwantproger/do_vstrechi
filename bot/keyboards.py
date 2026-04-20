@@ -107,6 +107,25 @@ def kb_schedule_actions(schedule_id: str) -> InlineKeyboardMarkup:
     ])
 
 
+def kb_meeting_actions(
+    meeting_link: str = "",
+    platform: str = "",
+    include_connect: bool = True,
+    include_app: bool = True,
+    extra_rows: list | None = None,
+) -> InlineKeyboardMarkup | None:
+    """Стандартный набор кнопок для уведомлений: Подключиться + Открыть в приложении."""
+    rows = list(extra_rows) if extra_rows else []
+    if include_connect and meeting_link and platform in ("jitsi", "zoom", "google_meet"):
+        rows.append([InlineKeyboardButton(text="🔗 Подключиться", url=meeting_link)])
+    if include_app:
+        rows.append([InlineKeyboardButton(
+            text="📱 Открыть в приложении",
+            web_app=WebAppInfo(url=MINI_APP_URL),
+        )])
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
 def kb_booking_actions(booking_id: str, status: str) -> InlineKeyboardMarkup:
     buttons = []
     if status == "pending":

@@ -4,10 +4,13 @@ import logging
 
 from aiogram import Bot
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from api import api
 from formatters import format_dt
+from messages import TPL_REMINDER, TPL_MORNING_CONFIRM, TPL_PENDING_GUEST, TPL_MORNING_SUMMARY_HEADER, TPL_MORNING_SUMMARY_ITEM, maybe_link_html
+from keyboards import kb_meeting_actions
 
 log = logging.getLogger(__name__)
 
@@ -26,49 +29,83 @@ def _reminder_label(reminder_min: str) -> str:
     return f"⏰ Напоминание за {reminder_min} мин!"
 
 
+async def _record_sent(booking_id: str, reminder_min: str, role: str):
+    """Записать факт отправки (или permanent failure) в sent_reminders."""
+    await api("post", "/api/sent-reminders", json={
+        "booking_id":    booking_id,
+        "reminder_type": f"{reminder_min}:{role}",
+    })
+
+
+def _is_permanent_fail(exc: Exception) -> bool:
+    """Telegram-ошибки, после которых повторять бессмысленно."""
+    if isinstance(exc, TelegramForbiddenError):
+        return True
+    if isinstance(exc, TelegramBadRequest):
+        msg = str(exc).lower()
+        if "chat not found" in msg or "user not found" in msg:
+            return True
+    return False
+
+
 async def send_reminder(bot: Bot, booking: dict, reminder_min: str):
-    """Отправить напоминание организатору И участнику, записать в sent_reminders."""
+    """Отправить напоминание одному получателю. At-least-once: sent_reminders пишется только после успеха или permanent fail."""
+    role     = booking.get("role", "org")
+    recipient_tid = booking.get("recipient_tid")
+    booking_id = str(booking.get("booking_id") or booking.get("id"))
     org_tz   = booking.get("organizer_timezone") or "UTC"
-    time_str = format_dt(str(booking["scheduled_time"]), tz=org_tz)
+
+    if not recipient_tid:
+        return "skip"
+
+    # TZ: для гостя — его TZ, для организатора — его TZ
+    if role == "guest":
+        tz = booking.get("guest_timezone") or org_tz
+        if not booking.get("guest_timezone"):
+            log.warning("guest_timezone_fallback", booking_id=booking_id, used_tz=tz)
+    else:
+        tz = org_tz
+    time_str = format_dt(str(booking["scheduled_time"]), tz=tz)
     label    = _reminder_label(str(reminder_min))
 
-    base = (
-        f"{label}\n\n"
-        f"📋 {booking['schedule_title']}\n"
-        f"📅 {time_str}\n"
-        f"⏱ {booking.get('duration', 60)} мин\n"
+    meeting_link = booking.get("meeting_link", "")
+    platform = booking.get("platform", "")
+    ml = maybe_link_html(meeting_link, platform)
+    if role == "guest":
+        counterparty = f"\n👤 Организатор: {booking.get('organizer_name', 'N/A')}"
+    else:
+        counterparty = f"\n👤 Гость: {booking['guest_name']} ({booking.get('guest_contact', '')})"
+
+    text = TPL_REMINDER.format(
+        label=label, schedule_title=booking["schedule_title"],
+        dt=time_str, duration=booking.get("duration", 60),
+        maybe_link=ml, counterparty=counterparty,
     )
-    if booking.get("meeting_link") and booking.get("platform") in ("jitsi", "zoom", "google_meet"):
-        base += f"🔗 <a href=\"{booking['meeting_link']}\">Подключиться</a>\n"
 
-    guest_tid = booking.get("guest_telegram_id")
-    if guest_tid:
-        try:
-            await bot.send_message(
-                guest_tid,
-                base + f"\n👤 Организатор: {booking.get('organizer_name', 'N/A')}",
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True,
-            )
-        except Exception as e:
-            log.warning(f"Reminder to guest {guest_tid} failed: {e}")
+    # Кнопка "Подключиться" для напоминаний <=60 мин
+    include_connect = int(reminder_min) <= 60
+    kb = kb_meeting_actions(meeting_link, platform, include_connect=include_connect)
 
-    org_tid = booking.get("organizer_telegram_id")
-    if org_tid:
-        try:
-            await bot.send_message(
-                org_tid,
-                base + f"\n👤 Гость: {booking['guest_name']} ({booking.get('guest_contact', '')})",
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True,
-            )
-        except Exception as e:
-            log.warning(f"Reminder to organizer {org_tid} failed: {e}")
+    try:
+        await bot.send_message(
+            recipient_tid, text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb,
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        if _is_permanent_fail(e):
+            log.warning("reminder_permanent_fail", recipient=recipient_tid, role=role, error=str(e))
+            await _record_sent(booking_id, reminder_min, role)
+            return "permanent_fail"
+        # Transient — НЕ пишем в sent_reminders, на следующем тике retry
+        log.warning("reminder_transient_fail", recipient=recipient_tid, role=role, error=str(e))
+        return "transient_fail"
 
-    await api("post", "/api/sent-reminders", json={
-        "booking_id":    str(booking.get("booking_id") or booking.get("id")),
-        "reminder_type": str(reminder_min),
-    })
+    # Успех — записать чтобы не дублировать
+    await _record_sent(booking_id, reminder_min, role)
+    log.info("reminder_sent", recipient=recipient_tid, reminder_min=reminder_min, role=role)
+    return "ok"
 
 
 async def send_confirmation_request(bot: Bot, booking: dict):
@@ -78,21 +115,22 @@ async def send_confirmation_request(bot: Bot, booking: dict):
         return
 
     org_tz   = booking.get("organizer_timezone") or "UTC"
-    time_str = format_dt(str(booking["scheduled_time"]), tz=org_tz)
+    guest_tz = booking.get("guest_timezone") or org_tz
+    time_str = format_dt(str(booking["scheduled_time"]), tz=guest_tz)
     bid      = str(booking.get("id") or booking.get("booking_id"))
 
-    text = (
-        f"👋 <b>Напоминание о встрече сегодня!</b>\n\n"
-        f"📋 {booking['schedule_title']}\n"
-        f"📅 {time_str}\n"
-        f"⏱ {booking.get('duration', 60)} мин\n\n"
-        f"Встреча в силе?"
+    text = TPL_MORNING_CONFIRM.format(
+        schedule_title=booking["schedule_title"], dt=time_str,
+        duration=booking.get("duration", 60),
     )
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+    confirm_row = [
         InlineKeyboardButton(text="✅ Да, буду!", callback_data=f"guest_confirm_{bid}"),
         InlineKeyboardButton(text="❌ Отменить",  callback_data=f"guest_cancel_{bid}"),
-    ]])
+    ]
+    meeting_link = booking.get("meeting_link", "")
+    platform = booking.get("platform", "")
+    keyboard = kb_meeting_actions(meeting_link, platform, extra_rows=[confirm_row])
 
     try:
         await bot.send_message(guest_tid, text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
@@ -109,19 +147,18 @@ async def send_pending_guest_notice(bot: Bot, booking: dict):
         return
 
     org_tz   = booking.get("organizer_timezone") or "UTC"
-    time_str = format_dt(str(booking["scheduled_time"]), tz=org_tz)
+    guest_tz = booking.get("guest_timezone") or org_tz
+    time_str = format_dt(str(booking["scheduled_time"]), tz=guest_tz)
     bid      = str(booking.get("id") or booking.get("booking_id"))
 
-    text = (
-        f"⏳ <b>Ваша встреча сегодня ещё не подтверждена.</b>\n\n"
-        f"📋 {booking['schedule_title']}\n"
-        f"📅 {time_str}\n"
-        f"⏱ {booking.get('duration', 60)} мин\n\n"
-        "Ожидайте — мы уведомим вас, как только организатор подтвердит встречу."
+    text = TPL_PENDING_GUEST.format(
+        schedule_title=booking["schedule_title"], dt=time_str,
+        duration=booking.get("duration", 60),
     )
+    kb = kb_meeting_actions(include_connect=False)
 
     try:
-        await bot.send_message(guest_tid, text, parse_mode=ParseMode.HTML)
+        await bot.send_message(guest_tid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
         # Mark confirmation_asked=TRUE so this notice isn't re-sent,
         # and so confirmation-requests won't send "still coming?" until organizer confirms
         # (confirm_booking resets confirmation_asked=FALSE, then loop picks it up)
@@ -138,15 +175,16 @@ async def send_morning_organizer_summary(bot: Bot, organizer: dict):
     if not org_tid or not bookings:
         return
 
-    text_lines = ["📋 <b>Ожидают вашего подтверждения сегодня:</b>\n"]
+    text_lines = [TPL_MORNING_SUMMARY_HEADER]
     buttons = []
 
     for b in bookings:
         time_str = format_dt(str(b["scheduled_time"]), tz=org_tz)
         dur      = b.get("duration", 60)
-        text_lines.append(
-            f"👤 {b['guest_name']} — {time_str}, {b['schedule_title']} ({dur} мин)"
-        )
+        text_lines.append(TPL_MORNING_SUMMARY_ITEM.format(
+            guest_name=b["guest_name"], dt=time_str,
+            schedule_title=b["schedule_title"], duration=dur,
+        ))
         bid = b["id"]
         buttons.append([
             InlineKeyboardButton(
@@ -156,6 +194,9 @@ async def send_morning_organizer_summary(bot: Bot, organizer: dict):
             InlineKeyboardButton(text="❌", callback_data=f"cancel_{bid}"),
         ])
 
+    from config import MINI_APP_URL
+    from aiogram.types import WebAppInfo
+    buttons.append([InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=MINI_APP_URL))])
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     try:
         await bot.send_message(

@@ -72,81 +72,57 @@ async def handle_new_booking(request: web.Request) -> web.Response:
         return web.json_response({"error": "missing data"}, status=400)
 
     try:
+        from messages import TPL_NEW_BOOKING_ORG, TPL_NEW_BOOKING_GUEST, maybe_link_html
+        from keyboards import kb_meeting_actions
+
         org_tz         = payload.get("organizer_timezone") or "UTC"
-        dt             = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
+        guest_tz       = payload.get("guest_timezone") or org_tz
+        dt_org         = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
+        dt_guest       = format_dt(payload.get("scheduled_time", ""), tz=guest_tz) if guest_tz != org_tz else dt_org
         schedule_title = payload.get("schedule_title", "Встреча")
         guest_name     = payload.get("guest_name", "—")
         guest_contact  = payload.get("guest_contact", "—")
         meeting_link   = payload.get("meeting_link", "")
         booking_id     = payload.get("booking_id", "")
+        platform       = payload.get("platform", "")
 
-        org_text = (
-            "🔔 <b>Новая запись!</b>\n\n"
-            f"👤 {guest_name}\n"
-            f"📅 {dt}\n"
-            f"📋 {schedule_title}\n"
-            f"📞 {guest_contact}"
+        ml = maybe_link_html(meeting_link, platform)
+        org_text = TPL_NEW_BOOKING_ORG.format(
+            guest_name=guest_name, dt=dt_org, schedule_title=schedule_title,
+            guest_contact=guest_contact, maybe_link=ml,
         )
-        if meeting_link:
-            org_text += f"\n🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
 
         requires_confirm = payload.get("requires_confirmation", True)
         if requires_confirm:
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{booking_id}"),
-                InlineKeyboardButton(text="❌ Отклонить",  callback_data=f"cancel_{booking_id}"),
-            ]])
+            org_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{booking_id}"),
+                    InlineKeyboardButton(text="❌ Отклонить",  callback_data=f"cancel_{booking_id}"),
+                ],
+                [InlineKeyboardButton(text="📱 Открыть в приложении", web_app=WebAppInfo(url=MINI_APP_URL))],
+            ])
         else:
             org_text += "\n\n✅ <i>Автоматически подтверждено</i>"
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="📱 Открыть приложение", web_app=WebAppInfo(url=MINI_APP_URL)),
-            ]])
+            org_kb = kb_meeting_actions(meeting_link, platform)
 
-        await _safe_send(
-            bot, organizer_tid, org_text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=kb,
-            disable_web_page_preview=True,
-        )
+        org_booking_notif = payload.get("org_booking_notif", True)
+        if org_booking_notif:
+            await _safe_send(
+                bot, organizer_tid, org_text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=org_kb,
+                disable_web_page_preview=True,
+            )
 
         guest_tid = payload.get("guest_telegram_id")
-        if guest_tid:
-            # Calculate hours until meeting for reminder text
-            try:
-                scheduled_dt = datetime.fromisoformat(
-                    payload.get("scheduled_time", "").replace("Z", "+00:00")
-                )
-                hours_until = (scheduled_dt - datetime.now(timezone.utc)).total_seconds() / 3600
-            except Exception:
-                hours_until = 999
-
-            guest_text = (
-                "✅ <b>Вы записались!</b>\n\n"
-                f"📋 {schedule_title}\n"
-                f"📅 {dt}\n"
+        guest_booking_notif = payload.get("guest_booking_notif", True)
+        if guest_tid and guest_booking_notif:
+            conf_note = "\n⏳ Ожидайте подтверждения от организатора." if requires_confirm else ""
+            guest_text = TPL_NEW_BOOKING_GUEST.format(
+                schedule_title=schedule_title, dt=dt_guest,
+                maybe_link=ml, confirmation_note=conf_note,
             )
-            if meeting_link:
-                guest_text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>\n"
-            guest_text += "\n⏳ Ожидайте подтверждения от организатора.\n"
-
-            if hours_until > 24:
-                guest_text += "\n🔔 Мы напомним вам о встрече за 24 часа и за 1 час.\n"
-            elif hours_until > 1:
-                guest_text += "\n🔔 Мы напомним вам о встрече за 1 час.\n"
-
-            guest_text += "\n💡 Здесь вы будете получать напоминания и обновления по этой встрече."
-
-            # Inline buttons for guest
-            guest_buttons = []
-            if booking_id:
-                notify_url = f"https://t.me/{bot.me.username}?start=notify_{booking_id}"
-                guest_buttons.append([
-                    InlineKeyboardButton(text="🔔 Настроить уведомления", url=notify_url)
-                ])
-            guest_buttons.append([
-                InlineKeyboardButton(text="📅 Принимать записи самому →", callback_data="how_it_works")
-            ])
-            guest_kb = InlineKeyboardMarkup(inline_keyboard=guest_buttons)
+            guest_kb = kb_meeting_actions(meeting_link, platform, include_connect=False)
 
             await _safe_send(
                 bot, guest_tid, guest_text,
@@ -173,6 +149,12 @@ async def handle_status_change(request: web.Request) -> web.Response:
     except Exception:
         return web.json_response({"error": "invalid json"}, status=400)
 
+    from messages import (
+        TPL_CONFIRMED, TPL_CANCELLED_BY_ORG, TPL_CANCELLED_BY_GUEST,
+        TPL_GUEST_CONFIRMED, TPL_NO_ANSWER, maybe_link_html,
+    )
+    from keyboards import kb_meeting_actions
+
     bot: Bot = request.app["bot"]
     new_status     = payload.get("new_status", "")
     initiator_tid  = payload.get("initiator_telegram_id")
@@ -181,66 +163,44 @@ async def handle_status_change(request: web.Request) -> web.Response:
     guest_name     = payload.get("guest_name", "—")
     schedule_title = payload.get("schedule_title", "Встреча")
     org_tz         = payload.get("organizer_timezone") or "UTC"
-    dt             = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
+    guest_tz       = payload.get("guest_timezone") or org_tz
+    dt_org         = format_dt(payload.get("scheduled_time", ""), tz=org_tz)
+    dt_guest       = format_dt(payload.get("scheduled_time", ""), tz=guest_tz) if guest_tz != org_tz else dt_org
     meeting_link   = payload.get("meeting_link", "")
+    platform       = payload.get("platform", "")
+    ml = maybe_link_html(meeting_link, platform)
 
     try:
         if new_status == "confirmed":
             if guest_tid:
-                text = (
-                    "✅ <b>Встреча подтверждена!</b>\n\n"
-                    f"📋 {schedule_title}\n"
-                    f"📅 {dt}\n"
-                )
-                if meeting_link:
-                    text += f"🔗 <a href='{meeting_link}'>Ссылка на встречу</a>"
-                await _safe_send(
-                    bot, guest_tid, text,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=True,
-                )
+                text = TPL_CONFIRMED.format(schedule_title=schedule_title, dt=dt_guest, maybe_link=ml)
+                kb = kb_meeting_actions(meeting_link, platform)
+                await _safe_send(bot, guest_tid, text, parse_mode=ParseMode.HTML,
+                                 reply_markup=kb, disable_web_page_preview=True)
 
         elif new_status == "cancelled":
             if initiator_tid == organizer_tid:
-                # Organizer cancelled → notify guest
                 if guest_tid:
-                    text = (
-                        "🚫 <b>Встреча отменена организатором.</b>\n\n"
-                        f"📋 {schedule_title}\n"
-                        f"📅 {dt}"
-                    )
-                    await _safe_send(bot, guest_tid, text, parse_mode=ParseMode.HTML)
+                    text = TPL_CANCELLED_BY_ORG.format(schedule_title=schedule_title, dt=dt_guest)
+                    kb = kb_meeting_actions(include_connect=False)
+                    await _safe_send(bot, guest_tid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
             else:
-                # Guest cancelled → notify organizer
                 if organizer_tid:
-                    text = (
-                        "🚫 <b>Отмена встречи.</b>\n\n"
-                        f"👤 {guest_name} отменил(а) запись.\n"
-                        f"📋 {schedule_title}\n"
-                        f"📅 {dt}"
-                    )
-                    await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
+                    text = TPL_CANCELLED_BY_GUEST.format(guest_name=guest_name, schedule_title=schedule_title, dt=dt_org)
+                    kb = kb_meeting_actions(include_connect=False)
+                    await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
         elif new_status == "guest_confirmed":
-            # Guest pressed "Да, буду!" → notify organizer
             if organizer_tid:
-                text = (
-                    f"✅ <b>{guest_name} подтвердил(а) встречу!</b>\n\n"
-                    f"📋 {schedule_title}\n"
-                    f"📅 {dt}"
-                )
-                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
+                text = TPL_GUEST_CONFIRMED.format(guest_name=guest_name, schedule_title=schedule_title, dt=dt_org)
+                kb = kb_meeting_actions(meeting_link, platform)
+                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
         elif new_status == "no_answer":
-            # Guest didn't respond to morning confirmation → notify organizer
             if organizer_tid:
-                text = (
-                    f"⚠️ <b>{guest_name} не подтвердил(а) встречу</b>\n\n"
-                    f"📋 {schedule_title}\n"
-                    f"📅 {dt}\n\n"
-                    "Участник не ответил на утреннее подтверждение."
-                )
-                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML)
+                text = TPL_NO_ANSWER.format(guest_name=guest_name, schedule_title=schedule_title, dt=dt_org)
+                kb = kb_meeting_actions(include_connect=False)
+                await _safe_send(bot, organizer_tid, text, parse_mode=ParseMode.HTML, reply_markup=kb)
 
         return web.json_response({"ok": True})
 
@@ -249,15 +209,62 @@ async def handle_status_change(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
-def register_internal_routes(webapp: web.Application, bot: Bot) -> None:
-    """Register internal notification routes on an existing aiohttp app.
+async def handle_late_booking(request: web.Request) -> web.Response:
+    """Instant-напоминание при бронировании близкой встречи (late booking)."""
+    key = request.headers.get("X-Internal-Key", "")
+    if not INTERNAL_API_KEY or not hmac.compare_digest(key, INTERNAL_API_KEY):
+        return web.json_response({"error": "unauthorized"}, status=401)
 
-    Used in webhook mode, where a single aiohttp app hosts both the Telegram
-    webhook handler and the internal notifications endpoints.
-    """
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400)
+
+    from messages import TPL_LATE_BOOKING, maybe_link_html
+    from keyboards import kb_meeting_actions
+
+    bot: Bot = request.app["bot"]
+    recipient_tid = payload.get("recipient_telegram_id")
+    if not recipient_tid:
+        return web.json_response({"error": "missing recipient"}, status=400)
+
+    try:
+        tz = payload.get("recipient_tz") or "UTC"
+        dt = format_dt(payload.get("scheduled_time", ""), tz=tz)
+        title = payload.get("schedule_title", "Встреча")
+        time_left = payload.get("time_until_min", 0)
+        meeting_link = payload.get("meeting_link", "")
+        platform = payload.get("platform", "")
+        duration = payload.get("duration", 60)
+
+        if time_left >= 60:
+            time_label = f"{time_left // 60} ч {time_left % 60} мин" if time_left % 60 else f"{time_left // 60} ч"
+        else:
+            time_label = f"{time_left} мин"
+
+        ml = maybe_link_html(meeting_link, platform)
+        text = TPL_LATE_BOOKING.format(
+            schedule_title=title, dt=dt, duration=duration,
+            time_label=time_label, maybe_link=ml,
+        )
+        kb = kb_meeting_actions(meeting_link, platform)
+
+        await _safe_send(bot, recipient_tid, text, parse_mode=ParseMode.HTML,
+                         reply_markup=kb, disable_web_page_preview=True)
+        log.info(f"Late booking notification sent to {recipient_tid}")
+        return web.json_response({"ok": True})
+
+    except Exception as e:
+        log.error(f"Late booking notification failed: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+def register_internal_routes(webapp: web.Application, bot: Bot) -> None:
+    """Register internal notification routes on an existing aiohttp app."""
     webapp["bot"] = bot
     webapp.router.add_post("/internal/notify",        handle_new_booking)
     webapp.router.add_post("/internal/status-change", handle_status_change)
+    webapp.router.add_post("/internal/notify-late",   handle_late_booking)
 
 
 async def start_internal_server(bot: Bot, port: int = 8080):

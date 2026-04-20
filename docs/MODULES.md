@@ -146,8 +146,8 @@
 
 | Функция | Роут | Описание |
 |---------|------|----------|
-| `get_pending_reminders()` | GET `/api/bookings/pending-reminders` | Confirmed бронирования в окне reminder_type (24h/1h) с `reminder_*_sent=FALSE` |
-| `mark_reminder_sent()` | PATCH `/api/bookings/{id}/reminder-sent` | Пометить reminder как отправленный |
+| `get_pending_reminders_v2()` | GET `/api/bookings/pending-reminders-v2` | Бронирования для напоминаний по `users.reminder_settings` + `sent_reminders` |
+| `record_sent_reminder()` | POST `/api/sent-reminders` | Записать отправленное напоминание (idempotent) |
 
 ### Роуты: Stats (`routers/stats.py`)
 
@@ -300,8 +300,8 @@ CreateSchedule (StatesGroup):
 |---------|----------|
 | `setup_bot_commands(bot)` | Регистрация /start, /help + глобальный MenuButtonWebApp (try/except) |
 | `handle_new_booking(request)` | aiohttp handler для POST `/internal/notify` — проверка X-Internal-Key, отправка сообщений организатору (с кнопками ✅/❌) и гостю |
-| `send_reminder(booking, type)` | Отправка напоминания (24h/1h) организатору и гостю + mark as sent через API |
-| `reminder_loop()` | Фоновый цикл (каждые 5 мин) — опрашивает pending-reminders, вызывает send_reminder; каждые 15 мин вызывает `POST /api/bookings/complete-past` для auto-complete встреч |
+| `send_reminder(bot, booking, reminder_min)` | Отправка напоминания организатору и гостю + запись в `POST /api/sent-reminders` |
+| `reminder_loop(bot)` | Фоновый цикл (каждые 60с) — опрашивает `pending-reminders-v2`, вызывает send_reminder; каждые 5 тиков — утренние проверки; каждые 15 тиков — auto-complete встреч |
 
 ### Main (`bot.py`)
 

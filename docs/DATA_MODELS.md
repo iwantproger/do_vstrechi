@@ -63,11 +63,6 @@ erDiagram
         TEXT platform "NULL (snapshot from schedule)"
         TEXT location_address "NULL (snapshot from schedule)"
         BOOLEAN blocks_slots "DEFAULT TRUE"
-        BOOLEAN reminder_24h_sent "DEFAULT FALSE"
-        BOOLEAN reminder_1h_sent "DEFAULT FALSE"
-        BOOLEAN reminder_15m_sent "DEFAULT FALSE"
-        BOOLEAN reminder_5m_sent "DEFAULT FALSE"
-        BOOLEAN morning_reminder_sent "DEFAULT FALSE"
         BOOLEAN confirmation_asked "DEFAULT FALSE"
         TIMESTAMPTZ confirmation_asked_at "NULL"
         TIMESTAMPTZ created_at "DEFAULT NOW()"
@@ -288,11 +283,6 @@ erDiagram
 | platform | TEXT | NULL | Платформа (snapshot из расписания на момент бронирования) |
 | location_address | TEXT | NULL | Адрес (snapshot из расписания на момент бронирования) |
 | blocks_slots | BOOLEAN | NOT NULL, DEFAULT TRUE | Блокирует ли слоты в расписании |
-| reminder_24h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 24ч |
-| reminder_1h_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 1ч |
-| reminder_15m_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 15 мин |
-| reminder_5m_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли напоминание за 5 мин |
-| morning_reminder_sent | BOOLEAN | NOT NULL, DEFAULT FALSE | Отправлено ли утреннее напоминание |
 | confirmation_asked | BOOLEAN | NOT NULL, DEFAULT FALSE | Был ли отправлен запрос подтверждения |
 | confirmation_asked_at | TIMESTAMPTZ | NULL | Время отправки запроса подтверждения |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Время создания |

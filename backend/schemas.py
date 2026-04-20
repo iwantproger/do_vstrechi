@@ -64,6 +64,7 @@ class BookingCreate(BaseModel):
     guest_telegram_id: Optional[int] = None
     scheduled_time: str = Field(..., max_length=50)
     notes: Optional[str] = Field(None, max_length=2000)
+    guest_timezone: Optional[str] = Field(None, max_length=100)
 
     @field_validator("guest_contact")
     @classmethod
@@ -119,6 +120,41 @@ class AppEvent(BaseModel):
     session_id: Optional[str] = Field(None, max_length=100)
     metadata: Optional[dict] = None
     severity: str = Field("info", pattern=r"^(info|warn|error|critical)$")
+
+
+_STANDARD_REMINDERS = {"1440", "60", "30", "15", "5"}
+
+
+class NotificationSettingsUpdate(BaseModel):
+    """Частичное обновление настроек уведомлений пользователя."""
+    reminders: Optional[List[str]] = None
+    customReminders: Optional[List[int]] = None
+    booking_notif: Optional[bool] = None
+    reminder_notif: Optional[bool] = None
+
+    @field_validator("reminders", mode="before")
+    @classmethod
+    def validate_reminders(cls, v):
+        if v is None:
+            return v
+        for item in v:
+            val = int(str(item))
+            if val < 1 or val > 10080:
+                raise ValueError(f"reminder value {val} out of range 1..10080")
+        return [str(x) for x in v]
+
+    @field_validator("customReminders", mode="before")
+    @classmethod
+    def validate_custom(cls, v):
+        if v is None:
+            return v
+        for item in v:
+            val = int(item)
+            if val < 1 or val > 10080:
+                raise ValueError(f"custom reminder {val} out of range 1..10080")
+            if str(val) in _STANDARD_REMINDERS:
+                raise ValueError(f"{val} is a standard reminder, use reminders field")
+        return v
 
 
 class CleanupRequest(BaseModel):

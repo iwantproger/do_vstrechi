@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 
 from database import db
-from auth import get_current_user
-from schemas import UserAuth
+from auth import get_current_user, get_internal_caller
+from schemas import UserAuth, NotificationSettingsUpdate
 from utils import row_to_dict, _track_event
 
 log = structlog.get_logger()
@@ -78,24 +78,63 @@ async def auth_user(
     return row_to_dict(row)
 
 
+_NOTIF_DEFAULTS = {"reminders": ["1440", "60", "5"], "customReminders": [], "booking_notif": True, "reminder_notif": True}
+
+
+@router.get("/api/users/notification-settings")
+async def get_notification_settings(
+    auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    """Настройки уведомлений текущего пользователя."""
+    row = await conn.fetchrow(
+        "SELECT reminder_settings FROM users WHERE telegram_id = $1",
+        auth_user["id"],
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    settings = row["reminder_settings"] or {}
+    # Гарантируем наличие всех полей в ответе
+    return {
+        "reminders": settings.get("reminders", _NOTIF_DEFAULTS["reminders"]),
+        "customReminders": settings.get("customReminders", []),
+        "booking_notif": settings.get("booking_notif", True),
+        "reminder_notif": settings.get("reminder_notif", True),
+    }
+
+
 @router.patch("/api/users/notification-settings")
 async def update_notification_settings(
-    request: Request,
-    conn: asyncpg.Connection = Depends(db),
+    data: NotificationSettingsUpdate,
     auth_user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(db),
 ):
-    body = await request.json()
+    """Частичное обновление настроек уведомлений (merge с текущим значением)."""
     telegram_id = auth_user["id"]
-    settings = json.dumps(body.get("settings", {}))
+    # Читаем текущие настройки
+    current = await conn.fetchval(
+        "SELECT reminder_settings FROM users WHERE telegram_id = $1",
+        telegram_id,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    merged = dict(current) if current else dict(_NOTIF_DEFAULTS)
+    # Merge только переданных полей
+    patch = data.model_dump(exclude_none=True)
+    merged.update(patch)
     await conn.execute(
         "UPDATE users SET reminder_settings = $1::jsonb WHERE telegram_id = $2",
-        settings, telegram_id,
+        json.dumps(merged), telegram_id,
     )
-    return {"ok": True}
+    return merged
 
 
 @router.patch("/api/users/{telegram_id}/morning-summary-sent")
-async def mark_morning_summary_sent(telegram_id: int, conn: asyncpg.Connection = Depends(db)):
+async def mark_morning_summary_sent(
+    telegram_id: int,
+    _auth=Depends(get_internal_caller),
+    conn: asyncpg.Connection = Depends(db),
+):
     """Mark that the morning organizer summary was sent today (prevents duplicate sends)."""
     await conn.execute(
         "UPDATE users SET morning_summary_sent_date = CURRENT_DATE WHERE telegram_id = $1",

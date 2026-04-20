@@ -5,7 +5,10 @@ import time as _time
 DATABASE_URL = os.environ["DATABASE_URL"]
 DATABASE_ADMIN_URL = os.environ.get("DATABASE_ADMIN_URL", DATABASE_URL)
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+# Секрет для аутентификации бот↔backend. Обязательная переменная.
+# Генерация: openssl rand -hex 32
 INTERNAL_API_KEY = os.environ.get("INTERNAL_API_KEY", "")
+assert INTERNAL_API_KEY, "INTERNAL_API_KEY is required — generate with: openssl rand -hex 32"
 BOT_INTERNAL_URL = os.environ.get("BOT_INTERNAL_URL", "http://bot:8080")
 MINI_APP_URL = os.environ.get("MINI_APP_URL", "")
 SECRET_KEY = os.environ.get("SECRET_KEY", "")

@@ -405,7 +405,7 @@ function renderMeetingsList() {
     if (_meetFilter === 'all')     return m._ds === 'pending' || m._ds === 'confirmed' || m._ds === 'ongoing' || m._ds === 'noans';
     if (_meetFilter === 'noans')   return m._ds === 'noans';
     if (_meetFilter === 'ok')      return m._ds === 'confirmed' || m._ds === 'ongoing';
-    if (_meetFilter === 'archive') return m._ds === 'completed' || m._ds === 'cancelled';
+    if (_meetFilter === 'archive') return m._ds === 'completed' || m._ds === 'cancelled' || m._ds === 'expired';
     return true;
   });
 
