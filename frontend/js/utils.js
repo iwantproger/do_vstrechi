@@ -1,4 +1,19 @@
 /* ═══════════════════════════════════════════
+   ANALYTICS (fire-and-forget)
+═══════════════════════════════════════════ */
+window._sessionId = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2));
+
+function trackEvent(eventType, metadata) {
+  try {
+    fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Init-Data': (typeof tg !== 'undefined' && tg && tg.initData) || '' },
+      body: JSON.stringify({ event_type: eventType, session_id: window._sessionId, metadata: metadata || {}, severity: 'info' })
+    }).catch(function() {});
+  } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
 

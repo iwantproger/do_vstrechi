@@ -874,6 +874,198 @@ async def analytics_time_to_value(
 
 
 # ─────────────────────────────────────────────────────────
+# Analytics v2: activation, guest-funnel, quality, operational, growth
+# ─────────────────────────────────────────────────────────
+
+@router.get("/api/admin/analytics/activation")
+async def analytics_activation(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
+    rows = await conn.fetch("""
+        SELECT EXTRACT(EPOCH FROM (MIN(b.created_at) - u.created_at)) / 3600 AS hours
+        FROM users u
+        JOIN schedules s ON s.user_id = u.id
+        JOIN bookings b ON b.schedule_id = s.id AND b.status NOT IN ('cancelled')
+        WHERE u.telegram_id != $1 AND u.created_at >= $2
+        GROUP BY u.id, u.created_at
+    """, owner_id, cutoff)
+    hours_list = sorted([float(r["hours"]) for r in rows if r["hours"] is not None])
+    activated = len(hours_list)
+
+    total = await conn.fetchval(
+        "SELECT COUNT(*) FROM users WHERE telegram_id != $1 AND created_at >= $2", owner_id, cutoff
+    )
+
+    median = hours_list[len(hours_list) // 2] if hours_list else None
+    p90 = hours_list[int(len(hours_list) * 0.9)] if hours_list else None
+
+    return {
+        "ttfv_organizer": {
+            "median_hours": round(median, 1) if median is not None else None,
+            "p90_hours": round(p90, 1) if p90 is not None else None,
+            "count": activated,
+        },
+        "activation_rate": {
+            "activated": activated,
+            "total": total,
+            "rate": round(activated / total * 100, 1) if total else 0,
+        },
+    }
+
+
+_GUEST_FUNNEL_STEPS = [
+    ("schedule_viewed", "Открыли расписание"),
+    ("date_selected", "Выбрали дату"),
+    ("slot_selected", "Выбрали слот"),
+    ("form_opened", "Открыли форму"),
+    ("booking_submitted", "Отправили бронь"),
+    ("booking_success", "Успешно забронировали"),
+]
+
+@router.get("/api/admin/analytics/guest-funnel")
+async def analytics_guest_funnel(
+    days: int = Query(30, ge=1, le=365),
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    cutoff = get_prod_cutoff()
+    event_types = [s[0] for s in _GUEST_FUNNEL_STEPS]
+    rows = await conn.fetch("""
+        SELECT event_type, COUNT(*) AS count
+        FROM app_events
+        WHERE event_type = ANY($1)
+          AND created_at >= NOW() - INTERVAL '1 day' * $2
+          AND created_at >= $3
+        GROUP BY event_type
+    """, event_types, days, cutoff)
+
+    counts = {r["event_type"]: r["count"] for r in rows}
+    steps = []
+    for event, name in _GUEST_FUNNEL_STEPS:
+        steps.append({"name": name, "event": event, "count": counts.get(event, 0)})
+
+    first = steps[0]["count"] if steps else 0
+    last = steps[-1]["count"] if steps else 0
+    return {
+        "steps": steps,
+        "conversion_rate": round(last / first * 100, 1) if first else 0,
+        "period_days": days,
+    }
+
+
+@router.get("/api/admin/analytics/quality")
+async def analytics_quality(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'pending' AND created_at < NOW() - INTERVAL '24 hours') AS timed_out,
+          COUNT(*) FILTER (WHERE status = 'pending') AS total_pending,
+          COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
+          COUNT(*) AS total
+        FROM bookings
+        WHERE created_at >= $1
+    """, cutoff)
+
+    total = row["total"] or 1
+    errors_count = await conn.fetchval("""
+        SELECT COUNT(*) FROM app_events
+        WHERE severity IN ('error','critical') AND created_at >= $1
+    """, cutoff)
+
+    avg_row = await conn.fetchrow("""
+        SELECT AVG(bc)::float AS avg_meetings FROM (
+            SELECT COUNT(b.id) AS bc
+            FROM users u
+            JOIN schedules s ON s.user_id = u.id
+            JOIN bookings b ON b.schedule_id = s.id AND b.status NOT IN ('cancelled')
+            WHERE u.telegram_id != $1 AND u.created_at >= $2
+            GROUP BY u.id
+        ) sub
+    """, owner_id, cutoff)
+
+    return {
+        "pending_timeout_rate": round((row["timed_out"] or 0) / (row["total_pending"] or 1) * 100, 1),
+        "cancellation_rate": round((row["cancelled"] or 0) / total * 100, 1),
+        "error_per_1000_bookings": round((errors_count or 0) / total * 1000, 1),
+        "avg_meetings_per_organizer": round(avg_row["avg_meetings"] or 0, 1),
+    }
+
+
+@router.get("/api/admin/analytics/operational")
+async def analytics_operational(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    pool = await get_pool()
+    size = pool.get_size()
+    free = pool.get_idle_size()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE severity IN ('error','critical')) AS errors,
+          COUNT(*) FILTER (WHERE severity = 'warn') AS warnings
+        FROM app_events
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+    """)
+    return {
+        "db_pool": {"size": size, "free": free, "usage_percent": round((size - free) / size * 100) if size else 0},
+        "events_24h": {"total": row["total"], "errors": row["errors"], "warnings": row["warnings"]},
+        "api_health": "ok",
+    }
+
+
+@router.get("/api/admin/analytics/growth")
+async def analytics_growth(
+    session: dict = Depends(get_admin_user),
+    conn: asyncpg.Connection = Depends(db),
+):
+    owner_id = ADMIN_TELEGRAM_ID or 0
+    cutoff = get_prod_cutoff()
+    row = await conn.fetchrow("""
+        SELECT
+          COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) AS today,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS week,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS month
+        FROM users
+        WHERE telegram_id != $1 AND created_at >= $2
+    """, owner_id, cutoff)
+
+    # WAU / MAU
+    wau = await conn.fetchval("""
+        SELECT COUNT(DISTINCT user_id) FROM (
+          SELECT user_id FROM schedules WHERE created_at > NOW() - INTERVAL '7 days'
+          UNION
+          SELECT s.user_id FROM bookings b JOIN schedules s ON s.id = b.schedule_id
+          WHERE b.created_at > NOW() - INTERVAL '7 days'
+        ) a
+    """)
+    mau = await conn.fetchval("""
+        SELECT COUNT(DISTINCT user_id) FROM (
+          SELECT user_id FROM schedules WHERE created_at > NOW() - INTERVAL '30 days'
+          UNION
+          SELECT s.user_id FROM bookings b JOIN schedules s ON s.id = b.schedule_id
+          WHERE b.created_at > NOW() - INTERVAL '30 days'
+        ) a
+    """)
+
+    return {
+        "registrations_today": row["today"],
+        "registrations_7d": row["week"],
+        "registrations_30d": row["month"],
+        "wau": wau or 0,
+        "mau": mau or 0,
+        "wau_mau_ratio": round((wau or 0) / mau * 100, 1) if mau else 0,
+    }
+
+
+# ─────────────────────────────────────────────────────────
 
 @router.post("/api/events")
 async def receive_event(

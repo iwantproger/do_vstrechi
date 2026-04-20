@@ -65,6 +65,7 @@ async function loadCalendar(scheduleId) {
 
   renderCalendar();
   loadMonthSlots();
+  trackEvent('schedule_viewed', { schedule_id: scheduleId });
 }
 
 function renderCalendar() {
@@ -225,6 +226,7 @@ function selectDay(ds) {
   state.selectedDate = ds;
   state.selectedTime = null; state.selectedSlotUtc = null; state.selectedTimeLocal = null;
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  trackEvent('date_selected', { schedule_id: state.schedule?.id, date: ds });
 
   /* hide inline form when new day selected */
   var formBlock = document.getElementById('cal-guest-form');
@@ -275,6 +277,7 @@ function selectTime(time) {
   state.selectedSlotUtc = slot ? (slot.datetime_utc || slot.datetime) : null;
   state.selectedTimeLocal = slot ? (slot.datetime_local || time) : time;
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  trackEvent('slot_selected', { schedule_id: state.schedule?.id, date: state.selectedDate, time: time });
 
   /* re-render slot grid to update selection */
   var gridEl = document.getElementById('csp-grid');
@@ -294,6 +297,7 @@ function selectTime(time) {
   var formBlock = document.getElementById('cal-guest-form');
   if (formBlock) {
     formBlock.style.display = 'block';
+    trackEvent('form_opened', { schedule_id: state.schedule?.id });
     _initGuestTzDisplay();
     checkBrowserAuth('browser-auth-block', 'tg-auth-link');
     /* autofill from Telegram user */
@@ -451,6 +455,7 @@ async function _doSubmitBooking(opts) {
     btn.innerHTML = opts.loadingHtml;
   }
   if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  trackEvent('booking_submitted', { schedule_id: body.schedule_id });
 
   var { data, error } = await apiFetch('POST', '/api/bookings', body);
 
@@ -462,11 +467,13 @@ async function _doSubmitBooking(opts) {
 
   if (error) {
     if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+    trackEvent('booking_error', { schedule_id: body.schedule_id, error: String(error).slice(0, 100) });
     showToast(error === 'Это время уже занято' ? 'Это время уже занято, выберите другое' : 'Ошибка: ' + error);
     return;
   }
 
   if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  trackEvent('booking_success', { schedule_id: body.schedule_id, booking_id: data?.id });
   renderSuccess(data);
   showScreen('s-success');
 }

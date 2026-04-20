@@ -1110,6 +1110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   /* Показать приложение — инсеты уже рассчитаны, флэша не будет */
   document.getElementById('app').classList.add('ready');
+  trackEvent('miniapp_opened', { mode: scheduleId ? 'guest' : 'organizer', schedule_id: scheduleId || null });
 
   checkCalendarConnectParam();
 
