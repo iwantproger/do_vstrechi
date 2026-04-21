@@ -1,0 +1,76 @@
+name: Run Seed Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action: seed or reset'
+        required: true
+        default: 'seed'
+        type: choice
+        options:
+          - seed
+          - reset
+          - dry-run
+      target:
+        description: 'Target: prod or beta'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - beta
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run seed via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            TARGET="${{ inputs.target }}"
+            ACTION="${{ inputs.action }}"
+
+            if [ "$TARGET" = "prod" ]; then
+              DIR="/opt/dovstrechi"
+              CONTAINER="dovstrechi_backend"
+            else
+              DIR="/opt/dovstrechi-beta"
+              CONTAINER="dovstrechi_backend_beta"
+            fi
+
+            echo "=== Target: $TARGET, Action: $ACTION ==="
+            echo "=== Container: $CONTAINER ==="
+
+            # Copy script into container
+            docker cp "$DIR/scripts/seed_screenshots.py" "$CONTAINER:/tmp/seed.py"
+
+            # Build flags
+            FLAGS=""
+            if [ "$ACTION" = "reset" ]; then
+              FLAGS="--reset"
+            elif [ "$ACTION" = "dry-run" ]; then
+              FLAGS="--dry-run"
+            fi
+
+            if [ "$TARGET" = "prod" ]; then
+              FLAGS="$FLAGS --force-prod"
+            fi
+
+            # Run inside container (has asyncpg + DATABASE_URL already)
+            docker exec \
+              -e OWNER_TELEGRAM_ID=5109612976 \
+              -e OWNER_USERNAME=iwantproger \
+              -e "OWNER_FIRST_NAME=Иван" \
+              "$CONTAINER" \
+              python3 /tmp/seed.py $FLAGS
+
+            # Cleanup
+            docker exec "$CONTAINER" rm -f /tmp/seed.py
+            echo "=== Done ==="
