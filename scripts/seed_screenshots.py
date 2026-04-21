@@ -108,16 +108,18 @@ def build_bookings(now_msk: datetime) -> list[dict]:
     three_ago = today - timedelta(days=3)
 
     def msk_dt(d, h, m=0):
+        """Create a datetime in Moscow TZ, convert to UTC. Clamps hour to 0-23."""
+        h = max(0, min(23, h))
         return datetime(d.year, d.month, d.day, h, m, tzinfo=TZ_MSK).astimezone(TZ_UTC)
 
-    def relative_hours(hours):
-        return (now_msk + timedelta(hours=hours)).astimezone(TZ_UTC)
+    # Round current hour up to next whole hour for "today" meetings
+    next_hour = now_msk.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
     return [
         {
             "schedule_title": "Консультация",
             "guest_name": "Мария Соколова",
-            "scheduled_time": relative_hours(3),
+            "scheduled_time": msk_dt(today, next_hour.hour + 2),
             "status": "confirmed",
             "has_link": True,
             "notes": f"{SEED_MARKER} Хочу обсудить переход с фриланса",
@@ -125,7 +127,7 @@ def build_bookings(now_msk: datetime) -> list[dict]:
         {
             "schedule_title": "Знакомство",
             "guest_name": "Алексей Петров",
-            "scheduled_time": relative_hours(6),
+            "scheduled_time": msk_dt(today, next_hour.hour + 5),
             "status": "confirmed",
             "has_link": True,
             "notes": SEED_MARKER,
@@ -165,7 +167,7 @@ def build_bookings(now_msk: datetime) -> list[dict]:
         {
             "schedule_title": "Консультация",
             "guest_name": "Елена Морозова",
-            "scheduled_time": relative_hours(-2),
+            "scheduled_time": msk_dt(yesterday, 14),
             "status": "completed",
             "has_link": True,
             "notes": f"{SEED_MARKER} Спасибо, было полезно!",
