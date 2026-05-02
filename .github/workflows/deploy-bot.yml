@@ -1,0 +1,131 @@
+name: Deploy Bot to Finland VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bot/**'
+      - 'docker-compose.bot.yml'
+      - '.github/workflows/deploy-bot.yml'
+  workflow_dispatch:
+
+# Не запускать параллельно — один деплой за раз
+concurrency:
+  group: deploy-bot-prod
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate bot code
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Python syntax (compileall)
+        run: |
+          python -m compileall -q bot/ || (echo "❌ Syntax error in bot/" && exit 1)
+          echo "✅ Python syntax OK"
+
+      - name: Validate docker-compose.bot.yml
+        run: |
+          # Проверяем YAML парсится и сервис bot существует
+          python -c "
+          import yaml, sys
+          with open('docker-compose.bot.yml') as f:
+              c = yaml.safe_load(f)
+          assert 'services' in c, 'services missing'
+          assert 'bot' in c['services'], 'bot service missing'
+          print('✅ docker-compose.bot.yml valid; services:', list(c['services'].keys()))
+          "
+
+  deploy:
+    name: Deploy bot to ishosting (Finland)
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.FINLAND_VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.FINLAND_VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Sync bot code (rsync)
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude '.env*' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            --exclude '*.bak' \
+            --exclude '.git' \
+            ./bot/ ${{ secrets.FINLAND_VPS_USER }}@${{ secrets.FINLAND_VPS_HOST }}:/opt/dovstrechi-bot/bot/
+
+      - name: Sync docker-compose.bot.yml → /opt/dovstrechi-bot/docker-compose.yml
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            ./docker-compose.bot.yml \
+            ${{ secrets.FINLAND_VPS_USER }}@${{ secrets.FINLAND_VPS_HOST }}:/opt/dovstrechi-bot/docker-compose.yml
+
+      - name: Rebuild bot image and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.FINLAND_VPS_USER }}@${{ secrets.FINLAND_VPS_HOST }} <<'DEPLOY'
+          set -e
+          cd /opt/dovstrechi-bot
+
+          echo "=== compose validation ==="
+          docker compose config --quiet
+
+          echo "=== build bot ==="
+          docker compose build bot
+
+          echo "=== up -d (recreate bot) ==="
+          docker compose up -d bot
+
+          echo "=== wait 12s for healthcheck ==="
+          sleep 12
+
+          echo "=== status ==="
+          docker compose ps
+
+          # Проверка что контейнер running и не в restart-loop
+          if ! docker compose ps bot | grep -qE "Up.*(healthy|starting)"; then
+            echo "❌ Bot не запустился корректно"
+            echo "=== last 60 log lines ==="
+            docker compose logs --tail=60 bot
+            exit 1
+          fi
+
+          echo "=== last 20 log lines ==="
+          docker compose logs --tail=20 bot
+          echo "✅ Bot deployed and running"
+          DEPLOY
+
+      - name: Smoke test — check bot is polling
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.FINLAND_VPS_USER }}@${{ secrets.FINLAND_VPS_HOST }} <<'CHECK'
+          # Бот должен либо в logs упомянуть "Run polling" (новый старт),
+          # либо просто быть Up (если recreate сохранил состояние)
+          cd /opt/dovstrechi-bot
+          if docker compose logs --since 2m bot 2>&1 | grep -qE "Run polling|polling|Bot username"; then
+            echo "✅ Bot is polling Telegram"
+          else
+            echo "⚠️  Не нашёл 'polling' в логах за 2 мин, но контейнер Up — возможно работает"
+          fi
+          CHECK
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
