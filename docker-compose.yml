@@ -39,7 +39,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       BOT_TOKEN: ${BOT_TOKEN}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      BOT_INTERNAL_URL: http://bot:8080
+      BOT_INTERNAL_URL: ${BOT_INTERNAL_URL:-http://bot:8080}
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
       ADMIN_SESSION_TTL_HOURS: ${ADMIN_SESSION_TTL_HOURS:-2}
@@ -87,6 +87,7 @@ services:
   # Bot — aiogram 3.x
   # ─────────────────────────────────────────────
   bot:
+    profiles: ["archived"]
     build:
       context: ./bot
       dockerfile: Dockerfile
