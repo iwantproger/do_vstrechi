@@ -1,0 +1,53 @@
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: dovstrechi_bot_redis
+    restart: unless-stopped
+    networks:
+      - botnet
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: dovstrechi_bot
+    restart: unless-stopped
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      BACKEND_API_URL: ${BACKEND_API_URL:-https://dovstrechiapp.ru}
+      MINI_APP_URL: ${MINI_APP_URL:-https://dovstrechiapp.ru}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      REDIS_URL: redis://redis:6379/0
+      WEBHOOK_ENABLED: "false"
+      BOT_USERNAME: ${BOT_USERNAME:-do_vstrechi_bot}
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-0}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      BOT_PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - botnet
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; s=socket.create_connection(('127.0.0.1',8080),5); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  redis_data:
+
+networks:
+  botnet:
+    driver: bridge
